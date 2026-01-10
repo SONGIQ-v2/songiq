@@ -49,7 +49,7 @@ const ROUND_TIME = 20000; // 20 seconds per round
 const BETWEEN_ROUNDS_TIME = 4000; // 4 seconds between rounds
 
 export function useMultiplayerGame(roomCode: string) {
-  const { playerId, isHost } = useGameStore();
+  const { playerId, isHost, initializeAuth, isInitialized } = useGameStore();
   const { getPlaylistTracks } = useAppleMusic();
 
   // Room state
@@ -72,6 +72,13 @@ export function useMultiplayerGame(roomCode: string) {
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const betweenRoundsRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Initialize auth on mount
+  useEffect(() => {
+    if (!isInitialized) {
+      initializeAuth();
+    }
+  }, [isInitialized, initializeAuth]);
 
   // Fetch initial room data
   const fetchRoom = useCallback(async () => {
@@ -126,17 +133,19 @@ export function useMultiplayerGame(roomCode: string) {
           const remaining = Math.max(0, ROUND_TIME - elapsed);
           
           // Check if this player has already answered this round
-          const { data: answerData } = await supabase
-            .from("player_answers")
-            .select("*")
-            .eq("round_id", round.id)
-            .eq("player_id", playerId)
-            .maybeSingle();
-            
-          if (answerData) {
-            setHasAnswered(true);
-            setSelectedAnswer(answerData.answer);
-            setIsCorrect(answerData.is_correct);
+          if (playerId) {
+            const { data: answerData } = await supabase
+              .from("player_answers")
+              .select("*")
+              .eq("round_id", round.id)
+              .eq("player_id", playerId)
+              .maybeSingle();
+              
+            if (answerData) {
+              setHasAnswered(true);
+              setSelectedAnswer(answerData.answer);
+              setIsCorrect(answerData.is_correct);
+            }
           }
           
           // If round time has expired (more than ROUND_TIME + buffer passed)
@@ -149,7 +158,7 @@ export function useMultiplayerGame(roomCode: string) {
               .eq("room_id", roomData.id)
               .order("round_number", { ascending: false })
               .limit(1)
-              .single();
+              .maybeSingle();
               
             if (latestRound && latestRound.round_number > round.round_number) {
               // There's a newer round, use that
@@ -543,9 +552,12 @@ export function useMultiplayerGame(roomCode: string) {
   }, [room, playerId, isHost]);
 
   // Initialize
+  // Initialize - wait for auth before fetching
   useEffect(() => {
-    fetchRoom();
-  }, [fetchRoom]);
+    if (isInitialized && playerId) {
+      fetchRoom();
+    }
+  }, [fetchRoom, isInitialized, playerId]);
 
   // Re-sync timer when tab becomes visible (handles background tab pause)
   useEffect(() => {
