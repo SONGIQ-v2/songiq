@@ -7,6 +7,8 @@ import Index from "./pages/Index";
 import SoloPlay from "./pages/SoloPlay";
 import Game from "./pages/Game";
 import Multiplayer from "./pages/Multiplayer";
+import RoomLobby from "./pages/RoomLobby";
+import MultiplayerGame from "./pages/MultiplayerGame";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -22,6 +24,8 @@ const App = () => (
           <Route path="/solo" element={<SoloPlay />} />
           <Route path="/solo/game" element={<Game />} />
           <Route path="/multiplayer" element={<Multiplayer />} />
+          <Route path="/room/:code" element={<RoomLobby />} />
+          <Route path="/room/:code/game" element={<MultiplayerGame />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
