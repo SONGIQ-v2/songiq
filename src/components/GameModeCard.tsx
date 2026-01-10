@@ -1,0 +1,58 @@
+import { motion } from "framer-motion";
+import { Music, Users, Play } from "lucide-react";
+
+interface GameModeCardProps {
+  title: string;
+  description: string;
+  icon: "solo" | "multiplayer";
+  onClick: () => void;
+  isPrimary?: boolean;
+}
+
+export const GameModeCard = ({
+  title,
+  description,
+  icon,
+  onClick,
+  isPrimary = false,
+}: GameModeCardProps) => {
+  const Icon = icon === "solo" ? Music : Users;
+
+  return (
+    <motion.button
+      onClick={onClick}
+      className={`${isPrimary ? "game-card-primary" : "game-card"} w-full text-left group`}
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
+    >
+      <div className="flex flex-col items-center text-center">
+        {/* Icon */}
+        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 ${
+          isPrimary 
+            ? "bg-primary/20 text-primary" 
+            : "bg-secondary text-foreground/70"
+        }`}>
+          <Icon className="w-8 h-8" />
+        </div>
+
+        {/* Title */}
+        <h3 className="font-display text-xl md:text-2xl uppercase tracking-wide mb-2">
+          {title}
+        </h3>
+
+        {/* Description */}
+        <p className="text-muted-foreground text-sm">{description}</p>
+
+        {/* Play indicator on hover */}
+        <motion.div
+          className="mt-4 flex items-center gap-2 text-primary opacity-0 group-hover:opacity-100 transition-opacity"
+          initial={{ opacity: 0, y: 5 }}
+          whileHover={{ opacity: 1, y: 0 }}
+        >
+          <Play className="w-4 h-4 fill-current" />
+          <span className="text-sm font-medium">Play</span>
+        </motion.div>
+      </div>
+    </motion.button>
+  );
+};
