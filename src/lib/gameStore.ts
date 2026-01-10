@@ -50,8 +50,10 @@ export interface GameState {
   setGameStatus: (status: GameState["gameStatus"]) => void;
   updateScore: (playerId: string, score: number) => void;
   setSoloScore: (score: number) => void;
+  addSoloPoints: (points: number) => void;
   setSoloRound: (round: number) => void;
   setCategory: (category: string) => void;
+  resetSoloGame: () => void;
   reset: () => void;
 }
 
@@ -102,9 +104,13 @@ export const useGameStore = create<GameState>((set) => ({
   
   setSoloScore: (score) => set({ soloScore: score }),
   
+  addSoloPoints: (points) => set((state) => ({ soloScore: state.soloScore + points })),
+  
   setSoloRound: (round) => set({ soloRound: round }),
   
   setCategory: (category) => set({ category }),
+  
+  resetSoloGame: () => set({ soloScore: 0, soloRound: 0 }),
   
   reset: () =>
     set({
