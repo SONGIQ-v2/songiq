@@ -1,21 +1,64 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Starfield } from "@/components/Starfield";
 import { Header } from "@/components/Header";
-import { CategoryCard } from "@/components/CategoryCard";
+import { PlaylistCard } from "@/components/PlaylistCard";
 import { Button } from "@/components/ui/button";
-import { AFRICAN_CATEGORIES, CategoryKey } from "@/lib/spotify";
+import { PLAYLISTS } from "@/lib/playlists";
 import { useGameStore } from "@/lib/gameStore";
-import { ArrowLeft, Play } from "lucide-react";
+import { useAppleMusic } from "@/hooks/useAppleMusic";
+import { ArrowLeft, Play, Loader2 } from "lucide-react";
 
 const SoloPlay = () => {
   const navigate = useNavigate();
-  const [selectedCategory, setSelectedCategory] = useState<CategoryKey>("afrobeats");
+  const [selectedPlaylistId, setSelectedPlaylistId] = useState<string>(PLAYLISTS[0]?.id || "");
+  const [playlistImages, setPlaylistImages] = useState<Record<string, string>>({});
+  const [loadingImages, setLoadingImages] = useState(true);
   const { setCategory } = useGameStore();
+  const { getPlaylistTracks } = useAppleMusic();
+
+  // Fetch playlist images on mount
+  useEffect(() => {
+    const fetchPlaylistImages = async () => {
+      setLoadingImages(true);
+      const images: Record<string, string> = {};
+      
+      // Fetch first playlist's image to show quickly
+      const firstPlaylist = PLAYLISTS[0];
+      if (firstPlaylist) {
+        const result = await getPlaylistTracks(
+          firstPlaylist.searchTerms,
+          firstPlaylist.name,
+          5
+        );
+        if (result?.playlistImage) {
+          images[firstPlaylist.id] = result.playlistImage;
+          setPlaylistImages({ ...images });
+        }
+      }
+      
+      // Fetch remaining playlist images in background
+      for (const playlist of PLAYLISTS.slice(1)) {
+        const result = await getPlaylistTracks(
+          playlist.searchTerms,
+          playlist.name,
+          5
+        );
+        if (result?.playlistImage) {
+          images[playlist.id] = result.playlistImage;
+          setPlaylistImages({ ...images });
+        }
+      }
+      
+      setLoadingImages(false);
+    };
+
+    fetchPlaylistImages();
+  }, [getPlaylistTracks]);
 
   const handlePlay = () => {
-    setCategory(selectedCategory);
+    setCategory(selectedPlaylistId);
     navigate("/solo/game");
   };
 
@@ -46,23 +89,24 @@ const SoloPlay = () => {
               Choose Your Vibe
             </h1>
             <p className="text-muted-foreground">
-              Select a category to start your music quiz
+              Select a playlist to start your music quiz
             </p>
           </motion.div>
 
-          {/* Categories Grid */}
+          {/* Playlists Grid */}
           <motion.div
-            className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8"
+            className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
           >
-            {(Object.keys(AFRICAN_CATEGORIES) as CategoryKey[]).map((key) => (
-              <CategoryCard
-                key={key}
-                categoryKey={key}
-                isSelected={selectedCategory === key}
-                onClick={() => setSelectedCategory(key)}
+            {PLAYLISTS.map((playlist) => (
+              <PlaylistCard
+                key={playlist.id}
+                playlist={playlist}
+                imageUrl={playlistImages[playlist.id]}
+                isSelected={selectedPlaylistId === playlist.id}
+                onClick={() => setSelectedPlaylistId(playlist.id)}
               />
             ))}
           </motion.div>
@@ -74,8 +118,17 @@ const SoloPlay = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
           >
-            <Button variant="gold" size="xl" onClick={handlePlay}>
-              <Play className="w-5 h-5 mr-2 fill-current" />
+            <Button 
+              variant="gold" 
+              size="xl" 
+              onClick={handlePlay}
+              disabled={!selectedPlaylistId}
+            >
+              {loadingImages ? (
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+              ) : (
+                <Play className="w-5 h-5 mr-2 fill-current" />
+              )}
               Start Quiz
             </Button>
           </motion.div>

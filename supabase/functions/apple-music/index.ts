@@ -73,25 +73,51 @@ async function getTracksByGenre(genre: string, limit: number = 50): Promise<iTun
   return uniqueTracks.slice(0, limit);
 }
 
-// Get curated playlist-like results based on playlist name/theme
-async function getPlaylistTracks(playlistQuery: string, limit: number = 50): Promise<{
+// Get curated playlist-like results based on search terms array
+async function getPlaylistTracks(
+  searchTerms: string[], 
+  playlistName: string,
+  limit: number = 50
+): Promise<{
   playlistName: string;
   playlistImage: string;
   tracks: iTunesTrack[];
 }> {
-  console.log(`[Apple Music] Fetching playlist-like tracks for: ${playlistQuery}`);
+  console.log(`[Apple Music] Fetching playlist tracks for: ${playlistName}`);
+  console.log(`[Apple Music] Using search terms: ${searchTerms.join(', ')}`);
   
-  const tracks = await searchTracks(playlistQuery, limit);
-  
-  // Use the first track's artwork as playlist image, or a default
-  const playlistImage = tracks.length > 0 
-    ? tracks[0].artworkUrl100.replace('100x100', '600x600')
+  const allTracks: iTunesTrack[] = [];
+  const tracksPerTerm = Math.ceil(limit / searchTerms.length);
+
+  // Search for each term and collect tracks
+  for (const term of searchTerms) {
+    try {
+      const tracks = await searchTracks(term, tracksPerTerm);
+      allTracks.push(...tracks);
+    } catch (e) {
+      console.error(`[Apple Music] Error searching for "${term}":`, e);
+    }
+  }
+
+  // Remove duplicates by trackId
+  const uniqueTracks = allTracks.filter((track, index, self) =>
+    index === self.findIndex(t => t.trackId === track.trackId)
+  );
+
+  // Shuffle the tracks for variety
+  const shuffledTracks = uniqueTracks.sort(() => Math.random() - 0.5).slice(0, limit);
+
+  // Use the first track's artwork as playlist image
+  const playlistImage = shuffledTracks.length > 0 
+    ? shuffledTracks[0].artworkUrl100.replace('100x100', '600x600')
     : '';
 
+  console.log(`[Apple Music] Playlist "${playlistName}": ${shuffledTracks.length} unique tracks`);
+
   return {
-    playlistName: playlistQuery,
+    playlistName,
     playlistImage,
-    tracks,
+    tracks: shuffledTracks,
   };
 }
 
@@ -102,7 +128,7 @@ serve(async (req) => {
   }
 
   try {
-    const { action, query, genre, playlistQuery, limit } = await req.json();
+    const { action, query, genre, searchTerms, playlistName, limit } = await req.json();
     
     console.log(`[Apple Music] Action: ${action}`);
 
@@ -124,10 +150,10 @@ serve(async (req) => {
         break;
 
       case 'playlist':
-        if (!playlistQuery) {
-          throw new Error('PlaylistQuery parameter required');
+        if (!searchTerms || !Array.isArray(searchTerms) || searchTerms.length === 0) {
+          throw new Error('searchTerms array parameter required for playlist action');
         }
-        result = await getPlaylistTracks(playlistQuery, limit || 50);
+        result = await getPlaylistTracks(searchTerms, playlistName || 'Playlist', limit || 50);
         break;
 
       case 'test':
