@@ -48,17 +48,39 @@ export default function MultiplayerGame() {
     ROUND_TIME,
   } = useMultiplayerGame(code || "");
 
-  // Audio handling
+  // Audio handling - play when round changes
   useEffect(() => {
-    if (currentRound?.preview_url && gameStatus === "playing" && !hasAnswered) {
-      if (audioRef.current) {
-        audioRef.current.pause();
+    const playAudio = async () => {
+      if (currentRound?.preview_url && gameStatus === "playing") {
+        // Stop any existing audio
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current = null;
+        }
+        
+        try {
+          const audio = new Audio(currentRound.preview_url);
+          audio.volume = isMuted ? 0 : 0.7;
+          audioRef.current = audio;
+          
+          // Wait for audio to be loaded
+          await new Promise((resolve, reject) => {
+            audio.oncanplaythrough = resolve;
+            audio.onerror = reject;
+            audio.load();
+          });
+          
+          await audio.play();
+          setIsPlaying(true);
+          console.log("Audio playing for round:", roundNumber);
+        } catch (err) {
+          console.error("Error playing audio:", err);
+          setIsPlaying(false);
+        }
       }
-      audioRef.current = new Audio(currentRound.preview_url);
-      audioRef.current.volume = isMuted ? 0 : 0.7;
-      audioRef.current.play().catch(console.error);
-      setIsPlaying(true);
-    }
+    };
+
+    playAudio();
 
     return () => {
       if (audioRef.current) {
