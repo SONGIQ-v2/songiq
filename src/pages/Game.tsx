@@ -336,7 +336,7 @@ export default function Game() {
         </AnimatePresence>
 
         {/* Answer options - 2x2 grid */}
-        <div className="w-full max-w-lg grid grid-cols-2 gap-3">
+        <div className="w-full max-w-2xl grid grid-cols-2 gap-3">
           {options.map((option, index) => {
             const correctAnswer = currentTrack?.artistName || "";
             

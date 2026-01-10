@@ -27,7 +27,7 @@ export const AnswerOption = ({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "answer-option h-full min-h-[140px] flex-col justify-center",
+        "answer-option h-full min-h-[100px] flex-col justify-center",
         isRevealed && isSelected && isCorrect && "correct",
         isRevealed && isSelected && !isCorrect && "incorrect",
         isRevealed && !isSelected && isCorrect && "correct opacity-70"
