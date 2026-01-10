@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Volume2, VolumeX, Music2, Trophy, X } from "lucide-react";
+import { Volume2, VolumeX, Music2, Trophy, X, AlertTriangle } from "lucide-react";
 import { Starfield } from "@/components/Starfield";
 import { RoundIndicator } from "@/components/RoundIndicator";
 import { AudioVisualizer } from "@/components/AudioVisualizer";
@@ -22,12 +22,21 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useMultiplayerGame } from "@/hooks/useMultiplayerGame";
 
+const INACTIVITY_WARNING_TIME = 30000; // 30 seconds
+const TERMINATION_COUNTDOWN = 10; // 10 seconds
+
 export default function MultiplayerGame() {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
   const [isMuted, setIsMuted] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  
+  // Inactivity state
+  const [showInactivityWarning, setShowInactivityWarning] = useState(false);
+  const [terminationCountdown, setTerminationCountdown] = useState(TERMINATION_COUNTDOWN);
+  const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const terminationTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const {
     room,
@@ -47,6 +56,93 @@ export default function MultiplayerGame() {
     playerId,
     ROUND_TIME,
   } = useMultiplayerGame(code || "");
+
+  const handleLeaveGame = useCallback(async () => {
+    if (audioRef.current) audioRef.current.pause();
+    if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+    if (terminationTimerRef.current) clearInterval(terminationTimerRef.current);
+    await leaveRoom();
+    navigate("/multiplayer");
+  }, [leaveRoom, navigate]);
+
+  // Reset activity timer
+  const resetActivityTimer = useCallback(() => {
+    setShowInactivityWarning(false);
+    setTerminationCountdown(TERMINATION_COUNTDOWN);
+    
+    // Clear existing timers
+    if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+    if (terminationTimerRef.current) clearInterval(terminationTimerRef.current);
+    
+    // Only set inactivity timer during active game states
+    if (gameStatus === "playing" || gameStatus === "between_rounds") {
+      inactivityTimerRef.current = setTimeout(() => {
+        setShowInactivityWarning(true);
+        setTerminationCountdown(TERMINATION_COUNTDOWN);
+        
+        // Start termination countdown
+        terminationTimerRef.current = setInterval(() => {
+          setTerminationCountdown((prev) => {
+            if (prev <= 1) {
+              if (terminationTimerRef.current) clearInterval(terminationTimerRef.current);
+              // Auto-leave the game
+              handleLeaveGame();
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+      }, INACTIVITY_WARNING_TIME);
+    }
+  }, [gameStatus, handleLeaveGame]);
+
+  // Track activity on user interactions
+  useEffect(() => {
+    const handleActivity = () => {
+      if (!showInactivityWarning) {
+        resetActivityTimer();
+      }
+    };
+
+    // Listen for user activity
+    window.addEventListener("mousemove", handleActivity);
+    window.addEventListener("mousedown", handleActivity);
+    window.addEventListener("keydown", handleActivity);
+    window.addEventListener("touchstart", handleActivity);
+
+    return () => {
+      window.removeEventListener("mousemove", handleActivity);
+      window.removeEventListener("mousedown", handleActivity);
+      window.removeEventListener("keydown", handleActivity);
+      window.removeEventListener("touchstart", handleActivity);
+    };
+  }, [resetActivityTimer, showInactivityWarning]);
+
+  // Initialize activity timer when game starts
+  useEffect(() => {
+    if (gameStatus === "playing" || gameStatus === "between_rounds") {
+      resetActivityTimer();
+    }
+    
+    return () => {
+      if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+      if (terminationTimerRef.current) clearInterval(terminationTimerRef.current);
+    };
+  }, [gameStatus, resetActivityTimer]);
+
+  // Reset timer when player answers or round changes
+  useEffect(() => {
+    if (hasAnswered || currentRound?.id) {
+      resetActivityTimer();
+    }
+  }, [hasAnswered, currentRound?.id, resetActivityTimer]);
+
+  // Handle staying in game (dismiss warning)
+  const handleStayInGame = () => {
+    setShowInactivityWarning(false);
+    if (terminationTimerRef.current) clearInterval(terminationTimerRef.current);
+    resetActivityTimer();
+  };
 
   // Audio handling - play when round changes
   useEffect(() => {
@@ -109,15 +205,10 @@ export default function MultiplayerGame() {
     };
   }, []);
 
-  const handleLeaveGame = async () => {
-    if (audioRef.current) audioRef.current.pause();
-    await leaveRoom();
-    navigate("/multiplayer");
-  };
-
   const handleAnswer = (answer: string) => {
     if (!hasAnswered) {
       submitAnswer(answer);
+      resetActivityTimer(); // Reset on answer
     }
   };
 
@@ -237,6 +328,35 @@ export default function MultiplayerGame() {
             <Leaderboard players={players} currentPlayerId={playerId} showRoundScore />
           </div>
         </div>
+
+        {/* Inactivity Warning Modal */}
+        <AnimatePresence>
+          {showInactivityWarning && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+            >
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="bg-card border border-destructive/50 rounded-2xl p-6 max-w-sm w-full text-center"
+              >
+                <AlertTriangle className="w-16 h-16 text-destructive mx-auto mb-4" />
+                <h3 className="text-xl font-bold text-foreground mb-2">Are you still there?</h3>
+                <p className="text-muted-foreground mb-4">
+                  You'll be removed from the game due to inactivity in
+                </p>
+                <div className="text-5xl font-bold text-destructive mb-6">{terminationCountdown}</div>
+                <Button variant="gold" size="lg" className="w-full" onClick={handleStayInGame}>
+                  I'm still here!
+                </Button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     );
   }
@@ -413,6 +533,35 @@ export default function MultiplayerGame() {
           </div>
         </div>
       </div>
+
+      {/* Inactivity Warning Modal */}
+      <AnimatePresence>
+        {showInactivityWarning && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-card border border-destructive/50 rounded-2xl p-6 max-w-sm w-full text-center"
+            >
+              <AlertTriangle className="w-16 h-16 text-destructive mx-auto mb-4" />
+              <h3 className="text-xl font-bold text-foreground mb-2">Are you still there?</h3>
+              <p className="text-muted-foreground mb-4">
+                You'll be removed from the game due to inactivity in
+              </p>
+              <div className="text-5xl font-bold text-destructive mb-6">{terminationCountdown}</div>
+              <Button variant="gold" size="lg" className="w-full" onClick={handleStayInGame}>
+                I'm still here!
+              </Button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
