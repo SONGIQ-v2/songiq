@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Volume2, VolumeX, Trophy, Music2 } from "lucide-react";
 import { Starfield } from "@/components/Starfield";
@@ -8,25 +8,44 @@ import { AudioVisualizer } from "@/components/AudioVisualizer";
 import { AnswerOption } from "@/components/AnswerOption";
 import { TimerBar } from "@/components/TimerBar";
 import { Button } from "@/components/ui/button";
-import { useSpotify } from "@/hooks/useSpotify";
+import { useAppleMusic, type AppleMusicTrack } from "@/hooks/useAppleMusic";
 import { useGameStore } from "@/lib/gameStore";
-import { generateOptions, calculatePoints, AFRICAN_CATEGORIES, type SpotifyTrack, type CategoryKey } from "@/lib/spotify";
+import { PLAYLISTS, getPlaylistById } from "@/lib/playlists";
+import { calculatePoints } from "@/lib/spotify";
 
 const ROUND_TIME = 30000; // 30 seconds per round
 const TOTAL_ROUNDS = 10;
 
+// Generate quiz options from tracks
+function generateOptionsFromTracks(
+  correctTrack: AppleMusicTrack,
+  allTracks: AppleMusicTrack[],
+  optionCount: number = 4
+): string[] {
+  const correctAnswer = correctTrack.artistName;
+  
+  // Get unique artists from other tracks
+  const otherArtists = allTracks
+    .filter((t) => t.trackId !== correctTrack.trackId && t.artistName !== correctTrack.artistName)
+    .map((t) => t.artistName)
+    .filter((artist, index, self) => self.indexOf(artist) === index) // unique
+    .sort(() => Math.random() - 0.5)
+    .slice(0, optionCount - 1);
+
+  return [correctAnswer, ...otherArtists].sort(() => Math.random() - 0.5);
+}
+
 export default function Game() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const category = (searchParams.get("category") as CategoryKey) || "afrobeats";
+  const { category: playlistId } = useGameStore();
 
-  const { fetchByCategory, loading: loadingTracks, error: spotifyError } = useSpotify();
+  const { getPlaylistTracks, loading: loadingTracks, error: musicError } = useAppleMusic();
   const { soloScore, addSoloPoints, resetSoloGame } = useGameStore();
 
   const [gameState, setGameState] = useState<"loading" | "playing" | "answered" | "results">("loading");
-  const [tracks, setTracks] = useState<SpotifyTrack[]>([]);
+  const [tracks, setTracks] = useState<AppleMusicTrack[]>([]);
   const [currentRound, setCurrentRound] = useState(1);
-  const [currentTrack, setCurrentTrack] = useState<SpotifyTrack | null>(null);
+  const [currentTrack, setCurrentTrack] = useState<AppleMusicTrack | null>(null);
   const [options, setOptions] = useState<string[]>([]);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
@@ -34,27 +53,44 @@ export default function Game() {
   const [roundStartTime, setRoundStartTime] = useState<number>(0);
   const [isMuted, setIsMuted] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [playlistName, setPlaylistName] = useState("");
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const categoryInfo = AFRICAN_CATEGORIES[category];
+  // Get playlist info
+  const playlist = getPlaylistById(playlistId) || PLAYLISTS[0];
 
   // Load tracks on mount
   useEffect(() => {
     resetSoloGame();
     loadTracks();
-  }, [category]);
+  }, [playlistId]);
 
   const loadTracks = async () => {
-    const fetchedTracks = await fetchByCategory(category);
-    if (fetchedTracks.length >= TOTAL_ROUNDS) {
-      setTracks(fetchedTracks);
-      startRound(fetchedTracks, 1);
+    if (!playlist) {
+      console.error("No playlist found");
+      return;
+    }
+
+    console.log("Loading tracks for playlist:", playlist.name);
+    const result = await getPlaylistTracks(
+      playlist.searchTerms,
+      playlist.name,
+      50
+    );
+
+    if (result && result.tracks.length >= TOTAL_ROUNDS) {
+      console.log(`Loaded ${result.tracks.length} tracks`);
+      setTracks(result.tracks);
+      setPlaylistName(result.playlistName);
+      startRound(result.tracks, 1);
+    } else {
+      console.error("Not enough tracks loaded:", result?.tracks.length || 0);
     }
   };
 
-  const startRound = (availableTracks: SpotifyTrack[], round: number) => {
+  const startRound = (availableTracks: AppleMusicTrack[], round: number) => {
     // Pick a random track for this round
     const shuffled = [...availableTracks].sort(() => Math.random() - 0.5);
     const track = shuffled[round - 1];
@@ -64,8 +100,10 @@ export default function Game() {
       return;
     }
 
+    console.log(`Round ${round}: Playing "${track.trackName}" by ${track.artistName}`);
+
     setCurrentTrack(track);
-    setOptions(generateOptions(track, availableTracks));
+    setOptions(generateOptionsFromTracks(track, availableTracks));
     setSelectedAnswer(null);
     setIsCorrect(null);
     setTimeLeft(ROUND_TIME);
@@ -98,7 +136,7 @@ export default function Game() {
 
     if (timerRef.current) clearInterval(timerRef.current);
 
-    const correctAnswer = `${currentTrack.name} - ${currentTrack.artists[0].name}`;
+    const correctAnswer = currentTrack.artistName;
     const correct = answer === correctAnswer;
     const answerTime = Date.now() - roundStartTime;
     const points = calculatePoints(correct, answerTime, ROUND_TIME);
@@ -127,11 +165,11 @@ export default function Game() {
 
   // Audio handling
   useEffect(() => {
-    if (currentTrack?.preview_url && gameState === "playing") {
+    if (currentTrack?.previewUrl && gameState === "playing") {
       if (audioRef.current) {
         audioRef.current.pause();
       }
-      audioRef.current = new Audio(currentTrack.preview_url);
+      audioRef.current = new Audio(currentTrack.previewUrl);
       audioRef.current.volume = isMuted ? 0 : 0.7;
       audioRef.current.play().catch(console.error);
     }
@@ -169,9 +207,9 @@ export default function Game() {
           >
             <Music2 className="w-full h-full text-gold" />
           </motion.div>
-          <p className="text-xl text-foreground/80">Loading {categoryInfo?.name || "tracks"}...</p>
-          {spotifyError && (
-            <p className="text-red-400 mt-4">{spotifyError}</p>
+          <p className="text-xl text-foreground/80">Loading {playlist?.name || "tracks"}...</p>
+          {musicError && (
+            <p className="text-red-400 mt-4">{musicError}</p>
           )}
         </div>
       </div>
@@ -192,7 +230,7 @@ export default function Game() {
         >
           <Trophy className="w-20 h-20 text-gold mx-auto mb-6" />
           <h1 className="text-3xl font-bold text-foreground mb-2">Game Complete!</h1>
-          <p className="text-foreground/60 mb-6">{categoryInfo?.name}</p>
+          <p className="text-foreground/60 mb-6">{playlistName}</p>
           
           <div className="bg-background/50 rounded-xl p-6 mb-6">
             <p className="text-5xl font-bold text-gold mb-2">{soloScore}</p>
@@ -270,8 +308,8 @@ export default function Game() {
           {gameState === "answered" && currentTrack ? (
             <div className="w-48 h-48 rounded-2xl overflow-hidden shadow-2xl">
               <img
-                src={currentTrack.album.images[0]?.url || "/placeholder.svg"}
-                alt={currentTrack.album.name}
+                src={currentTrack.artworkUrl100.replace('100x100', '600x600')}
+                alt={currentTrack.collectionName}
                 className="w-full h-full object-cover"
               />
             </div>
@@ -291,8 +329,8 @@ export default function Game() {
               exit={{ opacity: 0 }}
               className="text-center mb-6"
             >
-              <h2 className="text-xl font-bold text-foreground">{currentTrack.name}</h2>
-              <p className="text-foreground/60">{currentTrack.artists[0].name}</p>
+              <h2 className="text-xl font-bold text-foreground">{currentTrack.trackName}</h2>
+              <p className="text-foreground/60">{currentTrack.artistName}</p>
             </motion.div>
           )}
         </AnimatePresence>
@@ -300,9 +338,7 @@ export default function Game() {
         {/* Answer options */}
         <div className="w-full max-w-md space-y-3">
           {options.map((option, index) => {
-            const correctAnswer = currentTrack 
-              ? `${currentTrack.name} - ${currentTrack.artists[0].name}`
-              : "";
+            const correctAnswer = currentTrack?.artistName || "";
             
             return (
               <AnswerOption
