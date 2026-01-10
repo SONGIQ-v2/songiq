@@ -23,14 +23,26 @@ interface SpotifyTrack {
   duration_ms: number;
 }
 
+interface PlaylistInfo {
+  id: string;
+  name: string;
+  description: string;
+  images: { url: string; height: number | null; width: number | null }[];
+  tracks: SpotifyTrack[];
+  allArtists: string[];
+}
+
 // Get Spotify access token using client credentials flow
 async function getSpotifyToken(): Promise<string> {
   const clientId = Deno.env.get("SPOTIFY_CLIENT_ID");
   const clientSecret = Deno.env.get("SPOTIFY_CLIENT_SECRET");
 
   if (!clientId || !clientSecret) {
+    console.error("Missing Spotify credentials - CLIENT_ID:", !!clientId, "CLIENT_SECRET:", !!clientSecret);
     throw new Error("Spotify credentials not configured");
   }
+
+  console.log("Authenticating with Spotify...");
 
   const response = await fetch("https://accounts.spotify.com/api/token", {
     method: "POST",
@@ -43,18 +55,22 @@ async function getSpotifyToken(): Promise<string> {
 
   if (!response.ok) {
     const error = await response.text();
-    console.error("Spotify auth error:", error);
+    console.error("Spotify auth error:", response.status, error);
     throw new Error("Failed to authenticate with Spotify");
   }
 
   const data: SpotifyToken = await response.json();
+  console.log("Spotify auth successful, token expires in:", data.expires_in);
   return data.access_token;
 }
 
-// Fetch tracks from a playlist
-async function getPlaylistTracks(token: string, playlistId: string): Promise<SpotifyTrack[]> {
+// Fetch playlist metadata and tracks
+async function getPlaylist(token: string, playlistId: string): Promise<PlaylistInfo> {
+  console.log("Fetching playlist:", playlistId);
+  
+  // Get full playlist data including tracks
   const response = await fetch(
-    `https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=50&fields=items(track(id,name,artists(name),album(name,images),preview_url,duration_ms))`,
+    `https://api.spotify.com/v1/playlists/${playlistId}`,
     {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -64,20 +80,44 @@ async function getPlaylistTracks(token: string, playlistId: string): Promise<Spo
 
   if (!response.ok) {
     const error = await response.text();
-    console.error("Spotify playlist error:", error);
-    throw new Error("Failed to fetch playlist");
+    console.error("Spotify playlist error:", response.status, error);
+    throw new Error(`Failed to fetch playlist: ${response.status}`);
   }
 
-  const data = await response.json();
-  return data.items
-    .map((item: { track: SpotifyTrack }) => item.track)
-    .filter((track: SpotifyTrack) => track && track.preview_url); // Only tracks with preview URLs
+  const playlist = await response.json();
+  console.log("Got playlist:", playlist.name, "with", playlist.tracks.items.length, "tracks");
+
+  // Extract tracks
+  const allTracks = playlist.tracks.items
+    .map((item: { track: SpotifyTrack | null }) => item.track)
+    .filter((track: SpotifyTrack | null): track is SpotifyTrack => track !== null);
+  
+  const tracksWithPreview = allTracks.filter((track: SpotifyTrack) => track.preview_url !== null);
+
+  console.log(`${tracksWithPreview.length} tracks with preview URLs out of ${allTracks.length} total`);
+
+  // Collect all unique artists from the playlist for generating wrong answers
+  const allArtistsSet = new Set<string>();
+  allTracks.forEach((track: SpotifyTrack) => {
+    track.artists.forEach(artist => allArtistsSet.add(artist.name));
+  });
+
+  return {
+    id: playlist.id,
+    name: playlist.name,
+    description: playlist.description || "",
+    images: playlist.images || [],
+    tracks: tracksWithPreview,
+    allArtists: Array.from(allArtistsSet),
+  };
 }
 
 // Search for tracks
-async function searchTracks(token: string, query: string, market: string = "NG"): Promise<SpotifyTrack[]> {
+async function searchTracks(token: string, query: string): Promise<{ tracks: SpotifyTrack[], totalFound: number, withPreview: number }> {
+  console.log("Searching for tracks:", query);
+  
   const response = await fetch(
-    `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&market=${market}&limit=50`,
+    `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=50`,
     {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -87,47 +127,26 @@ async function searchTracks(token: string, query: string, market: string = "NG")
 
   if (!response.ok) {
     const error = await response.text();
-    console.error("Spotify search error:", error);
+    console.error("Spotify search error:", response.status, error);
     throw new Error("Failed to search tracks");
   }
 
   const data = await response.json();
-  return data.tracks.items.filter((track: SpotifyTrack) => track.preview_url);
-}
-
-// Get tracks by category with fallback search queries
-async function getTracksByCategory(token: string, category: string): Promise<SpotifyTrack[]> {
-  const categorySearches: Record<string, string[]> = {
-    afrobeats: ["afrobeats 2024", "wizkid", "burna boy", "davido", "rema", "tems"],
-    amapiano: ["amapiano 2024", "kabza de small", "DJ maphorisa", "uncle waffles"],
-    highlife: ["highlife music", "kk fosu", "daddy lumba", "kofi kinaata"],
-    bongoFlava: ["bongo flava", "diamond platnumz", "harmonize", "rayvanny"],
-    naija: ["naija hits 2024", "nigerian music", "afrobeats nigeria"],
-    genge: ["gengetone", "kenyan music", "sauti sol", "nyashinski"],
-    afroClassics: ["fela kuti", "king sunny ade", "miriam makeba", "youssou ndour"],
-    hiplife: ["hiplife ghana", "sarkodie", "shatta wale", "stonebwoy"],
-  };
-
-  const searches = categorySearches[category] || categorySearches.afrobeats;
-  let allTracks: SpotifyTrack[] = [];
-
-  // Search using multiple queries to get variety
-  for (const query of searches.slice(0, 3)) {
-    try {
-      const tracks = await searchTracks(token, query);
-      allTracks = [...allTracks, ...tracks];
-    } catch (e) {
-      console.error(`Search failed for ${query}:`, e);
-    }
+  const allTracks = data.tracks.items;
+  const tracksWithPreview = allTracks.filter((track: SpotifyTrack) => track.preview_url);
+  
+  console.log(`Search: ${tracksWithPreview.length}/${allTracks.length} tracks with preview`);
+  
+  // Log first few tracks for debugging
+  if (allTracks.length > 0) {
+    console.log("Sample track preview_url:", allTracks[0]?.preview_url);
   }
-
-  // Remove duplicates by track ID
-  const uniqueTracks = Array.from(
-    new Map(allTracks.map((track) => [track.id, track])).values()
-  );
-
-  // Shuffle and return
-  return uniqueTracks.sort(() => Math.random() - 0.5);
+  
+  return {
+    tracks: tracksWithPreview,
+    totalFound: allTracks.length,
+    withPreview: tracksWithPreview.length
+  };
 }
 
 serve(async (req) => {
@@ -136,34 +155,60 @@ serve(async (req) => {
   }
 
   try {
-    const { action, category, playlistId, query } = await req.json();
+    const body = await req.json();
+    console.log("Request body:", JSON.stringify(body));
+    
+    const { action, playlistId, query } = body;
     const token = await getSpotifyToken();
 
-    let tracks: SpotifyTrack[] = [];
-
     switch (action) {
-      case "playlist":
+      case "playlist": {
         if (!playlistId) throw new Error("Playlist ID required");
-        tracks = await getPlaylistTracks(token, playlistId);
-        break;
+        const playlist = await getPlaylist(token, playlistId);
+        return new Response(JSON.stringify({ playlist }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
-      case "category":
-        if (!category) throw new Error("Category required");
-        tracks = await getTracksByCategory(token, category);
-        break;
-
-      case "search":
+      case "search": {
         if (!query) throw new Error("Search query required");
-        tracks = await searchTracks(token, query);
-        break;
+        const result = await searchTracks(token, query);
+        return new Response(JSON.stringify(result), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      case "test": {
+        // Test endpoint with debug info
+        console.log("Running API test...");
+        const searchResult = await searchTracks(token, "wizkid");
+        
+        // Return sample of raw track data for debugging
+        const rawResponse = await fetch(
+          `https://api.spotify.com/v1/search?q=wizkid&type=track&limit=5`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        const rawData = await rawResponse.json();
+        
+        return new Response(JSON.stringify({ 
+          success: true, 
+          message: "Spotify API connected",
+          totalFound: searchResult.totalFound,
+          tracksWithPreview: searchResult.withPreview,
+          sampleTracks: rawData.tracks.items.slice(0, 3).map((t: SpotifyTrack) => ({
+            name: t.name,
+            artist: t.artists[0]?.name,
+            preview_url: t.preview_url,
+            album_image: t.album?.images?.[0]?.url
+          }))
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
       default:
-        throw new Error("Invalid action");
+        throw new Error(`Invalid action: ${action}`);
     }
-
-    return new Response(JSON.stringify({ tracks }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
   } catch (error) {
     console.error("Spotify function error:", error);
     return new Response(
