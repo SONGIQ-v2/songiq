@@ -103,14 +103,61 @@ export function useMultiplayerGame(roomCode: string) {
       }));
       
       setPlayers(rankedPlayers);
-      setGameStatus(roomData.status === "playing" ? "playing" : "waiting");
+      
+      // Set game status based on room status
+      if (roomData.status === "playing") {
+        setGameStatus("playing");
+        
+        // Fetch current round if game is in progress
+        const { data: roundData, error: roundError } = await supabase
+          .from("game_rounds")
+          .select("*")
+          .eq("room_id", roomData.id)
+          .eq("round_number", roomData.current_round)
+          .single();
+          
+        if (!roundError && roundData) {
+          const round = roundData as RoundData;
+          // Parse options if it's a string
+          if (typeof round.options === 'string') {
+            round.options = JSON.parse(round.options);
+          }
+          setCurrentRound(round);
+          setRoundNumber(round.round_number);
+          setRoundStartTime(new Date(round.started_at).getTime());
+          
+          // Calculate remaining time based on when round started
+          const elapsed = Date.now() - new Date(round.started_at).getTime();
+          const remaining = Math.max(0, ROUND_TIME - elapsed);
+          setTimeLeft(remaining);
+          
+          // Check if this player has already answered this round
+          const { data: answerData } = await supabase
+            .from("player_answers")
+            .select("*")
+            .eq("round_id", round.id)
+            .eq("player_id", playerId)
+            .maybeSingle();
+            
+          if (answerData) {
+            setHasAnswered(true);
+            setSelectedAnswer(answerData.answer);
+            setIsCorrect(answerData.is_correct);
+          }
+        }
+      } else if (roomData.status === "finished") {
+        setGameStatus("results");
+      } else {
+        setGameStatus("waiting");
+      }
+      
       setLoading(false);
     } catch (err) {
       console.error("Error fetching room:", err);
       setError("Failed to load room");
       setLoading(false);
     }
-  }, [roomCode]);
+  }, [roomCode, playerId]);
 
   // Subscribe to realtime updates
   useEffect(() => {
