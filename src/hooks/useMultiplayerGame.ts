@@ -106,8 +106,6 @@ export function useMultiplayerGame(roomCode: string) {
       
       // Set game status based on room status
       if (roomData.status === "playing") {
-        setGameStatus("playing");
-        
         // Fetch current round if game is in progress
         const { data: roundData, error: roundError } = await supabase
           .from("game_rounds")
@@ -122,14 +120,10 @@ export function useMultiplayerGame(roomCode: string) {
           if (typeof round.options === 'string') {
             round.options = JSON.parse(round.options);
           }
-          setCurrentRound(round);
-          setRoundNumber(round.round_number);
-          setRoundStartTime(new Date(round.started_at).getTime());
           
           // Calculate remaining time based on when round started
           const elapsed = Date.now() - new Date(round.started_at).getTime();
           const remaining = Math.max(0, ROUND_TIME - elapsed);
-          setTimeLeft(remaining);
           
           // Check if this player has already answered this round
           const { data: answerData } = await supabase
@@ -144,6 +138,54 @@ export function useMultiplayerGame(roomCode: string) {
             setSelectedAnswer(answerData.answer);
             setIsCorrect(answerData.is_correct);
           }
+          
+          // If round time has expired (more than ROUND_TIME + buffer passed)
+          if (remaining <= 0) {
+            console.log("Round already expired on load, checking for next round...");
+            // Check if there's a newer round
+            const { data: latestRound } = await supabase
+              .from("game_rounds")
+              .select("*")
+              .eq("room_id", roomData.id)
+              .order("round_number", { ascending: false })
+              .limit(1)
+              .single();
+              
+            if (latestRound && latestRound.round_number > round.round_number) {
+              // There's a newer round, use that
+              const newRound = latestRound as RoundData;
+              if (typeof newRound.options === 'string') {
+                newRound.options = JSON.parse(newRound.options);
+              }
+              const newElapsed = Date.now() - new Date(newRound.started_at).getTime();
+              const newRemaining = Math.max(0, ROUND_TIME - newElapsed);
+              
+              setCurrentRound(newRound);
+              setRoundNumber(newRound.round_number);
+              setRoundStartTime(new Date(newRound.started_at).getTime());
+              setTimeLeft(newRemaining);
+              setGameStatus("playing");
+            } else {
+              // No newer round - host needs to create next round
+              // Set to between_rounds to show waiting state
+              setCurrentRound(round);
+              setRoundNumber(round.round_number);
+              setRoundStartTime(new Date(round.started_at).getTime());
+              setTimeLeft(0);
+              setGameStatus("between_rounds");
+              setBetweenRoundsCountdown(0);
+            }
+          } else {
+            // Round still active
+            setCurrentRound(round);
+            setRoundNumber(round.round_number);
+            setRoundStartTime(new Date(round.started_at).getTime());
+            setTimeLeft(remaining);
+            setGameStatus("playing");
+          }
+        } else {
+          // No round found but room is playing - wait for round
+          setGameStatus("playing");
         }
       } else if (roomData.status === "finished") {
         setGameStatus("results");
@@ -504,6 +546,22 @@ export function useMultiplayerGame(roomCode: string) {
   useEffect(() => {
     fetchRoom();
   }, [fetchRoom]);
+
+  // Re-sync timer when tab becomes visible (handles background tab pause)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && gameStatus === 'playing' && currentRound) {
+        // Recalculate time left based on server timestamp
+        const elapsed = Date.now() - new Date(currentRound.started_at).getTime();
+        const remaining = Math.max(0, ROUND_TIME - elapsed);
+        console.log("Tab visible, syncing timer. Remaining:", remaining);
+        setTimeLeft(remaining);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [gameStatus, currentRound]);
 
   // Cleanup
   useEffect(() => {
