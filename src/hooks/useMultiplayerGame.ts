@@ -217,6 +217,9 @@ export function useMultiplayerGame(roomCode: string) {
             round.options = JSON.parse(round.options);
           }
           
+          // Reset time up handled ref for new round
+          timeUpHandledRef.current = null;
+          
           // Reset state for new round
           setHasAnswered(false);
           setSelectedAnswer(null);
@@ -258,15 +261,22 @@ export function useMultiplayerGame(roomCode: string) {
     };
   }, [room?.id, gameStatus]);
 
+  // Track if time up has been handled for current round
+  const timeUpHandledRef = useRef<string | null>(null);
+  
   // Timer effect
   useEffect(() => {
     if (gameStatus !== "playing" || !currentRound) return;
+    
+    // Reset time up handled when round changes
+    if (timeUpHandledRef.current !== currentRound.id) {
+      timeUpHandledRef.current = null;
+    }
 
     timerRef.current = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 100) {
           if (timerRef.current) clearInterval(timerRef.current);
-          handleTimeUp();
           return 0;
         }
         return prev - 100;
@@ -278,43 +288,63 @@ export function useMultiplayerGame(roomCode: string) {
     };
   }, [gameStatus, currentRound?.id]);
 
-  // Handle time up
-  const handleTimeUp = useCallback(async () => {
-    if (!hasAnswered && currentRound && room && playerId) {
-      // Submit empty answer
-      await supabase.from("player_answers").insert({
-        room_id: room.id,
-        round_id: currentRound.id,
-        player_id: playerId,
-        answer: "",
-        is_correct: false,
-        points_earned: 0,
-      });
-      setHasAnswered(true);
-    }
-
-    // Host triggers next round after delay
-    if (isHost && room) {
-      setGameStatus("between_rounds");
-      setBetweenRoundsCountdown(4);
+  // Handle time up as separate effect
+  useEffect(() => {
+    if (timeLeft > 0 || !currentRound || !room || gameStatus !== "playing") return;
+    if (timeUpHandledRef.current === currentRound.id) return; // Already handled
+    
+    timeUpHandledRef.current = currentRound.id;
+    console.log("Time up! Round:", roundNumber, "isHost:", isHost);
+    
+    // Submit empty answer if not answered
+    const submitEmptyAnswer = async () => {
+      if (!hasAnswered && playerId) {
+        try {
+          await supabase.from("player_answers").insert({
+            room_id: room.id,
+            round_id: currentRound.id,
+            player_id: playerId,
+            answer: "",
+            is_correct: false,
+            points_earned: 0,
+          });
+          setHasAnswered(true);
+        } catch (err) {
+          console.error("Error submitting empty answer:", err);
+        }
+      }
+    };
+    
+    submitEmptyAnswer();
+    
+    // All players go to between_rounds
+    setGameStatus("between_rounds");
+    setBetweenRoundsCountdown(4);
+    
+    // Only host triggers next round
+    if (isHost) {
+      console.log("Host starting between rounds countdown");
+      let countdown = 4;
       
       betweenRoundsRef.current = setInterval(() => {
-        setBetweenRoundsCountdown((prev) => {
-          if (prev <= 1) {
-            if (betweenRoundsRef.current) clearInterval(betweenRoundsRef.current);
-            // Check if game should end
-            if (roundNumber >= (room.total_rounds || 10)) {
-              endGame();
-            } else {
-              startNextRound();
-            }
-            return 0;
+        countdown -= 1;
+        setBetweenRoundsCountdown(countdown);
+        
+        if (countdown <= 0) {
+          if (betweenRoundsRef.current) clearInterval(betweenRoundsRef.current);
+          
+          // Check if game should end
+          if (roundNumber >= (room.total_rounds || 10)) {
+            console.log("Game ending");
+            endGame();
+          } else {
+            console.log("Starting next round:", roundNumber + 1);
+            startNextRound();
           }
-          return prev - 1;
-        });
+        }
       }, 1000);
     }
-  }, [hasAnswered, currentRound, room, playerId, isHost, roundNumber]);
+  }, [timeLeft, currentRound?.id, room?.id, hasAnswered, playerId, isHost, roundNumber, gameStatus]);
 
   // Submit answer
   const submitAnswer = useCallback(async (answer: string) => {
