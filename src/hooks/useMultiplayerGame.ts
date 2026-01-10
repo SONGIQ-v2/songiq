@@ -211,21 +211,30 @@ export function useMultiplayerGame(roomCode: string) {
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "game_rounds", filter: `room_id=eq.${room.id}` },
         (payload) => {
+          console.log("New round received:", payload.new);
           const round = payload.new as RoundData;
           if (typeof round.options === 'string') {
             round.options = JSON.parse(round.options);
           }
-          setCurrentRound(round);
-          setRoundNumber(round.round_number);
-          setTimeLeft(ROUND_TIME);
-          setRoundStartTime(Date.now());
+          
+          // Reset state for new round
           setHasAnswered(false);
           setSelectedAnswer(null);
           setIsCorrect(null);
-          setGameStatus("playing");
           
           // Reset player round scores
           setPlayers((prev) => prev.map((p) => ({ ...p, roundScore: 0, hasAnswered: false })));
+          
+          // Set round data - this triggers audio playback
+          setRoundNumber(round.round_number);
+          setTimeLeft(ROUND_TIME);
+          setRoundStartTime(Date.now());
+          setCurrentRound(round);
+          
+          // Ensure game status is playing
+          setGameStatus("playing");
+          
+          console.log("Round state updated, preview_url:", round.preview_url);
         }
       )
       .on(
