@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Starfield } from "@/components/Starfield";
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { useGameStore } from "@/lib/gameStore";
 import { generateRoomCode } from "@/lib/spotify";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Users, Plus, LogIn } from "lucide-react";
+import { ArrowLeft, Users, Plus, LogIn, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 const Multiplayer = () => {
@@ -17,11 +17,27 @@ const Multiplayer = () => {
   const [roomCode, setRoomCode] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
-  const { playerId, setPlayer, setRoom } = useGameStore();
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const { playerId, isInitialized, initializeAuth, setPlayer, setRoom } = useGameStore();
+
+  // Initialize anonymous auth on mount
+  useEffect(() => {
+    const init = async () => {
+      setIsAuthLoading(true);
+      await initializeAuth();
+      setIsAuthLoading(false);
+    };
+    init();
+  }, [initializeAuth]);
 
   const handleCreateRoom = async () => {
     if (!playerName.trim()) {
       toast.error("Please enter your name");
+      return;
+    }
+
+    if (!playerId) {
+      toast.error("Authentication not ready. Please wait...");
       return;
     }
 
@@ -33,7 +49,7 @@ const Multiplayer = () => {
         .from("game_rooms")
         .insert({
           room_code: code,
-          host_id: playerId,
+          host_id: playerId, // Now using authenticated user ID
           host_name: playerName,
           status: "waiting",
         })
@@ -44,7 +60,7 @@ const Multiplayer = () => {
 
       await supabase.from("room_players").insert({
         room_id: room.id,
-        player_id: playerId,
+        player_id: playerId, // Now using authenticated user ID
         player_name: playerName,
         avatar_index: Math.floor(Math.random() * 8) + 1,
         is_host: true,
@@ -71,6 +87,11 @@ const Multiplayer = () => {
       return;
     }
 
+    if (!playerId) {
+      toast.error("Authentication not ready. Please wait...");
+      return;
+    }
+
     setIsJoining(true);
 
     try {
@@ -78,21 +99,25 @@ const Multiplayer = () => {
         .from("game_rooms")
         .select()
         .eq("room_code", roomCode.toUpperCase())
-        .single();
+        .maybeSingle();
 
-      if (roomError || !room) {
+      if (roomError) throw roomError;
+      
+      if (!room) {
         toast.error("Room not found");
+        setIsJoining(false);
         return;
       }
 
       if (room.status !== "waiting") {
         toast.error("Game already in progress");
+        setIsJoining(false);
         return;
       }
 
       await supabase.from("room_players").insert({
         room_id: room.id,
-        player_id: playerId,
+        player_id: playerId, // Now using authenticated user ID
         player_name: playerName,
         avatar_index: Math.floor(Math.random() * 8) + 1,
         is_host: false,
@@ -108,6 +133,18 @@ const Multiplayer = () => {
       setIsJoining(false);
     }
   };
+
+  if (isAuthLoading || !isInitialized) {
+    return (
+      <div className="min-h-screen relative overflow-hidden flex items-center justify-center">
+        <Starfield />
+        <div className="flex flex-col items-center gap-4 z-10">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Initializing...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen relative overflow-hidden">
