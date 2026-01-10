@@ -1,13 +1,24 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Volume2, VolumeX, Trophy, Music2 } from "lucide-react";
+import { Volume2, VolumeX, Trophy, Music2, X } from "lucide-react";
 import { Starfield } from "@/components/Starfield";
 import { RoundIndicator } from "@/components/RoundIndicator";
 import { AudioVisualizer } from "@/components/AudioVisualizer";
 import { AnswerOption } from "@/components/AnswerOption";
 import { TimerBar } from "@/components/TimerBar";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { useAppleMusic, type AppleMusicTrack } from "@/hooks/useAppleMusic";
 import { useGameStore } from "@/lib/gameStore";
 import { PLAYLISTS, getPlaylistById } from "@/lib/playlists";
@@ -273,7 +284,40 @@ export default function Game() {
       
       {/* Header */}
       <div className="relative z-10 p-4 flex items-center justify-between safe-area-inset-top">
-        <RoundIndicator currentRound={currentRound} totalRounds={TOTAL_ROUNDS} />
+        <div className="flex items-center gap-3">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-foreground/60 hover:text-destructive hover:bg-destructive/10"
+              >
+                <X className="w-5 h-5" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Leave Game?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to quit? Your current progress will be lost.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Keep Playing</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => {
+                    resetSoloGame();
+                    navigate("/solo");
+                  }}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  Leave Game
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+          <RoundIndicator currentRound={currentRound} totalRounds={TOTAL_ROUNDS} />
+        </div>
         
         <div className="flex items-center gap-4">
           <div className="text-right">
