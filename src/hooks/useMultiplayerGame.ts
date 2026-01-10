@@ -114,14 +114,14 @@ export function useMultiplayerGame(roomCode: string) {
       // Set game status based on room status
       if (roomData.status === "playing") {
         // Fetch current round if game is in progress
-        const { data: roundData, error: roundError } = await supabase
+        const { data: roundData } = await supabase
           .from("game_rounds")
           .select("*")
           .eq("room_id", roomData.id)
           .eq("round_number", roomData.current_round)
-          .single();
+          .maybeSingle();
           
-        if (!roundError && roundData) {
+        if (roundData) {
           const round = roundData as RoundData;
           // Parse options if it's a string
           if (typeof round.options === 'string') {
