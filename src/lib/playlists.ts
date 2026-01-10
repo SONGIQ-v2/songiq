@@ -155,6 +155,12 @@ export const PLAYLISTS: Playlist[] = [
       "kcee",
       "harrysong",
       "patoranking",
+      "dagrin",
+      "lil kesh",
+      "vector",
+      "reminisce",
+      "ozone",
+      "lord of ajasa",
     ],
   },
   {
