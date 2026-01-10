@@ -1,1 +1,4 @@
 project_id = "ycsjbxpdihyrsjwcssqc"
+
+[functions.apple-music]
+verify_jwt = false
