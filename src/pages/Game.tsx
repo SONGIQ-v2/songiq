@@ -368,9 +368,9 @@ export default function Game() {
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button
-                variant="ghost"
+                variant="destructive"
                 size="icon"
-                className="text-foreground/60 hover:text-destructive hover:bg-destructive/10"
+                className="bg-destructive/90 hover:bg-destructive shadow-md"
               >
                 <X className="w-5 h-5" />
               </Button>
