@@ -24,7 +24,7 @@ import { useGameStore } from "@/lib/gameStore";
 import { PLAYLISTS, getPlaylistById } from "@/lib/playlists";
 import { calculatePoints } from "@/lib/spotify";
 
-const ROUND_TIME = 30000; // 30 seconds per round
+const ROUND_TIME = 15000; // 15 seconds per round
 const TOTAL_ROUNDS = 10;
 
 // Generate quiz options from tracks
