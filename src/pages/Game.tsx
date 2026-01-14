@@ -447,25 +447,55 @@ export default function Game() {
               exit={{ opacity: 0 }}
               className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm"
             >
-              <motion.div
-                key={countdown}
-                initial={{ scale: 0.5, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 1.5, opacity: 0 }}
-                transition={{ duration: 0.3 }}
-                className="text-center"
-              >
-                <motion.div
-                  className="text-8xl font-bold text-gold mb-4"
-                  animate={{ scale: [1, 1.1, 1] }}
-                  transition={{ duration: 0.5 }}
+              <div className="text-center">
+                {/* Circular Loader */}
+                <div className="relative w-24 h-24 mx-auto mb-6">
+                  <svg className="w-24 h-24 transform -rotate-90" viewBox="0 0 100 100">
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="45"
+                      stroke="currentColor"
+                      strokeWidth="6"
+                      fill="none"
+                      className="text-foreground/20"
+                    />
+                    <motion.circle
+                      cx="50"
+                      cy="50"
+                      r="45"
+                      stroke="currentColor"
+                      strokeWidth="6"
+                      fill="none"
+                      className="text-gold"
+                      strokeLinecap="round"
+                      initial={{ pathLength: 1 }}
+                      animate={{ pathLength: 0 }}
+                      transition={{ duration: 3, ease: "linear" }}
+                      style={{
+                        strokeDasharray: "283",
+                        strokeDashoffset: "0",
+                      }}
+                    />
+                  </svg>
+                </div>
+                
+                <motion.p
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-2xl font-bold text-gold mb-2"
                 >
-                  {countdown}
-                </motion.div>
-                <p className="text-xl text-foreground/60">
-                  {currentRound >= TOTAL_ROUNDS ? "Results incoming..." : "Next song..."}
-                </p>
-              </motion.div>
+                  Up Next
+                </motion.p>
+                <motion.p
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                  className="text-lg text-foreground/60"
+                >
+                  {currentRound >= TOTAL_ROUNDS ? "See your results" : "Guess the Artist"}
+                </motion.p>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
