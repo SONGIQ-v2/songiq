@@ -28,23 +28,29 @@ const ROUND_TIME = 15000; // 15 seconds per round
 const TOTAL_ROUNDS = 10;
 const COUNTDOWN_TIME = 3; // 3 seconds countdown between rounds
 
-// Generate quiz options from tracks
+type QuestionType = "artist" | "song";
+
+// Generate quiz options from tracks based on question type
 function generateOptionsFromTracks(
   correctTrack: AppleMusicTrack,
   allTracks: AppleMusicTrack[],
+  questionType: QuestionType,
   optionCount: number = 4
 ): string[] {
-  const correctAnswer = correctTrack.artistName;
+  const correctAnswer = questionType === "artist" 
+    ? correctTrack.artistName 
+    : correctTrack.trackName;
   
-  // Get unique artists from other tracks
-  const otherArtists = allTracks
-    .filter((t) => t.trackId !== correctTrack.trackId && t.artistName !== correctTrack.artistName)
-    .map((t) => t.artistName)
-    .filter((artist, index, self) => self.indexOf(artist) === index) // unique
+  // Get unique options from other tracks
+  const otherOptions = allTracks
+    .filter((t) => t.trackId !== correctTrack.trackId)
+    .map((t) => questionType === "artist" ? t.artistName : t.trackName)
+    .filter((option) => option !== correctAnswer) // exclude correct answer
+    .filter((option, index, self) => self.indexOf(option) === index) // unique
     .sort(() => Math.random() - 0.5)
     .slice(0, optionCount - 1);
 
-  return [correctAnswer, ...otherArtists].sort(() => Math.random() - 0.5);
+  return [correctAnswer, ...otherOptions].sort(() => Math.random() - 0.5);
 }
 
 export default function Game() {
@@ -67,6 +73,8 @@ export default function Game() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [playlistName, setPlaylistName] = useState("");
   const [countdown, setCountdown] = useState(COUNTDOWN_TIME);
+  const [questionType, setQuestionType] = useState<QuestionType>("artist");
+  const [nextQuestionType, setNextQuestionType] = useState<QuestionType>("song");
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -132,10 +140,18 @@ export default function Game() {
       return;
     }
 
-    console.log(`Round ${round}: Playing "${track.trackName}" by ${track.artistName}`);
+    // Randomly choose question type for this round
+    const roundQuestionType: QuestionType = Math.random() > 0.5 ? "artist" : "song";
+    setQuestionType(roundQuestionType);
+    
+    // Pre-determine next round's question type for the hint
+    const nextRoundQuestionType: QuestionType = Math.random() > 0.5 ? "artist" : "song";
+    setNextQuestionType(nextRoundQuestionType);
+
+    console.log(`Round ${round}: Playing "${track.trackName}" by ${track.artistName} - Question: ${roundQuestionType}`);
 
     setCurrentTrack(track);
-    setOptions(generateOptionsFromTracks(track, availableTracks));
+    setOptions(generateOptionsFromTracks(track, availableTracks, roundQuestionType));
     setSelectedAnswer(null);
     setIsCorrect(null);
     setTimeLeft(ROUND_TIME);
@@ -168,7 +184,9 @@ export default function Game() {
 
     if (timerRef.current) clearInterval(timerRef.current);
 
-    const correctAnswer = currentTrack.artistName;
+    const correctAnswer = questionType === "artist" 
+      ? currentTrack.artistName 
+      : currentTrack.trackName;
     const correct = answer === correctAnswer;
     const answerTime = Date.now() - roundStartTime;
     const points = calculatePoints(correct, answerTime, ROUND_TIME);
@@ -405,6 +423,18 @@ export default function Game() {
 
       {/* Main game area */}
       <div className="relative z-10 flex flex-col items-center justify-center px-4 py-8">
+        {/* Question Type Indicator */}
+        <motion.div
+          key={`${currentRound}-${questionType}`}
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-4 px-4 py-2 rounded-full bg-gold/20 border border-gold/30"
+        >
+          <p className="text-sm font-medium text-gold">
+            {questionType === "artist" ? "🎤 Guess the Artist" : "🎵 Guess the Song"}
+          </p>
+        </motion.div>
+
         {/* Album art / Visualizer */}
         <motion.div
           key={currentRound}
@@ -445,7 +475,9 @@ export default function Game() {
         {/* Answer options - 2x2 grid */}
         <div className="w-full max-w-2xl grid grid-cols-2 gap-3">
           {options.map((option, index) => {
-            const correctAnswer = currentTrack?.artistName || "";
+            const correctAnswer = questionType === "artist"
+              ? currentTrack?.artistName || ""
+              : currentTrack?.trackName || "";
             
             return (
               <AnswerOption
@@ -516,7 +548,7 @@ export default function Game() {
                   transition={{ delay: 0.1 }}
                   className="text-lg text-foreground/60"
                 >
-                  {currentRound >= TOTAL_ROUNDS ? "See your results" : "Guess the Artist"}
+                  {currentRound >= TOTAL_ROUNDS ? "See your results" : nextQuestionType === "artist" ? "Guess the Artist" : "Guess the Song"}
                 </motion.p>
               </div>
             </motion.div>
