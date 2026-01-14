@@ -96,18 +96,19 @@ export default function Game() {
 
     if (result && result.tracks.length >= TOTAL_ROUNDS) {
       console.log(`Loaded ${result.tracks.length} tracks`);
-      setTracks(result.tracks);
+      // Shuffle tracks once and use this order for all rounds
+      const shuffledTracks = [...result.tracks].sort(() => Math.random() - 0.5);
+      setTracks(shuffledTracks);
       setPlaylistName(result.playlistName);
-      startRound(result.tracks, 1);
+      startRound(shuffledTracks, 1);
     } else {
       console.error("Not enough tracks loaded:", result?.tracks.length || 0);
     }
   };
 
   const startRound = (availableTracks: AppleMusicTrack[], round: number) => {
-    // Pick a random track for this round
-    const shuffled = [...availableTracks].sort(() => Math.random() - 0.5);
-    const track = shuffled[round - 1];
+    // Use the pre-shuffled track for this round (no re-shuffling to avoid repeats)
+    const track = availableTracks[round - 1];
     
     if (!track) {
       setGameState("results");
