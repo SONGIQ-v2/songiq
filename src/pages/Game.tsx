@@ -426,12 +426,12 @@ export default function Game() {
         {/* Question Type Indicator */}
         <motion.div
           key={`${currentRound}-${questionType}`}
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-4 px-4 py-2 rounded-full bg-gold/20 border border-gold/30"
+          initial={{ opacity: 0, scale: 0.9, y: -10 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          className="mb-6 px-6 py-3 rounded-xl bg-gold shadow-lg shadow-gold/30"
         >
-          <p className="text-sm font-medium text-gold">
-            {questionType === "artist" ? "🎤 Guess the Artist" : "🎵 Guess the Song"}
+          <p className="text-lg font-bold text-background tracking-wide">
+            {questionType === "artist" ? "🎤 GUESS THE ARTIST" : "🎵 GUESS THE SONG"}
           </p>
         </motion.div>
 
