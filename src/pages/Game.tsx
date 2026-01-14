@@ -376,7 +376,7 @@ export default function Game() {
 
       {/* Timer */}
       <div className="px-4">
-        <TimerBar timeLeft={timeLeft} maxTime={ROUND_TIME} />
+        <TimerBar key={currentRound} timeLeft={timeLeft} maxTime={ROUND_TIME} />
       </div>
 
       {/* Main game area */}
