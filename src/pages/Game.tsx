@@ -26,6 +26,7 @@ import { calculatePoints } from "@/lib/spotify";
 
 const ROUND_TIME = 15000; // 15 seconds per round
 const TOTAL_ROUNDS = 10;
+const COUNTDOWN_TIME = 3; // 3 seconds countdown between rounds
 
 // Generate quiz options from tracks
 function generateOptionsFromTracks(
@@ -53,7 +54,7 @@ export default function Game() {
   const { getPlaylistTracks, loading: loadingTracks, error: musicError } = useAppleMusic();
   const { soloScore, addSoloPoints, resetSoloGame } = useGameStore();
 
-  const [gameState, setGameState] = useState<"loading" | "playing" | "answered" | "results">("loading");
+  const [gameState, setGameState] = useState<"loading" | "playing" | "answered" | "countdown" | "results">("loading");
   const [tracks, setTracks] = useState<AppleMusicTrack[]>([]);
   const [currentRound, setCurrentRound] = useState(1);
   const [currentTrack, setCurrentTrack] = useState<AppleMusicTrack | null>(null);
@@ -65,9 +66,11 @@ export default function Game() {
   const [isMuted, setIsMuted] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playlistName, setPlaylistName] = useState("");
+  const [countdown, setCountdown] = useState(COUNTDOWN_TIME);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const countdownRef = useRef<NodeJS.Timeout | null>(null);
 
   // Get playlist info
   const playlist = getPlaylistById(playlistId) || PLAYLISTS[0];
@@ -159,14 +162,49 @@ export default function Game() {
     setIsPlaying(false);
   }, [gameState, currentTrack, roundStartTime, addSoloPoints]);
 
-  const handleNextRound = () => {
+  const handleNextRound = useCallback(() => {
     if (currentRound >= TOTAL_ROUNDS) {
       setGameState("results");
     } else {
       setCurrentRound((prev) => prev + 1);
       startRound(tracks, currentRound + 1);
     }
-  };
+  }, [currentRound, tracks]);
+
+  // Start countdown after answering
+  useEffect(() => {
+    if (gameState === "answered") {
+      // Start 3-second countdown after a brief delay to show the answer
+      const delayTimer = setTimeout(() => {
+        setGameState("countdown");
+        setCountdown(COUNTDOWN_TIME);
+      }, 1000); // 1 second delay to show answer feedback
+
+      return () => clearTimeout(delayTimer);
+    }
+  }, [gameState]);
+
+  // Countdown timer logic
+  useEffect(() => {
+    if (gameState === "countdown") {
+      if (countdownRef.current) clearInterval(countdownRef.current);
+      
+      countdownRef.current = setInterval(() => {
+        setCountdown((prev) => {
+          if (prev <= 1) {
+            if (countdownRef.current) clearInterval(countdownRef.current);
+            handleNextRound();
+            return COUNTDOWN_TIME;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      return () => {
+        if (countdownRef.current) clearInterval(countdownRef.current);
+      };
+    }
+  }, [gameState, handleNextRound]);
 
   const handlePlayAgain = () => {
     resetSoloGame();
@@ -202,6 +240,7 @@ export default function Game() {
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
+      if (countdownRef.current) clearInterval(countdownRef.current);
       if (audioRef.current) audioRef.current.pause();
     };
   }, []);
@@ -399,17 +438,34 @@ export default function Game() {
           })}
         </div>
 
-        {/* Next button */}
+        {/* Countdown Overlay */}
         <AnimatePresence>
-          {gameState === "answered" && (
+          {gameState === "countdown" && (
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mt-8"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm"
             >
-              <Button variant="gold" size="lg" onClick={handleNextRound}>
-                {currentRound >= TOTAL_ROUNDS ? "See Results" : "Next Song"}
-              </Button>
+              <motion.div
+                key={countdown}
+                initial={{ scale: 0.5, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 1.5, opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                className="text-center"
+              >
+                <motion.div
+                  className="text-8xl font-bold text-gold mb-4"
+                  animate={{ scale: [1, 1.1, 1] }}
+                  transition={{ duration: 0.5 }}
+                >
+                  {countdown}
+                </motion.div>
+                <p className="text-xl text-foreground/60">
+                  {currentRound >= TOTAL_ROUNDS ? "Results incoming..." : "Next song..."}
+                </p>
+              </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
