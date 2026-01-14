@@ -215,18 +215,25 @@ export default function Game() {
 
   // Audio handling
   useEffect(() => {
+    // Stop any existing audio first
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = '';
+      audioRef.current = null;
+    }
+
     if (currentTrack?.previewUrl && gameState === "playing") {
-      if (audioRef.current) {
-        audioRef.current.pause();
-      }
-      audioRef.current = new Audio(currentTrack.previewUrl);
-      audioRef.current.volume = isMuted ? 0 : 0.7;
-      audioRef.current.play().catch(console.error);
+      const audio = new Audio(currentTrack.previewUrl);
+      audio.volume = isMuted ? 0 : 0.7;
+      audioRef.current = audio;
+      audio.play().catch(console.error);
     }
 
     return () => {
       if (audioRef.current) {
         audioRef.current.pause();
+        audioRef.current.src = '';
+        audioRef.current = null;
       }
     };
   }, [currentTrack, gameState]);
