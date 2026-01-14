@@ -469,12 +469,11 @@ export default function Game() {
                       fill="none"
                       className="text-gold"
                       strokeLinecap="round"
-                      initial={{ pathLength: 1 }}
-                      animate={{ pathLength: 0 }}
+                      initial={{ strokeDashoffset: 0 }}
+                      animate={{ strokeDashoffset: 283 }}
                       transition={{ duration: 3, ease: "linear" }}
                       style={{
-                        strokeDasharray: "283",
-                        strokeDashoffset: "0",
+                        strokeDasharray: 283,
                       }}
                     />
                   </svg>
