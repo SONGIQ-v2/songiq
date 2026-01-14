@@ -72,6 +72,23 @@ export default function Game() {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const countdownRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Cleanup function to stop all audio and timers
+  const cleanupGame = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    if (countdownRef.current) {
+      clearInterval(countdownRef.current);
+      countdownRef.current = null;
+    }
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = '';
+      audioRef.current = null;
+    }
+  }, []);
+
   // Get playlist info
   const playlist = getPlaylistById(playlistId) || PLAYLISTS[0];
 
@@ -247,11 +264,9 @@ export default function Game() {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-      if (countdownRef.current) clearInterval(countdownRef.current);
-      if (audioRef.current) audioRef.current.pause();
+      cleanupGame();
     };
-  }, []);
+  }, [cleanupGame]);
 
   if (gameState === "loading") {
     return (
@@ -353,6 +368,7 @@ export default function Game() {
                 <AlertDialogCancel>Keep Playing</AlertDialogCancel>
                 <AlertDialogAction
                   onClick={() => {
+                    cleanupGame();
                     resetSoloGame();
                     navigate("/solo");
                   }}
