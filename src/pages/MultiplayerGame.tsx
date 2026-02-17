@@ -307,7 +307,7 @@ export default function MultiplayerGame() {
             {currentRound && (
               <div className="game-card mb-6">
                 <img
-                  src={`https://is1-ssl.mzstatic.com/image/thumb/${currentRound.track_id}/600x600bb.jpg`}
+                  src={currentRound.artwork_url || "/placeholder.svg"}
                   alt={currentRound.track_name}
                   className="w-32 h-32 rounded-xl mx-auto mb-4 object-cover"
                   onError={(e) => {
