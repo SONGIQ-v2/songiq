@@ -221,6 +221,8 @@ export function useMultiplayerGame(roomCode: string) {
   useEffect(() => {
     if (!room?.id) return;
 
+    console.log("[Realtime] Setting up subscriptions for room:", room.id);
+
     // Subscribe to room changes
     const roomChannel = supabase
       .channel(`room-${room.id}`)
@@ -228,6 +230,7 @@ export function useMultiplayerGame(roomCode: string) {
         "postgres_changes",
         { event: "*", schema: "public", table: "game_rooms", filter: `id=eq.${room.id}` },
         (payload) => {
+          console.log("[Realtime] Room update received:", payload.new);
           if (payload.new) {
             const newRoom = payload.new as RoomData;
             setRoom(newRoom);
@@ -244,6 +247,7 @@ export function useMultiplayerGame(roomCode: string) {
         "postgres_changes",
         { event: "*", schema: "public", table: "room_players", filter: `room_id=eq.${room.id}` },
         async () => {
+          console.log("[Realtime] Players update received");
           // Refetch all players to get correct ordering
           const { data } = await supabase
             .from("room_players")
@@ -269,7 +273,7 @@ export function useMultiplayerGame(roomCode: string) {
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "game_rounds", filter: `room_id=eq.${room.id}` },
         (payload) => {
-          console.log("New round received:", payload.new);
+          console.log("[Realtime] New round received:", payload.new);
           const round = payload.new as RoundData;
           if (typeof round.options === 'string') {
             round.options = JSON.parse(round.options);
@@ -295,7 +299,7 @@ export function useMultiplayerGame(roomCode: string) {
           // Ensure game status is playing
           setGameStatus("playing");
           
-          console.log("Round state updated, preview_url:", round.preview_url);
+          console.log("[Realtime] Round state updated, preview_url:", round.preview_url);
         }
       )
       .on(
@@ -312,12 +316,113 @@ export function useMultiplayerGame(roomCode: string) {
           );
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log("[Realtime] Channel status:", status);
+      });
 
     return () => {
       supabase.removeChannel(roomChannel);
     };
   }, [room?.id, gameStatus]);
+
+  // Polling fallback - ensures state syncs even if realtime fails
+  useEffect(() => {
+    if (!room?.id) return;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        // Poll room status
+        const { data: roomData } = await supabase
+          .from("game_rooms")
+          .select("*")
+          .eq("id", room.id)
+          .single();
+
+        if (roomData) {
+          // Check for status changes
+          if (roomData.status === "playing" && gameStatus === "waiting") {
+            console.log("[Poll] Room status changed to playing");
+            setRoom(roomData as RoomData);
+            setGameStatus("playing");
+          }
+          if (roomData.status === "finished" && gameStatus !== "results") {
+            console.log("[Poll] Room status changed to finished");
+            setRoom(roomData as RoomData);
+            setGameStatus("results");
+          }
+          // Update current_round if changed
+          if (roomData.current_round !== room.current_round) {
+            setRoom(roomData as RoomData);
+          }
+        }
+
+        // Poll for new rounds during gameplay
+        if (gameStatus === "playing" || gameStatus === "between_rounds") {
+          const { data: latestRound } = await supabase
+            .from("game_rounds")
+            .select("*")
+            .eq("room_id", room.id)
+            .order("round_number", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (latestRound && latestRound.round_number > roundNumber) {
+            console.log("[Poll] New round detected:", latestRound.round_number);
+            const round = latestRound as RoundData;
+            if (typeof round.options === 'string') {
+              round.options = JSON.parse(round.options);
+            }
+
+            // Reset time up handled ref
+            timeUpHandledRef.current = null;
+
+            // Reset state for new round
+            setHasAnswered(false);
+            setSelectedAnswer(null);
+            setIsCorrect(null);
+            setPlayers((prev) => prev.map((p) => ({ ...p, roundScore: 0, hasAnswered: false })));
+
+            setRoundNumber(round.round_number);
+            const elapsed = Date.now() - new Date(round.started_at).getTime();
+            const remaining = Math.max(0, ROUND_TIME - elapsed);
+            setTimeLeft(remaining);
+            setRoundStartTime(new Date(round.started_at).getTime());
+            setCurrentRound(round);
+            setGameStatus("playing");
+          }
+        }
+
+        // Poll players
+        const { data: playersData } = await supabase
+          .from("room_players")
+          .select("*")
+          .eq("room_id", room.id)
+          .order("score", { ascending: false });
+
+        if (playersData) {
+          setPlayers((prev) => {
+            // Only update if something changed
+            const prevScores = prev.map(p => `${p.player_id}:${p.score}:${p.is_ready}`).join(',');
+            const newScores = playersData.map(p => `${p.player_id}:${p.score}:${p.is_ready}`).join(',');
+            if (prevScores === newScores) return prev;
+
+            const prevRanks = new Map(prev.map((p) => [p.player_id, p.currentRank]));
+            return playersData.map((p, idx) => ({
+              ...p,
+              previousRank: prevRanks.get(p.player_id) || idx + 1,
+              currentRank: idx + 1,
+              roundScore: prev.find((pp) => pp.player_id === p.player_id)?.roundScore || 0,
+              hasAnswered: prev.find((pp) => pp.player_id === p.player_id)?.hasAnswered || false,
+            }));
+          });
+        }
+      } catch (err) {
+        console.error("[Poll] Error:", err);
+      }
+    }, 2000); // Poll every 2 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [room?.id, gameStatus, roundNumber]);
 
   // Track if time up has been handled for current round
   const timeUpHandledRef = useRef<string | null>(null);
