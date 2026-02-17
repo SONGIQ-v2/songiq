@@ -18,7 +18,7 @@ export const TimerBar = ({ timeLeft, maxTime }: TimerBarProps) => {
           animate={isLow ? { scale: [1, 1.1, 1] } : {}}
           transition={{ repeat: Infinity, duration: 0.5 }}
         >
-          {Math.ceil(timeLeft)}s
+          {Math.ceil(timeLeft / 1000)}s
         </motion.span>
       </div>
       
