@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Menu, Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
+import logoImg from "@/assets/songiq-logo.png";
 
 export const Header = () => {
   const [isMuted, setIsMuted] = useState(false);
@@ -16,14 +17,7 @@ export const Header = () => {
 
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2">
-          <div className="relative">
-            <span className="font-display text-2xl md:text-3xl tracking-tight text-foreground">
-              Song
-            </span>
-            <span className="font-display text-2xl md:text-3xl tracking-tight text-primary">
-              IQ
-            </span>
-          </div>
+          <img src={logoImg} alt="SongIQ" className="h-10 w-auto" />
         </Link>
 
         {/* Sound toggle */}
