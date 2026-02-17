@@ -698,6 +698,24 @@ export function useMultiplayerGame(roomCode: string) {
     }
   }, [fetchRoom, isInitialized, playerId]);
 
+  // Reload tracks if host navigated to game page without them (e.g. lobby → game page transition)
+  useEffect(() => {
+    if (!isHost || !room || tracks.length > 0) return;
+    if (gameStatus !== "playing" && gameStatus !== "between_rounds") return;
+
+    console.log("Host has no tracks loaded, reloading for category:", room.category);
+    loadTracks(room.category).then((loaded) => {
+      if (loaded.length > 0) {
+        console.log("Tracks reloaded:", loaded.length);
+        setTracks(loaded);
+        tracksRef.current = loaded;
+      } else {
+        console.error("Failed to reload tracks");
+        toast.error("Failed to reload tracks for next round");
+      }
+    });
+  }, [isHost, room?.id, room?.category, gameStatus, tracks.length, loadTracks]);
+
   // Re-sync timer when tab becomes visible (handles background tab pause)
   useEffect(() => {
     const handleVisibilityChange = () => {
