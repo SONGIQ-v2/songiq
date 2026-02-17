@@ -438,7 +438,7 @@ export default function MultiplayerGame() {
               {hasAnswered && currentRound ? (
                 <div className="w-48 h-48 rounded-2xl overflow-hidden shadow-2xl">
                   <img
-                    src={`https://is1-ssl.mzstatic.com/image/thumb/${currentRound.track_id}/600x600bb.jpg`}
+                    src={currentRound.artwork_url || "/placeholder.svg"}
                     alt={currentRound.track_name}
                     className="w-full h-full object-cover"
                     onError={(e) => {

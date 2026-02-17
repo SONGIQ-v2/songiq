@@ -62,6 +62,7 @@ export type Database = {
       game_rounds: {
         Row: {
           artist_name: string
+          artwork_url: string | null
           ended_at: string | null
           id: string
           options: Json
@@ -74,6 +75,7 @@ export type Database = {
         }
         Insert: {
           artist_name: string
+          artwork_url?: string | null
           ended_at?: string | null
           id?: string
           options: Json
@@ -86,6 +88,7 @@ export type Database = {
         }
         Update: {
           artist_name?: string
+          artwork_url?: string | null
           ended_at?: string | null
           id?: string
           options?: Json
