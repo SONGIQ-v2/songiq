@@ -488,6 +488,19 @@ export function useMultiplayerGame(roomCode: string) {
     const submitEmptyAnswer = async () => {
       if (!hasAnswered && playerId) {
         try {
+          // Check if answer already exists to avoid 409
+          const { data: existing } = await supabase
+            .from("player_answers")
+            .select("id")
+            .eq("round_id", currentRound.id)
+            .eq("player_id", playerId)
+            .maybeSingle();
+
+          if (existing) {
+            setHasAnswered(true);
+            return;
+          }
+
           await supabase.from("player_answers").insert({
             room_id: room.id,
             round_id: currentRound.id,
@@ -623,6 +636,19 @@ export function useMultiplayerGame(roomCode: string) {
   // Create a new round
   const createRound = useCallback(async (availableTracks: AppleMusicTrack[], roundNum: number) => {
     if (!room) return;
+
+    // Check if round already exists to avoid 409
+    const { data: existingRound } = await supabase
+      .from("game_rounds")
+      .select("id")
+      .eq("room_id", room.id)
+      .eq("round_number", roundNum)
+      .maybeSingle();
+
+    if (existingRound) {
+      console.log("Round", roundNum, "already exists, skipping creation");
+      return;
+    }
 
     const track = availableTracks[roundNum - 1];
     if (!track) {
