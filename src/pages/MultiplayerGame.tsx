@@ -53,9 +53,18 @@ export default function MultiplayerGame() {
     betweenRoundsCountdown,
     submitAnswer,
     leaveRoom,
+    playAgain,
+    isHost,
     playerId,
     ROUND_TIME,
   } = useMultiplayerGame(code || "");
+
+  // Navigate back to lobby when room resets to waiting (play again)
+  useEffect(() => {
+    if (gameStatus === "waiting" && room) {
+      navigate(`/room/${code}`);
+    }
+  }, [gameStatus, room, code, navigate]);
 
   const handleLeaveGame = useCallback(async () => {
     if (audioRef.current) audioRef.current.pause();
@@ -282,9 +291,38 @@ export default function MultiplayerGame() {
             <Leaderboard players={players} currentPlayerId={playerId} compact />
           </div>
 
-          <Button variant="gold" size="lg" className="w-full" onClick={() => navigate("/multiplayer")}>
-            Play Again
-          </Button>
+          <div className="flex flex-col gap-3">
+            {isHost ? (
+              <Button
+                variant="gold"
+                size="lg"
+                className="w-full"
+                onClick={async () => {
+                  await playAgain();
+                  navigate(`/room/${code}`);
+                }}
+              >
+                Play Again
+              </Button>
+            ) : (
+              <Button
+                variant="gold"
+                size="lg"
+                className="w-full"
+                onClick={() => navigate(`/room/${code}`)}
+              >
+                Back to Lobby
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="lg"
+              className="w-full"
+              onClick={() => navigate("/multiplayer")}
+            >
+              Leave Room
+            </Button>
+          </div>
         </motion.div>
       </div>
     );
