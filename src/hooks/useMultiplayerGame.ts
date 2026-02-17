@@ -244,6 +244,16 @@ export function useMultiplayerGame(roomCode: string) {
             if (newRoom.status === "finished") {
               setGameStatus("results");
             }
+            if (newRoom.status === "waiting" && gameStatus !== "waiting") {
+              // Room reset for play again
+              setGameStatus("waiting");
+              setCurrentRound(null);
+              setRoundNumber(0);
+              setTimeLeft(ROUND_TIME);
+              setHasAnswered(false);
+              setSelectedAnswer(null);
+              setIsCorrect(null);
+            }
           }
         }
       )
@@ -353,6 +363,17 @@ export function useMultiplayerGame(roomCode: string) {
             console.log("[Poll] Room status changed to finished");
             setRoom(roomData as RoomData);
             setGameStatus("results");
+          }
+          if (roomData.status === "waiting" && gameStatus !== "waiting") {
+            console.log("[Poll] Room reset to waiting (play again)");
+            setRoom(roomData as RoomData);
+            setGameStatus("waiting");
+            setCurrentRound(null);
+            setRoundNumber(0);
+            setTimeLeft(ROUND_TIME);
+            setHasAnswered(false);
+            setSelectedAnswer(null);
+            setIsCorrect(null);
           }
           // Update current_round if changed
           if (roomData.current_round !== room.current_round) {
@@ -652,6 +673,39 @@ export function useMultiplayerGame(roomCode: string) {
     setGameStatus("results");
   }, [room]);
 
+  // Play again - reset room to waiting state
+  const playAgain = useCallback(async () => {
+    if (!room || !isHost) return;
+
+    // Reset all player scores
+    await supabase
+      .from("room_players")
+      .update({ score: 0, is_ready: false })
+      .eq("room_id", room.id);
+
+    // Reset room to waiting
+    await supabase
+      .from("game_rooms")
+      .update({
+        status: "waiting",
+        current_round: 0,
+        started_at: null,
+        finished_at: null,
+      })
+      .eq("id", room.id);
+
+    // Reset local state
+    setTracks([]);
+    tracksRef.current = [];
+    setCurrentRound(null);
+    setRoundNumber(0);
+    setTimeLeft(ROUND_TIME);
+    setHasAnswered(false);
+    setSelectedAnswer(null);
+    setIsCorrect(null);
+    setGameStatus("waiting");
+  }, [room, isHost]);
+
   // Keep refs in sync for use in interval callbacks
   useEffect(() => {
     createRoundRef.current = createRound;
@@ -759,6 +813,7 @@ export function useMultiplayerGame(roomCode: string) {
     submitAnswer,
     toggleReady,
     leaveRoom,
+    playAgain,
     isHost,
     playerId,
     ROUND_TIME,
