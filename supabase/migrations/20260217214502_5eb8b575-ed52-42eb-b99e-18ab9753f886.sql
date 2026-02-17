@@ -1,0 +1,1 @@
+ALTER TABLE public.game_rounds ADD COLUMN artwork_url text;

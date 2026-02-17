@@ -43,6 +43,7 @@ export interface RoundData {
   options: string[];
   started_at: string;
   ended_at: string | null;
+  artwork_url?: string;
 }
 
 const ROUND_TIME = 20000; // 20 seconds per round
@@ -626,6 +627,7 @@ export function useMultiplayerGame(roomCode: string) {
       artist_name: track.artistName,
       preview_url: track.previewUrl,
       options: JSON.stringify(options),
+      artwork_url: track.artworkUrl100?.replace('100x100', '600x600') || '',
     });
 
     await supabase
