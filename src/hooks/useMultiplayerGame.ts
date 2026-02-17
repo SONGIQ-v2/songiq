@@ -49,7 +49,7 @@ const ROUND_TIME = 20000; // 20 seconds per round
 const BETWEEN_ROUNDS_TIME = 4000; // 4 seconds between rounds
 
 export function useMultiplayerGame(roomCode: string) {
-  const { playerId, isHost, initializeAuth, isInitialized } = useGameStore();
+  const { playerId, isHost, setRoom: setStoreRoom, initializeAuth, isInitialized } = useGameStore();
   const { getPlaylistTracks } = useAppleMusic();
 
   // Room state
@@ -91,6 +91,13 @@ export function useMultiplayerGame(roomCode: string) {
 
       if (roomError) throw roomError;
       setRoom(roomData);
+      
+      // Sync isHost in the game store based on actual room data
+      if (playerId && roomData.host_id === playerId) {
+        setStoreRoom(roomData.id, roomData.room_code, true);
+      } else if (playerId) {
+        setStoreRoom(roomData.id, roomData.room_code, false);
+      }
 
       // Fetch players
       const { data: playersData, error: playersError } = await supabase
