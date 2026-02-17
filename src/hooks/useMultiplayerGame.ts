@@ -72,6 +72,9 @@ export function useMultiplayerGame(roomCode: string) {
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const betweenRoundsRef = useRef<NodeJS.Timeout | null>(null);
+  const tracksRef = useRef<AppleMusicTrack[]>([]);
+  const createRoundRef = useRef<(tracks: AppleMusicTrack[], roundNum: number) => Promise<void>>();
+  const endGameRef = useRef<() => Promise<void>>();
   
   // Initialize auth on mount
   useEffect(() => {
@@ -483,31 +486,42 @@ export function useMultiplayerGame(roomCode: string) {
     // All players go to between_rounds
     setGameStatus("between_rounds");
     setBetweenRoundsCountdown(4);
-    
-    // Only host triggers next round
-    if (isHost) {
-      console.log("Host starting between rounds countdown");
-      let countdown = 4;
-      
-      betweenRoundsRef.current = setInterval(() => {
-        countdown -= 1;
-        setBetweenRoundsCountdown(countdown);
-        
-        if (countdown <= 0) {
-          if (betweenRoundsRef.current) clearInterval(betweenRoundsRef.current);
-          
-          // Check if game should end
-          if (roundNumber >= (room.total_rounds || 10)) {
-            console.log("Game ending");
-            endGame();
-          } else {
-            console.log("Starting next round:", roundNumber + 1);
-            startNextRound();
-          }
-        }
-      }, 1000);
-    }
   }, [timeLeft, currentRound?.id, room?.id, hasAnswered, playerId, isHost, roundNumber, gameStatus]);
+
+  // Between rounds countdown - separate effect to avoid stale closures
+  useEffect(() => {
+    if (gameStatus !== "between_rounds" || !isHost || !room) return;
+
+    console.log("Host starting between rounds countdown, roundNumber:", roundNumber);
+    let countdown = 4;
+
+    betweenRoundsRef.current = setInterval(async () => {
+      countdown -= 1;
+      setBetweenRoundsCountdown(countdown);
+
+      if (countdown <= 0) {
+        if (betweenRoundsRef.current) clearInterval(betweenRoundsRef.current);
+
+        const currentTracks = tracksRef.current;
+        const totalRounds = room.total_rounds || 10;
+
+        if (roundNumber >= totalRounds) {
+          console.log("Game ending");
+          endGameRef.current?.();
+        } else if (currentTracks.length > 0) {
+          console.log("Starting next round:", roundNumber + 1, "tracks available:", currentTracks.length);
+          await createRoundRef.current?.(currentTracks, roundNumber + 1);
+        } else {
+          console.error("No tracks available for next round!");
+          toast.error("Failed to load next round - no tracks");
+        }
+      }
+    }, 1000);
+
+    return () => {
+      if (betweenRoundsRef.current) clearInterval(betweenRoundsRef.current);
+    };
+  }, [gameStatus, isHost, room?.id, roundNumber]);
 
   // Submit answer
   const submitAnswer = useCallback(async (answer: string) => {
@@ -574,6 +588,7 @@ export function useMultiplayerGame(roomCode: string) {
         .eq("id", room.id);
 
       setTracks(loadedTracks);
+      tracksRef.current = loadedTracks;
 
       // Start first round
       await createRound(loadedTracks, 1);
@@ -635,7 +650,19 @@ export function useMultiplayerGame(roomCode: string) {
     setGameStatus("results");
   }, [room]);
 
-  // Toggle ready status
+  // Keep refs in sync for use in interval callbacks
+  useEffect(() => {
+    createRoundRef.current = createRound;
+  }, [createRound]);
+
+  useEffect(() => {
+    endGameRef.current = endGame;
+  }, [endGame]);
+
+  useEffect(() => {
+    tracksRef.current = tracks;
+  }, [tracks]);
+
   const toggleReady = useCallback(async () => {
     if (!room || !playerId) return;
 
