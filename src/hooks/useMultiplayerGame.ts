@@ -244,16 +244,6 @@ export function useMultiplayerGame(roomCode: string) {
             if (newRoom.status === "finished") {
               setGameStatus("results");
             }
-            if (newRoom.status === "waiting" && gameStatus !== "waiting") {
-              // Room reset for play again
-              setGameStatus("waiting");
-              setCurrentRound(null);
-              setRoundNumber(0);
-              setTimeLeft(ROUND_TIME);
-              setHasAnswered(false);
-              setSelectedAnswer(null);
-              setIsCorrect(null);
-            }
           }
         }
       )
@@ -363,17 +353,6 @@ export function useMultiplayerGame(roomCode: string) {
             console.log("[Poll] Room status changed to finished");
             setRoom(roomData as RoomData);
             setGameStatus("results");
-          }
-          if (roomData.status === "waiting" && gameStatus !== "waiting") {
-            console.log("[Poll] Room reset to waiting (play again)");
-            setRoom(roomData as RoomData);
-            setGameStatus("waiting");
-            setCurrentRound(null);
-            setRoundNumber(0);
-            setTimeLeft(ROUND_TIME);
-            setHasAnswered(false);
-            setSelectedAnswer(null);
-            setIsCorrect(null);
           }
           // Update current_round if changed
           if (roomData.current_round !== room.current_round) {
@@ -488,19 +467,6 @@ export function useMultiplayerGame(roomCode: string) {
     const submitEmptyAnswer = async () => {
       if (!hasAnswered && playerId) {
         try {
-          // Check if answer already exists to avoid 409
-          const { data: existing } = await supabase
-            .from("player_answers")
-            .select("id")
-            .eq("round_id", currentRound.id)
-            .eq("player_id", playerId)
-            .maybeSingle();
-
-          if (existing) {
-            setHasAnswered(true);
-            return;
-          }
-
           await supabase.from("player_answers").insert({
             room_id: room.id,
             round_id: currentRound.id,
@@ -637,19 +603,6 @@ export function useMultiplayerGame(roomCode: string) {
   const createRound = useCallback(async (availableTracks: AppleMusicTrack[], roundNum: number) => {
     if (!room) return;
 
-    // Check if round already exists to avoid 409
-    const { data: existingRound } = await supabase
-      .from("game_rounds")
-      .select("id")
-      .eq("room_id", room.id)
-      .eq("round_number", roundNum)
-      .maybeSingle();
-
-    if (existingRound) {
-      console.log("Round", roundNum, "already exists, skipping creation");
-      return;
-    }
-
     const track = availableTracks[roundNum - 1];
     if (!track) {
       await endGame();
@@ -698,39 +651,6 @@ export function useMultiplayerGame(roomCode: string) {
       .eq("id", room.id);
     setGameStatus("results");
   }, [room]);
-
-  // Play again - reset room to waiting state
-  const playAgain = useCallback(async () => {
-    if (!room || !isHost) return;
-
-    // Reset all player scores
-    await supabase
-      .from("room_players")
-      .update({ score: 0, is_ready: false })
-      .eq("room_id", room.id);
-
-    // Reset room to waiting
-    await supabase
-      .from("game_rooms")
-      .update({
-        status: "waiting",
-        current_round: 0,
-        started_at: null,
-        finished_at: null,
-      })
-      .eq("id", room.id);
-
-    // Reset local state
-    setTracks([]);
-    tracksRef.current = [];
-    setCurrentRound(null);
-    setRoundNumber(0);
-    setTimeLeft(ROUND_TIME);
-    setHasAnswered(false);
-    setSelectedAnswer(null);
-    setIsCorrect(null);
-    setGameStatus("waiting");
-  }, [room, isHost]);
 
   // Keep refs in sync for use in interval callbacks
   useEffect(() => {
@@ -839,7 +759,6 @@ export function useMultiplayerGame(roomCode: string) {
     submitAnswer,
     toggleReady,
     leaveRoom,
-    playAgain,
     isHost,
     playerId,
     ROUND_TIME,
