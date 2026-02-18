@@ -5,7 +5,15 @@ import { Copy, Check, Users, Play, Crown, LogOut, Loader2 } from "lucide-react";
 import { Starfield } from "@/components/Starfield";
 import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -25,6 +33,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useMultiplayerGame } from "@/hooks/useMultiplayerGame";
+import { useGameStore } from "@/lib/gameStore";
+import { supabase } from "@/integrations/supabase/client";
 import { PLAYLISTS } from "@/lib/playlists";
 import { toast } from "sonner";
 
@@ -34,6 +44,11 @@ export default function RoomLobby() {
   const [copied, setCopied] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("afrobeats-chill");
   const [isStarting, setIsStarting] = useState(false);
+  const [showNameModal, setShowNameModal] = useState(false);
+  const [joinName, setJoinName] = useState("");
+  const [isJoiningRoom, setIsJoiningRoom] = useState(false);
+
+  const { initializeAuth, setPlayer, setRoom: setStoreRoom } = useGameStore();
 
   const {
     room,
@@ -47,6 +62,54 @@ export default function RoomLobby() {
     isHost,
     playerId,
   } = useMultiplayerGame(code || "");
+
+  // Show name modal if player is not in the room yet
+  useEffect(() => {
+    if (!loading && room && playerId && players.length > 0) {
+      const isInRoom = players.some((p) => p.player_id === playerId);
+      if (!isInRoom) {
+        setShowNameModal(true);
+      }
+    } else if (!loading && room && playerId && players.length === 0) {
+      // Room exists but no players loaded yet — could be a new joiner
+      setShowNameModal(true);
+    }
+  }, [loading, room, playerId, players]);
+
+  const handleJoinWithName = async () => {
+    if (!joinName.trim()) {
+      toast.error("Please enter your name");
+      return;
+    }
+    if (!room || !playerId) return;
+
+    setIsJoiningRoom(true);
+    try {
+      // Check if room is still accepting players
+      if (room.status !== "waiting") {
+        toast.error("Game already in progress");
+        setIsJoiningRoom(false);
+        return;
+      }
+
+      await supabase.from("room_players").insert({
+        room_id: room.id,
+        player_id: playerId,
+        player_name: joinName.trim(),
+        avatar_index: Math.floor(Math.random() * 8) + 1,
+        is_host: false,
+      });
+
+      setPlayer(joinName.trim(), 1);
+      setStoreRoom(room.id, room.room_code, false);
+      setShowNameModal(false);
+    } catch (err) {
+      console.error("Error joining room:", err);
+      toast.error("Failed to join room");
+    } finally {
+      setIsJoiningRoom(false);
+    }
+  };
 
   // Navigate to game when it starts
   useEffect(() => {
@@ -105,6 +168,37 @@ export default function RoomLobby() {
 
   return (
     <div className="min-h-screen relative overflow-hidden">
+      {/* Name Modal for joining players */}
+      <Dialog open={showNameModal} onOpenChange={() => {}}>
+        <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle>Enter Your Name</DialogTitle>
+            <DialogDescription>
+              Choose a nickname to join the room
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <Input
+              value={joinName}
+              onChange={(e) => setJoinName(e.target.value)}
+              placeholder="Your nickname"
+              maxLength={20}
+              className="text-center text-lg"
+              onKeyDown={(e) => e.key === "Enter" && handleJoinWithName()}
+              autoFocus
+            />
+            <Button
+              variant="gold"
+              size="lg"
+              className="w-full"
+              onClick={handleJoinWithName}
+              disabled={isJoiningRoom || !joinName.trim()}
+            >
+              {isJoiningRoom ? "Joining..." : "Join Room"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       <Starfield />
       <Header />
 
