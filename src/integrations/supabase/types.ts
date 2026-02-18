@@ -27,6 +27,7 @@ export type Database = {
           room_code: string
           started_at: string | null
           status: string
+          time_per_round: number
           total_rounds: number
         }
         Insert: {
@@ -41,6 +42,7 @@ export type Database = {
           room_code: string
           started_at?: string | null
           status?: string
+          time_per_round?: number
           total_rounds?: number
         }
         Update: {
@@ -55,6 +57,7 @@ export type Database = {
           room_code?: string
           started_at?: string | null
           status?: string
+          time_per_round?: number
           total_rounds?: number
         }
         Relationships: []

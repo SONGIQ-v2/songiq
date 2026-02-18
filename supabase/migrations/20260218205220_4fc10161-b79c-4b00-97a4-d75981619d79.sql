@@ -1,0 +1,1 @@
+ALTER TABLE public.game_rooms ADD COLUMN time_per_round integer NOT NULL DEFAULT 15;

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Copy, Check, Users, Play, Crown, LogOut, Loader2, UserCircle } from "lucide-react";
+import { Copy, Check, Users, Play, Crown, LogOut, Loader2, UserCircle, Music, Clock, Hash } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Starfield } from "@/components/Starfield";
 import { Button } from "@/components/ui/button";
@@ -14,13 +14,6 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,6 +36,8 @@ export default function RoomLobby() {
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("afrobeats-chill");
+  const [selectedRounds, setSelectedRounds] = useState(10);
+  const [selectedTime, setSelectedTime] = useState(15);
   const [isStarting, setIsStarting] = useState(false);
   const [showNameModal, setShowNameModal] = useState(false);
   const [joinName, setJoinName] = useState("");
@@ -75,12 +70,12 @@ export default function RoomLobby() {
     document.cookie = `songiq_username=${encodeURIComponent(name)}; path=/; max-age=${maxAge}; SameSite=Lax`;
   };
 
-  // Sync selectedCategory from room data (for guests getting real-time updates)
+  // Sync settings from room data (for guests getting real-time updates)
   useEffect(() => {
-    if (room?.category) {
-      setSelectedCategory(room.category);
-    }
-  }, [room?.category]);
+    if (room?.category) setSelectedCategory(room.category);
+    if (room?.total_rounds) setSelectedRounds(room.total_rounds);
+    if ((room as any)?.time_per_round) setSelectedTime((room as any).time_per_round);
+  }, [room?.category, room?.total_rounds, (room as any)?.time_per_round]);
 
   // Pre-fill join name from cookie
   useEffect(() => {
@@ -155,6 +150,13 @@ export default function RoomLobby() {
 
   const handleStartGame = async () => {
     setIsStarting(true);
+    // Update room settings before starting
+    if (room) {
+      await supabase.from("game_rooms").update({
+        total_rounds: selectedRounds,
+        time_per_round: selectedTime,
+      }).eq("id", room.id);
+    }
     await startGame(selectedCategory);
     setIsStarting(false);
   };
@@ -399,7 +401,7 @@ export default function RoomLobby() {
             </div>
           </motion.div>
 
-          {/* Host Controls or Waiting Message */}
+          {/* Host Controls or Guest Settings View */}
           {isHost ? (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -409,29 +411,100 @@ export default function RoomLobby() {
             >
               <div className="flex items-center gap-2 mb-4">
                 <Crown className="w-5 h-5 text-gold" />
-                <h2 className="font-bold">Host Controls</h2>
+                <h2 className="font-bold">Game Settings</h2>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-5">
+                {/* Category Cards */}
                 <div>
-                  <label className="block text-sm font-medium mb-2">Category</label>
-                  <Select value={selectedCategory} onValueChange={async (val) => {
-                    setSelectedCategory(val);
-                    if (room) {
-                      await supabase.from("game_rooms").update({ category: val }).eq("id", room.id);
-                    }
-                  }}>
-                     <SelectTrigger>
-                       <SelectValue />
-                     </SelectTrigger>
-                    <SelectContent>
-                      {PLAYLISTS.map((playlist) => (
-                        <SelectItem key={playlist.id} value={playlist.id}>
+                  <label className="flex items-center gap-1.5 text-sm font-medium mb-3">
+                    <Music className="w-4 h-4 text-primary" />
+                    Category
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {PLAYLISTS.map((playlist) => (
+                      <button
+                        key={playlist.id}
+                        onClick={async () => {
+                          setSelectedCategory(playlist.id);
+                          if (room) {
+                            await supabase.from("game_rooms").update({ category: playlist.id }).eq("id", room.id);
+                          }
+                        }}
+                        className={`relative p-3 rounded-xl border-2 text-left transition-all duration-200 ${
+                          selectedCategory === playlist.id
+                            ? "border-primary bg-primary/10 shadow-[0_0_12px_hsl(var(--primary)/0.2)]"
+                            : "border-border/50 bg-card/50 hover:border-border hover:bg-card/80"
+                        }`}
+                      >
+                        <p className={`text-sm font-semibold ${
+                          selectedCategory === playlist.id ? "text-primary" : "text-foreground"
+                        }`}>
                           {playlist.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{playlist.description}</p>
+                        {selectedCategory === playlist.id && (
+                          <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Number of Songs */}
+                <div>
+                  <label className="flex items-center gap-1.5 text-sm font-medium mb-3">
+                    <Hash className="w-4 h-4 text-primary" />
+                    Number of Songs
+                  </label>
+                  <div className="flex gap-2">
+                    {[5, 10, 15, 20].map((n) => (
+                      <button
+                        key={n}
+                        onClick={async () => {
+                          setSelectedRounds(n);
+                          if (room) {
+                            await supabase.from("game_rooms").update({ total_rounds: n }).eq("id", room.id);
+                          }
+                        }}
+                        className={`flex-1 py-2.5 rounded-xl border-2 text-sm font-bold transition-all duration-200 ${
+                          selectedRounds === n
+                            ? "border-primary bg-primary/10 text-primary shadow-[0_0_12px_hsl(var(--primary)/0.2)]"
+                            : "border-border/50 bg-card/50 text-muted-foreground hover:border-border hover:bg-card/80"
+                        }`}
+                      >
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Time per Round */}
+                <div>
+                  <label className="flex items-center gap-1.5 text-sm font-medium mb-3">
+                    <Clock className="w-4 h-4 text-primary" />
+                    Time per Song
+                  </label>
+                  <div className="flex gap-2">
+                    {[10, 15, 20, 30].map((t) => (
+                      <button
+                        key={t}
+                        onClick={async () => {
+                          setSelectedTime(t);
+                          if (room) {
+                            await supabase.from("game_rooms").update({ time_per_round: t }).eq("id", room.id);
+                          }
+                        }}
+                        className={`flex-1 py-2.5 rounded-xl border-2 text-sm font-bold transition-all duration-200 ${
+                          selectedTime === t
+                            ? "border-primary bg-primary/10 text-primary shadow-[0_0_12px_hsl(var(--primary)/0.2)]"
+                            : "border-border/50 bg-card/50 text-muted-foreground hover:border-border hover:bg-card/80"
+                        }`}
+                      >
+                        {t}s
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <Button
@@ -457,12 +530,31 @@ export default function RoomLobby() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="game-card mb-6 text-center"
+              className="game-card mb-6"
             >
-              <p className="text-sm text-muted-foreground mb-1">Category</p>
-              <p className="text-lg font-bold text-foreground">
-                {PLAYLISTS.find((p) => p.id === selectedCategory)?.name || selectedCategory}
-              </p>
+              <div className="flex items-center gap-2 mb-4">
+                <Crown className="w-5 h-5 text-gold" />
+                <h2 className="font-bold">Game Settings</h2>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="text-center p-3 rounded-xl bg-card/50 border border-border/50">
+                  <Music className="w-4 h-4 text-primary mx-auto mb-1" />
+                  <p className="text-xs text-muted-foreground">Category</p>
+                  <p className="text-sm font-bold text-foreground mt-0.5">
+                    {PLAYLISTS.find((p) => p.id === selectedCategory)?.name || selectedCategory}
+                  </p>
+                </div>
+                <div className="text-center p-3 rounded-xl bg-card/50 border border-border/50">
+                  <Hash className="w-4 h-4 text-primary mx-auto mb-1" />
+                  <p className="text-xs text-muted-foreground">Songs</p>
+                  <p className="text-sm font-bold text-foreground mt-0.5">{selectedRounds}</p>
+                </div>
+                <div className="text-center p-3 rounded-xl bg-card/50 border border-border/50">
+                  <Clock className="w-4 h-4 text-primary mx-auto mb-1" />
+                  <p className="text-xs text-muted-foreground">Time</p>
+                  <p className="text-sm font-bold text-foreground mt-0.5">{selectedTime}s</p>
+                </div>
+              </div>
             </motion.div>
           )}
 
