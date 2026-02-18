@@ -3,16 +3,12 @@ import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Copy, Check, Users, Play, Crown, LogOut, Loader2, UserCircle, Music, Clock, Hash } from "lucide-react";
 import { Link } from "react-router-dom";
-import categoryAfrobeatsChill from "@/assets/category-afrobeats-chill.jpg";
-import categoryAmapianoHits from "@/assets/category-amapiano-hits.jpg";
-import categoryNaijaThrowback from "@/assets/category-naija-throwback.jpg";
-import categoryAfroClassics from "@/assets/category-afro-classics.jpg";
-import categoryEastAfricaVibes from "@/assets/category-east-africa-vibes.jpg";
-import categoryGhanaSounds from "@/assets/category-ghana-sounds.jpg";
 import { Starfield } from "@/components/Starfield";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
+import { PlaylistCard } from "@/components/PlaylistCard";
+import { useAppleMusic } from "@/hooks/useAppleMusic";
 import {
   Dialog,
   DialogContent,
@@ -50,6 +46,9 @@ export default function RoomLobby() {
   const [isJoiningRoom, setIsJoiningRoom] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [editName, setEditName] = useState("");
+  const [playlistImages, setPlaylistImages] = useState<Record<string, string>>({});
+
+  const { getPlaylistTracks } = useAppleMusic();
 
   const { initializeAuth, setPlayer, setRoom: setStoreRoom, playerName } = useGameStore();
 
@@ -88,6 +87,21 @@ export default function RoomLobby() {
     const saved = getUsernameCookie();
     if (saved) setJoinName(saved);
   }, []);
+
+  // Fetch playlist images from API
+  useEffect(() => {
+    const fetchImages = async () => {
+      for (const playlist of PLAYLISTS) {
+        try {
+          const result = await getPlaylistTracks(playlist.searchTerms, playlist.name, 5);
+          if (result?.playlistImage) {
+            setPlaylistImages((prev) => ({ ...prev, [playlist.id]: result.playlistImage }));
+          }
+        } catch {}
+      }
+    };
+    fetchImages();
+  }, [getPlaylistTracks]);
 
   // Show name modal if player is not in the room yet
   useEffect(() => {
@@ -428,49 +442,21 @@ export default function RoomLobby() {
                     Category
                   </label>
                   <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
-                    {PLAYLISTS.map((playlist) => {
-                      const categoryImages: Record<string, string> = {
-                        "afrobeats-chill": categoryAfrobeatsChill,
-                        "amapiano-hits": categoryAmapianoHits,
-                        "naija-throwback": categoryNaijaThrowback,
-                        "afro-classics": categoryAfroClassics,
-                        "east-africa-vibes": categoryEastAfricaVibes,
-                        "ghana-sounds": categoryGhanaSounds,
-                      };
-                      return (
-                        <button
-                          key={playlist.id}
+                    {PLAYLISTS.map((playlist) => (
+                      <div key={playlist.id} className="flex-shrink-0 w-32">
+                        <PlaylistCard
+                          playlist={playlist}
+                          imageUrl={playlistImages[playlist.id]}
+                          isSelected={selectedCategory === playlist.id}
                           onClick={async () => {
                             setSelectedCategory(playlist.id);
                             if (room) {
                               await supabase.from("game_rooms").update({ category: playlist.id }).eq("id", room.id);
                             }
                           }}
-                          className={`relative flex-shrink-0 w-28 rounded-xl border-2 overflow-hidden transition-all duration-200 ${
-                            selectedCategory === playlist.id
-                              ? "border-primary shadow-[0_0_16px_hsl(var(--primary)/0.3)] scale-105"
-                              : "border-border/50 hover:border-border opacity-70 hover:opacity-100"
-                          }`}
-                        >
-                          <div className="aspect-square w-full overflow-hidden">
-                            <img
-                              src={categoryImages[playlist.id]}
-                              alt={playlist.name}
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                          <div className={`p-2 text-center ${
-                            selectedCategory === playlist.id ? "bg-primary/10" : "bg-card/80"
-                          }`}>
-                            <p className={`text-xs font-bold leading-tight ${
-                              selectedCategory === playlist.id ? "text-primary" : "text-foreground"
-                            }`}>
-                              {playlist.name}
-                            </p>
-                          </div>
-                        </button>
-                      );
-                    })}
+                        />
+                      </div>
+                    ))}
                   </div>
                 </div>
 
