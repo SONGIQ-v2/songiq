@@ -115,6 +115,7 @@ export default function RoomLobby() {
         player_name: joinName.trim(),
         avatar_index: Math.floor(Math.random() * 8) + 1,
         is_host: false,
+        is_ready: true,
       });
 
       setPlayer(joinName.trim(), 1);
