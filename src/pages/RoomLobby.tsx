@@ -2,8 +2,8 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Copy, Check, Users, Play, Crown, LogOut, Loader2 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Starfield } from "@/components/Starfield";
-import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
@@ -200,7 +200,45 @@ export default function RoomLobby() {
         </DialogContent>
       </Dialog>
       <Starfield />
-      <Header />
+      {/* Custom header with Leave Room instead of menu */}
+      <header className="fixed top-0 left-0 right-0 z-50 px-4 py-3">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10 gap-1.5">
+                <LogOut className="w-4 h-4" />
+                <span className="text-sm">Leave</span>
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Leave Room?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {isHost
+                    ? "As the host, leaving will close the room for everyone."
+                    : "Are you sure you want to leave the room?"}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Stay</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleLeaveRoom}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  Leave
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          <Link to="/" className="flex items-center gap-2">
+            <span className="font-display text-2xl md:text-3xl tracking-tight text-foreground">Song</span>
+            <span className="font-display text-2xl md:text-3xl tracking-tight text-primary">IQ</span>
+          </Link>
+
+          <div className="w-[72px]" /> {/* Spacer to balance layout */}
+        </div>
+      </header>
 
       <main className="relative z-10 pt-24 pb-12 px-4">
         <div className="max-w-2xl mx-auto">
@@ -294,7 +332,7 @@ export default function RoomLobby() {
             </div>
           </motion.div>
 
-          {/* Host Controls */}
+          {/* Host Controls or Waiting Message */}
           {isHost ? (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -347,50 +385,14 @@ export default function RoomLobby() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="game-card mb-6"
+              className="text-center mb-6"
             >
-              <Button
-                variant={currentPlayer?.is_ready ? "outline" : "gold"}
-                size="lg"
-                className="w-full"
-                onClick={toggleReady}
-              >
-                {currentPlayer?.is_ready ? "Not Ready" : "Ready!"}
-              </Button>
-              <p className="text-sm text-center text-muted-foreground mt-3">
-                Waiting for host to start the game...
+              <p className="text-sm text-muted-foreground">
+                ⏳ Waiting for host to start the game...
               </p>
             </motion.div>
           )}
 
-          {/* Leave Room */}
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="ghost" className="w-full text-destructive hover:text-destructive hover:bg-destructive/10">
-                <LogOut className="w-4 h-4 mr-2" />
-                Leave Room
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Leave Room?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  {isHost
-                    ? "As the host, leaving will close the room for everyone."
-                    : "Are you sure you want to leave the room?"}
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Stay</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={handleLeaveRoom}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                >
-                  Leave
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
         </div>
       </main>
     </div>
