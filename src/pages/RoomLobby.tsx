@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Copy, Check, Users, Play, Crown, LogOut, Loader2, UserCircle, Music, Clock, Hash } from "lucide-react";
+import { Copy, Check, Users, Play, Crown, LogOut, Loader2, UserCircle, Music, Clock, Hash, ChevronLeft, ChevronRight } from "lucide-react";
+import { useRef } from "react";
 import { Link } from "react-router-dom";
 import { Starfield } from "@/components/Starfield";
 import { Button } from "@/components/ui/button";
@@ -47,6 +48,7 @@ export default function RoomLobby() {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [editName, setEditName] = useState("");
   const [playlistImages, setPlaylistImages] = useState<Record<string, string>>({});
+  const categoryScrollRef = useRef<HTMLDivElement>(null);
 
   const { getPlaylistTracks } = useAppleMusic();
 
@@ -441,22 +443,36 @@ export default function RoomLobby() {
                     <Music className="w-4 h-4 text-primary" />
                     Category
                   </label>
-                  <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
-                    {PLAYLISTS.map((playlist) => (
-                      <div key={playlist.id} className="flex-shrink-0 w-32">
-                        <PlaylistCard
-                          playlist={playlist}
-                          imageUrl={playlistImages[playlist.id]}
-                          isSelected={selectedCategory === playlist.id}
-                          onClick={async () => {
-                            setSelectedCategory(playlist.id);
-                            if (room) {
-                              await supabase.from("game_rooms").update({ category: playlist.id }).eq("id", room.id);
-                            }
-                          }}
-                        />
-                      </div>
-                    ))}
+                  <div className="relative">
+                    <button
+                      onClick={() => categoryScrollRef.current?.scrollBy({ left: -140, behavior: 'smooth' })}
+                      className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-background/80 backdrop-blur border border-border flex items-center justify-center text-foreground/70 hover:text-foreground hover:bg-background transition-colors"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <div ref={categoryScrollRef} className="flex gap-3 overflow-x-auto pb-2 px-10 scrollbar-hide">
+                      {PLAYLISTS.map((playlist) => (
+                        <div key={playlist.id} className="flex-shrink-0 w-32">
+                          <PlaylistCard
+                            playlist={playlist}
+                            imageUrl={playlistImages[playlist.id]}
+                            isSelected={selectedCategory === playlist.id}
+                            onClick={async () => {
+                              setSelectedCategory(playlist.id);
+                              if (room) {
+                                await supabase.from("game_rooms").update({ category: playlist.id }).eq("id", room.id);
+                              }
+                            }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <button
+                      onClick={() => categoryScrollRef.current?.scrollBy({ left: 140, behavior: 'smooth' })}
+                      className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-background/80 backdrop-blur border border-border flex items-center justify-center text-foreground/70 hover:text-foreground hover:bg-background transition-colors"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
 
