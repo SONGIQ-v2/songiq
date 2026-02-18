@@ -3,6 +3,12 @@ import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Copy, Check, Users, Play, Crown, LogOut, Loader2, UserCircle, Music, Clock, Hash } from "lucide-react";
 import { Link } from "react-router-dom";
+import categoryAfrobeatsChill from "@/assets/category-afrobeats-chill.jpg";
+import categoryAmapianoHits from "@/assets/category-amapiano-hits.jpg";
+import categoryNaijaThrowback from "@/assets/category-naija-throwback.jpg";
+import categoryAfroClassics from "@/assets/category-afro-classics.jpg";
+import categoryEastAfricaVibes from "@/assets/category-east-africa-vibes.jpg";
+import categoryGhanaSounds from "@/assets/category-ghana-sounds.jpg";
 import { Starfield } from "@/components/Starfield";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -415,39 +421,56 @@ export default function RoomLobby() {
               </div>
 
               <div className="space-y-5">
-                {/* Category Cards */}
+                {/* Category Cards - Horizontal Scroll */}
                 <div>
                   <label className="flex items-center gap-1.5 text-sm font-medium mb-3">
                     <Music className="w-4 h-4 text-primary" />
                     Category
                   </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {PLAYLISTS.map((playlist) => (
-                      <button
-                        key={playlist.id}
-                        onClick={async () => {
-                          setSelectedCategory(playlist.id);
-                          if (room) {
-                            await supabase.from("game_rooms").update({ category: playlist.id }).eq("id", room.id);
-                          }
-                        }}
-                        className={`relative p-3 rounded-xl border-2 text-left transition-all duration-200 ${
-                          selectedCategory === playlist.id
-                            ? "border-primary bg-primary/10 shadow-[0_0_12px_hsl(var(--primary)/0.2)]"
-                            : "border-border/50 bg-card/50 hover:border-border hover:bg-card/80"
-                        }`}
-                      >
-                        <p className={`text-sm font-semibold ${
-                          selectedCategory === playlist.id ? "text-primary" : "text-foreground"
-                        }`}>
-                          {playlist.name}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-0.5">{playlist.description}</p>
-                        {selectedCategory === playlist.id && (
-                          <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary" />
-                        )}
-                      </button>
-                    ))}
+                  <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
+                    {PLAYLISTS.map((playlist) => {
+                      const categoryImages: Record<string, string> = {
+                        "afrobeats-chill": categoryAfrobeatsChill,
+                        "amapiano-hits": categoryAmapianoHits,
+                        "naija-throwback": categoryNaijaThrowback,
+                        "afro-classics": categoryAfroClassics,
+                        "east-africa-vibes": categoryEastAfricaVibes,
+                        "ghana-sounds": categoryGhanaSounds,
+                      };
+                      return (
+                        <button
+                          key={playlist.id}
+                          onClick={async () => {
+                            setSelectedCategory(playlist.id);
+                            if (room) {
+                              await supabase.from("game_rooms").update({ category: playlist.id }).eq("id", room.id);
+                            }
+                          }}
+                          className={`relative flex-shrink-0 w-28 rounded-xl border-2 overflow-hidden transition-all duration-200 ${
+                            selectedCategory === playlist.id
+                              ? "border-primary shadow-[0_0_16px_hsl(var(--primary)/0.3)] scale-105"
+                              : "border-border/50 hover:border-border opacity-70 hover:opacity-100"
+                          }`}
+                        >
+                          <div className="aspect-square w-full overflow-hidden">
+                            <img
+                              src={categoryImages[playlist.id]}
+                              alt={playlist.name}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                          <div className={`p-2 text-center ${
+                            selectedCategory === playlist.id ? "bg-primary/10" : "bg-card/80"
+                          }`}>
+                            <p className={`text-xs font-bold leading-tight ${
+                              selectedCategory === playlist.id ? "text-primary" : "text-foreground"
+                            }`}>
+                              {playlist.name}
+                            </p>
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
