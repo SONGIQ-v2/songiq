@@ -235,11 +235,11 @@ export function useMultiplayerGame(roomCode: string) {
         { event: "*", schema: "public", table: "game_rooms", filter: `id=eq.${room.id}` },
         (payload) => {
           console.log("[Realtime] Room update received:", payload.new);
-          if (payload.new) {
+        if (payload.new) {
             const newRoom = payload.new as RoomData;
             setRoom(newRoom);
-            if (newRoom.status === "playing" && gameStatus === "waiting") {
-              setGameStatus("playing");
+            if (newRoom.status === "playing") {
+              setGameStatus((prev) => prev === "waiting" ? "playing" : prev);
             }
             if (newRoom.status === "finished") {
               setGameStatus("results");
@@ -327,7 +327,7 @@ export function useMultiplayerGame(roomCode: string) {
     return () => {
       supabase.removeChannel(roomChannel);
     };
-  }, [room?.id, gameStatus]);
+  }, [room?.id]); // Don't re-subscribe on gameStatus change
 
   // Polling fallback - ensures state syncs even if realtime fails
   useEffect(() => {
@@ -463,10 +463,23 @@ export function useMultiplayerGame(roomCode: string) {
     timeUpHandledRef.current = currentRound.id;
     console.log("Time up! Round:", roundNumber, "isHost:", isHost);
     
-    // Submit empty answer if not answered
+    // Submit empty answer if not answered (check DB first to avoid duplicates)
     const submitEmptyAnswer = async () => {
       if (!hasAnswered && playerId) {
         try {
+          // Check if answer already exists
+          const { data: existing } = await supabase
+            .from("player_answers")
+            .select("id")
+            .eq("round_id", currentRound.id)
+            .eq("player_id", playerId)
+            .maybeSingle();
+          
+          if (existing) {
+            setHasAnswered(true);
+            return;
+          }
+          
           await supabase.from("player_answers").insert({
             room_id: room.id,
             round_id: currentRound.id,
