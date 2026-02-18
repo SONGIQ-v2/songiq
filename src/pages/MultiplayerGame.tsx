@@ -146,6 +146,8 @@ export default function MultiplayerGame() {
 
   // Audio handling - play when round changes
   useEffect(() => {
+    let cancelled = false;
+
     const playAudio = async () => {
       if (currentRound?.preview_url && gameStatus === "playing") {
         // Stop any existing audio
@@ -157,21 +159,34 @@ export default function MultiplayerGame() {
         try {
           const audio = new Audio(currentRound.preview_url);
           audio.volume = isMuted ? 0 : 0.7;
+          audio.preload = "auto";
           audioRef.current = audio;
           
-          // Wait for audio to be loaded
+          // Use 'canplay' instead of 'canplaythrough' for faster start
           await new Promise((resolve, reject) => {
-            audio.oncanplaythrough = resolve;
+            audio.oncanplay = resolve;
             audio.onerror = reject;
             audio.load();
+            // Fallback: if canplay doesn't fire within 1s, try playing anyway
+            setTimeout(resolve, 1000);
           });
+
+          if (cancelled) return;
           
           await audio.play();
           setIsPlaying(true);
           console.log("Audio playing for round:", roundNumber);
         } catch (err) {
           console.error("Error playing audio:", err);
-          setIsPlaying(false);
+          // Try playing without waiting for load event
+          if (!cancelled && audioRef.current) {
+            try {
+              await audioRef.current.play();
+              setIsPlaying(true);
+            } catch {
+              setIsPlaying(false);
+            }
+          }
         }
       }
     };
@@ -179,6 +194,7 @@ export default function MultiplayerGame() {
     playAudio();
 
     return () => {
+      cancelled = true;
       if (audioRef.current) {
         audioRef.current.pause();
       }
