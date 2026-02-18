@@ -240,8 +240,7 @@ export default function RoomLobby() {
   }
 
   const currentPlayer = players.find((p) => p.player_id === playerId);
-  const allPlayersReady = players.length >= 2 && players.filter((p) => !p.is_host).every((p) => p.is_ready);
-  const canStart = isHost && players.length >= 2 && allPlayersReady;
+  const canStart = isHost && players.length >= 2;
 
   return (
     <div className="min-h-screen relative overflow-hidden">
@@ -553,14 +552,8 @@ export default function RoomLobby() {
                   disabled={!canStart || isStarting}
                 >
                   <Play className="w-5 h-5 mr-2" />
-                  {isStarting ? "Starting..." : players.length < 2 ? "Need at least 2 players" : !allPlayersReady ? "Waiting for players..." : "Start Game"}
+                  {isStarting ? "Starting..." : players.length < 2 ? "Need at least 2 players" : "Start Game"}
                 </Button>
-
-                {players.length >= 2 && !allPlayersReady && (
-                  <p className="text-sm text-center text-muted-foreground">
-                    Waiting for all players to be ready
-                  </p>
-                )}
               </div>
             </motion.div>
           ) : (
