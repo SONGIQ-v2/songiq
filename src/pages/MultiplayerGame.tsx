@@ -363,10 +363,10 @@ export default function MultiplayerGame() {
 
   // Main game screen
   return (
-    <div className="min-h-screen bg-background relative overflow-hidden">
+    <div className="min-h-screen bg-background relative overflow-auto">
       <Starfield />
 
-      <div className="relative z-10 flex flex-col lg:flex-row h-screen">
+      <div className="relative z-10 flex flex-col lg:flex-row min-h-screen">
         {/* Main Game Area */}
         <div className="flex-1 flex flex-col">
           {/* Header */}
