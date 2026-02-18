@@ -242,6 +242,24 @@ export default function RoomLobby() {
 
       <main className="relative z-10 pt-24 pb-12 px-4">
         <div className="max-w-2xl mx-auto">
+          {/* Waiting message for non-host */}
+          {!isHost && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-center mb-6"
+            >
+              <p className="text-sm text-muted-foreground flex items-center justify-center gap-1">
+                ⏳ Waiting for host to start the game
+                <span className="inline-flex">
+                  <span className="animate-[bounce_1.4s_infinite_0ms] text-lg">.</span>
+                  <span className="animate-[bounce_1.4s_infinite_200ms] text-lg">.</span>
+                  <span className="animate-[bounce_1.4s_infinite_400ms] text-lg">.</span>
+                </span>
+              </p>
+            </motion.div>
+          )}
+
           {/* Room Code Card */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -380,18 +398,7 @@ export default function RoomLobby() {
                 )}
               </div>
             </motion.div>
-          ) : (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="text-center mb-6"
-            >
-              <p className="text-sm text-muted-foreground">
-                ⏳ Waiting for host to start the game...
-              </p>
-            </motion.div>
-          )}
+          ) : null}
 
         </div>
       </main>
