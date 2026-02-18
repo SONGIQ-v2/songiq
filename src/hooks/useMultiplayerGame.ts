@@ -47,7 +47,9 @@ export interface RoundData {
 }
 
 const ROUND_TIME = 20000; // 20 seconds per round
-const BETWEEN_ROUNDS_TIME = 4000; // 4 seconds between rounds
+const BETWEEN_ROUNDS_TIME = 10000; // 10 seconds between rounds
+const QUESTION_TYPES = ["Guess the Artist", "Guess the Song"] as const;
+type QuestionType = typeof QUESTION_TYPES[number];
 
 export function useMultiplayerGame(roomCode: string) {
   const { playerId, isHost, setRoom: setStoreRoom, initializeAuth, isInitialized } = useGameStore();
@@ -70,6 +72,7 @@ export function useMultiplayerGame(roomCode: string) {
   const [roundStartTime, setRoundStartTime] = useState<number>(0);
   const [tracks, setTracks] = useState<AppleMusicTrack[]>([]);
   const [betweenRoundsCountdown, setBetweenRoundsCountdown] = useState(0);
+  const [nextQuestionType, setNextQuestionType] = useState<QuestionType>("Guess the Artist");
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const betweenRoundsRef = useRef<NodeJS.Timeout | null>(null);
@@ -498,8 +501,9 @@ export function useMultiplayerGame(roomCode: string) {
     submitEmptyAnswer();
     
     // All players go to between_rounds
-    setGameStatus("between_rounds");
-    setBetweenRoundsCountdown(4);
+      setGameStatus("between_rounds");
+      setNextQuestionType(QUESTION_TYPES[Math.floor(Math.random() * QUESTION_TYPES.length)]);
+      setBetweenRoundsCountdown(10);
   }, [timeLeft, currentRound?.id, room?.id, hasAnswered, playerId, isHost, roundNumber, gameStatus]);
 
   // Check if all players have answered → skip to next round early
@@ -517,14 +521,15 @@ export function useMultiplayerGame(roomCode: string) {
       setTimeLeft(0);
 
       setGameStatus("between_rounds");
-      setBetweenRoundsCountdown(4);
+      setNextQuestionType(QUESTION_TYPES[Math.floor(Math.random() * QUESTION_TYPES.length)]);
+      setBetweenRoundsCountdown(10);
     }
   }, [players, gameStatus, currentRound?.id, room?.id]);
   useEffect(() => {
     if (gameStatus !== "between_rounds" || !isHost || !room) return;
 
     console.log("Host starting between rounds countdown, roundNumber:", roundNumber);
-    let countdown = 4;
+    let countdown = 10;
 
     betweenRoundsRef.current = setInterval(async () => {
       countdown -= 1;
@@ -785,6 +790,7 @@ export function useMultiplayerGame(roomCode: string) {
     selectedAnswer,
     isCorrect,
     betweenRoundsCountdown,
+    nextQuestionType,
     startGame,
     submitAnswer,
     toggleReady,

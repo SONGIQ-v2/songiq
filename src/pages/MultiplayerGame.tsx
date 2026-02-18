@@ -52,6 +52,7 @@ export default function MultiplayerGame() {
     selectedAnswer,
     isCorrect,
     betweenRoundsCountdown,
+    nextQuestionType,
     submitAnswer,
     leaveRoom,
     playerId,
@@ -336,8 +337,28 @@ export default function MultiplayerGame() {
               </div>
             )}
 
-            <div className="text-6xl font-bold text-primary mb-2">{betweenRoundsCountdown}</div>
-            <p className="text-muted-foreground">Next round starting...</p>
+            <div className="relative w-24 h-24 mx-auto mb-4">
+              <svg className="w-24 h-24 -rotate-90" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="45" fill="none" stroke="hsl(var(--muted))" strokeWidth="6" />
+                <circle
+                  cx="50" cy="50" r="45" fill="none"
+                  stroke="hsl(var(--primary))"
+                  strokeWidth="6"
+                  strokeLinecap="round"
+                  strokeDasharray={`${2 * Math.PI * 45}`}
+                  strokeDashoffset={`${2 * Math.PI * 45 * (1 - betweenRoundsCountdown / 10)}`}
+                  className="transition-all duration-1000 ease-linear"
+                />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-3xl font-bold text-primary">{betweenRoundsCountdown}</span>
+              </div>
+            </div>
+
+            <h3 className="text-2xl font-bold text-gold mb-1">Up Next</h3>
+            <p className="text-lg text-foreground/80 font-semibold">
+              {nextQuestionType === "Guess the Artist" ? "🎤 Guess the Artist" : "🎵 Guess the Song"}
+            </p>
           </motion.div>
 
           {/* Leaderboard */}
