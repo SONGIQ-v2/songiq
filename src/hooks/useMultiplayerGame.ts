@@ -502,7 +502,24 @@ export function useMultiplayerGame(roomCode: string) {
     setBetweenRoundsCountdown(4);
   }, [timeLeft, currentRound?.id, room?.id, hasAnswered, playerId, isHost, roundNumber, gameStatus]);
 
-  // Between rounds countdown - separate effect to avoid stale closures
+  // Check if all players have answered → skip to next round early
+  useEffect(() => {
+    if (gameStatus !== "playing" || !currentRound || !room || players.length < 2) return;
+    if (timeUpHandledRef.current === currentRound.id) return; // Already transitioning
+
+    const allAnswered = players.every((p) => p.hasAnswered);
+    if (allAnswered) {
+      console.log("All players answered! Skipping to next round early.");
+      timeUpHandledRef.current = currentRound.id;
+
+      // Clear the timer
+      if (timerRef.current) clearInterval(timerRef.current);
+      setTimeLeft(0);
+
+      setGameStatus("between_rounds");
+      setBetweenRoundsCountdown(4);
+    }
+  }, [players, gameStatus, currentRound?.id, room?.id]);
   useEffect(() => {
     if (gameStatus !== "between_rounds" || !isHost || !room) return;
 
