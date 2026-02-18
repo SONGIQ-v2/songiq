@@ -20,7 +20,16 @@ const Multiplayer = () => {
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const { playerId, isInitialized, initializeAuth, setPlayer, setRoom } = useGameStore();
 
-  // Initialize anonymous auth on mount
+  const getUsernameCookie = () => {
+    const match = document.cookie.match(/(?:^|; )songiq_username=([^;]*)/);
+    return match ? decodeURIComponent(match[1]) : "";
+  };
+  const setUsernameCookie = (name: string) => {
+    const maxAge = 365 * 24 * 60 * 60;
+    document.cookie = `songiq_username=${encodeURIComponent(name)}; path=/; max-age=${maxAge}; SameSite=Lax`;
+  };
+
+  // Initialize anonymous auth and load saved name
   useEffect(() => {
     const init = async () => {
       setIsAuthLoading(true);
@@ -28,6 +37,8 @@ const Multiplayer = () => {
       setIsAuthLoading(false);
     };
     init();
+    const saved = getUsernameCookie();
+    if (saved) setPlayerName(saved);
   }, [initializeAuth]);
 
   const handleCreateRoom = async () => {
@@ -68,6 +79,7 @@ const Multiplayer = () => {
 
       setPlayer(playerName, 1);
       setRoom(room.id, code, true);
+      setUsernameCookie(playerName);
       navigate(`/room/${code}`);
     } catch (error) {
       console.error("Error creating room:", error);
@@ -125,6 +137,7 @@ const Multiplayer = () => {
 
       setPlayer(playerName, 1);
       setRoom(room.id, roomCode.toUpperCase(), false);
+      setUsernameCookie(playerName);
       navigate(`/room/${roomCode.toUpperCase()}`);
     } catch (error) {
       console.error("Error joining room:", error);

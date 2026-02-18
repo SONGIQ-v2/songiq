@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Copy, Check, Users, Play, Crown, LogOut, Loader2 } from "lucide-react";
+import { Copy, Check, Users, Play, Crown, LogOut, Loader2, UserCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Starfield } from "@/components/Starfield";
 import { Button } from "@/components/ui/button";
@@ -47,8 +47,10 @@ export default function RoomLobby() {
   const [showNameModal, setShowNameModal] = useState(false);
   const [joinName, setJoinName] = useState("");
   const [isJoiningRoom, setIsJoiningRoom] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [editName, setEditName] = useState("");
 
-  const { initializeAuth, setPlayer, setRoom: setStoreRoom } = useGameStore();
+  const { initializeAuth, setPlayer, setRoom: setStoreRoom, playerName } = useGameStore();
 
   const {
     room,
@@ -63,6 +65,22 @@ export default function RoomLobby() {
     playerId,
   } = useMultiplayerGame(code || "");
 
+  // Helper: get/set username cookie
+  const getUsernameCookie = () => {
+    const match = document.cookie.match(/(?:^|; )songiq_username=([^;]*)/);
+    return match ? decodeURIComponent(match[1]) : "";
+  };
+  const setUsernameCookie = (name: string) => {
+    const maxAge = 365 * 24 * 60 * 60; // 1 year
+    document.cookie = `songiq_username=${encodeURIComponent(name)}; path=/; max-age=${maxAge}; SameSite=Lax`;
+  };
+
+  // Pre-fill join name from cookie
+  useEffect(() => {
+    const saved = getUsernameCookie();
+    if (saved) setJoinName(saved);
+  }, []);
+
   // Show name modal if player is not in the room yet
   useEffect(() => {
     if (!loading && room && playerId && players.length > 0) {
@@ -71,7 +89,6 @@ export default function RoomLobby() {
         setShowNameModal(true);
       }
     } else if (!loading && room && playerId && players.length === 0) {
-      // Room exists but no players loaded yet — could be a new joiner
       setShowNameModal(true);
     }
   }, [loading, room, playerId, players]);
@@ -102,6 +119,7 @@ export default function RoomLobby() {
 
       setPlayer(joinName.trim(), 1);
       setStoreRoom(room.id, room.room_code, false);
+      setUsernameCookie(joinName.trim());
       setShowNameModal(false);
     } catch (err) {
       console.error("Error joining room:", err);
@@ -136,6 +154,24 @@ export default function RoomLobby() {
   const handleLeaveRoom = async () => {
     await leaveRoom();
     navigate("/multiplayer");
+  };
+
+  const handleUpdateName = async () => {
+    const newName = editName.trim();
+    if (!newName || !room || !playerId) return;
+    try {
+      await supabase
+        .from("room_players")
+        .update({ player_name: newName })
+        .eq("room_id", room.id)
+        .eq("player_id", playerId);
+      setPlayer(newName, currentPlayer?.avatar_index ?? 1);
+      setUsernameCookie(newName);
+      setShowProfileModal(false);
+      toast.success("Name updated!");
+    } catch {
+      toast.error("Failed to update name");
+    }
   };
 
   if (loading) {
@@ -236,7 +272,17 @@ export default function RoomLobby() {
             <span className="font-display text-2xl md:text-3xl tracking-tight text-primary">IQ</span>
           </Link>
 
-          <div className="w-[72px]" /> {/* Spacer to balance layout */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => {
+              setEditName(currentPlayer?.player_name || playerName || "");
+              setShowProfileModal(true);
+            }}
+            className="text-foreground/70 hover:text-foreground"
+          >
+            <UserCircle className="w-6 h-6" />
+          </Button>
         </div>
       </header>
 
@@ -402,6 +448,36 @@ export default function RoomLobby() {
 
         </div>
       </main>
+
+      {/* Profile / Change Name Modal */}
+      <Dialog open={showProfileModal} onOpenChange={setShowProfileModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Profile</DialogTitle>
+            <DialogDescription>Change your display name</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <Input
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              placeholder="Your nickname"
+              maxLength={20}
+              className="text-center text-lg"
+              onKeyDown={(e) => e.key === "Enter" && handleUpdateName()}
+              autoFocus
+            />
+            <Button
+              variant="gold"
+              size="lg"
+              className="w-full"
+              onClick={handleUpdateName}
+              disabled={!editName.trim()}
+            >
+              Save
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
