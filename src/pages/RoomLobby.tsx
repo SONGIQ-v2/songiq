@@ -75,6 +75,13 @@ export default function RoomLobby() {
     document.cookie = `songiq_username=${encodeURIComponent(name)}; path=/; max-age=${maxAge}; SameSite=Lax`;
   };
 
+  // Sync selectedCategory from room data (for guests getting real-time updates)
+  useEffect(() => {
+    if (room?.category) {
+      setSelectedCategory(room.category);
+    }
+  }, [room?.category]);
+
   // Pre-fill join name from cookie
   useEffect(() => {
     const saved = getUsernameCookie();
@@ -408,10 +415,15 @@ export default function RoomLobby() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium mb-2">Category</label>
-                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
+                  <Select value={selectedCategory} onValueChange={async (val) => {
+                    setSelectedCategory(val);
+                    if (room) {
+                      await supabase.from("game_rooms").update({ category: val }).eq("id", room.id);
+                    }
+                  }}>
+                     <SelectTrigger>
+                       <SelectValue />
+                     </SelectTrigger>
                     <SelectContent>
                       {PLAYLISTS.map((playlist) => (
                         <SelectItem key={playlist.id} value={playlist.id}>
@@ -440,7 +452,19 @@ export default function RoomLobby() {
                 )}
               </div>
             </motion.div>
-          ) : null}
+          ) : (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="game-card mb-6 text-center"
+            >
+              <p className="text-sm text-muted-foreground mb-1">Category</p>
+              <p className="text-lg font-bold text-foreground">
+                {PLAYLISTS.find((p) => p.id === selectedCategory)?.name || selectedCategory}
+              </p>
+            </motion.div>
+          )}
 
         </div>
       </main>
