@@ -49,6 +49,15 @@ export default function RoomLobby() {
   const [editName, setEditName] = useState("");
   const [playlistImages, setPlaylistImages] = useState<Record<string, string>>({});
   const categoryScrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(true);
+
+  const updateScrollArrows = () => {
+    const el = categoryScrollRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 0);
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
+  };
 
   const { getPlaylistTracks } = useAppleMusic();
 
@@ -444,13 +453,15 @@ export default function RoomLobby() {
                     Category
                   </label>
                   <div className="relative">
-                    <button
-                      onClick={() => categoryScrollRef.current?.scrollBy({ left: -140, behavior: 'smooth' })}
-                      className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-background/80 backdrop-blur border border-border flex items-center justify-center text-foreground/70 hover:text-foreground hover:bg-background transition-colors"
-                    >
-                      <ChevronLeft className="w-4 h-4" />
-                    </button>
-                    <div ref={categoryScrollRef} className="flex gap-3 overflow-x-auto pb-2 px-10 scrollbar-hide">
+                    {canScrollLeft && (
+                      <button
+                        onClick={() => { categoryScrollRef.current?.scrollBy({ left: -140, behavior: 'smooth' }); }}
+                        className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-background/80 backdrop-blur border border-border flex items-center justify-center text-foreground/70 hover:text-foreground hover:bg-background transition-colors"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                    )}
+                    <div ref={categoryScrollRef} onScroll={updateScrollArrows} className="flex gap-3 overflow-x-auto pb-2 px-10 scrollbar-hide">
                       {PLAYLISTS.map((playlist) => (
                         <div key={playlist.id} className="flex-shrink-0 w-32">
                           <PlaylistCard
@@ -467,12 +478,14 @@ export default function RoomLobby() {
                         </div>
                       ))}
                     </div>
-                    <button
-                      onClick={() => categoryScrollRef.current?.scrollBy({ left: 140, behavior: 'smooth' })}
-                      className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-background/80 backdrop-blur border border-border flex items-center justify-center text-foreground/70 hover:text-foreground hover:bg-background transition-colors"
-                    >
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
+                    {canScrollRight && (
+                      <button
+                        onClick={() => { categoryScrollRef.current?.scrollBy({ left: 140, behavior: 'smooth' }); }}
+                        className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-background/80 backdrop-blur border border-border flex items-center justify-center text-foreground/70 hover:text-foreground hover:bg-background transition-colors"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
 
