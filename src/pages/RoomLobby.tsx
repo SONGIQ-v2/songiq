@@ -346,7 +346,11 @@ export default function RoomLobby() {
 
             <div className="grid grid-cols-4 gap-4">
               <AnimatePresence mode="popLayout">
-                {players.map((player) => (
+                {[...players].sort((a, b) => {
+                  if (a.is_host) return -1;
+                  if (b.is_host) return 1;
+                  return 0;
+                }).map((player) => (
                   <motion.div
                     key={player.player_id}
                     layout
