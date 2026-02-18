@@ -361,16 +361,10 @@ export default function RoomLobby() {
                       isHost={player.is_host}
                       size="md"
                     />
-                    {/* Ready indicator */}
-                    {!player.is_host && (
-                      <div
-                        className={`absolute -bottom-1 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-xs font-medium ${
-                          player.is_ready
-                            ? "bg-green-500/20 text-green-400"
-                            : "bg-muted text-muted-foreground"
-                        }`}
-                      >
-                        {player.is_ready ? "Ready" : "Not Ready"}
+                    {/* Ready indicator - only show when ready */}
+                    {!player.is_host && player.is_ready && (
+                      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-xs font-medium bg-green-500/20 text-green-400">
+                        Ready
                       </div>
                     )}
                     {player.player_id === playerId && (
