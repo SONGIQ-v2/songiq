@@ -45,16 +45,18 @@ export const PlayerAvatar = ({
       initial={{ scale: 0.9, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
     >
-      {/* Crown for host */}
-      {isHost && (
-        <motion.div
-          initial={{ y: 5, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          className="text-primary"
-        >
-          <Crown className="w-5 h-5 fill-current" />
-        </motion.div>
-      )}
+      {/* Crown for host - always reserve space */}
+      <div className="h-5">
+        {isHost && (
+          <motion.div
+            initial={{ y: 5, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            className="text-primary"
+          >
+            <Crown className="w-5 h-5 fill-current" />
+          </motion.div>
+        )}
+      </div>
 
       {/* Avatar */}
       <div
