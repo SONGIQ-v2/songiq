@@ -57,9 +57,10 @@ export default function RoomLobby() {
 
   const handleCopyCode = async () => {
     if (!room) return;
-    await navigator.clipboard.writeText(room.room_code);
+    const shareUrl = `${window.location.origin}/room/${room.room_code}`;
+    await navigator.clipboard.writeText(shareUrl);
     setCopied(true);
-    toast.success("Room code copied!");
+    toast.success("Room link copied!");
     setTimeout(() => setCopied(false), 2000);
   };
 
