@@ -525,54 +525,51 @@ export function useMultiplayerGame(roomCode: string) {
       setBetweenRoundsCountdown(5);
     }
   }, [players, gameStatus, currentRound?.id, room?.id]);
-  // Host: countdown + trigger next round
+  // All players: visual countdown
   useEffect(() => {
-    if (gameStatus !== "between_rounds" || !isHost || !room) return;
+    if (gameStatus !== "between_rounds") return;
 
-    console.log("Host starting between rounds countdown, roundNumber:", roundNumber);
+    console.log("Starting between rounds countdown for all players");
     let countdown = 5;
 
-    betweenRoundsRef.current = setInterval(async () => {
-      countdown -= 1;
-      setBetweenRoundsCountdown(countdown);
+    if (betweenRoundsRef.current) clearInterval(betweenRoundsRef.current);
 
+    betweenRoundsRef.current = setInterval(() => {
+      countdown -= 1;
+      setBetweenRoundsCountdown(Math.max(countdown, 0));
       if (countdown <= 0) {
         if (betweenRoundsRef.current) clearInterval(betweenRoundsRef.current);
-
-        const currentTracks = tracksRef.current;
-        const totalRounds = room.total_rounds || 10;
-
-        if (roundNumber >= totalRounds) {
-          console.log("Game ending");
-          endGameRef.current?.();
-        } else if (currentTracks.length > 0) {
-          console.log("Starting next round:", roundNumber + 1, "tracks available:", currentTracks.length);
-          await createRoundRef.current?.(currentTracks, roundNumber + 1);
-        } else {
-          console.error("No tracks available for next round!");
-          toast.error("Failed to load next round - no tracks");
-        }
       }
     }, 1000);
 
     return () => {
       if (betweenRoundsRef.current) clearInterval(betweenRoundsRef.current);
     };
-  }, [gameStatus, isHost, room?.id, roundNumber]);
+  }, [gameStatus]);
 
-  // Non-host: local visual countdown only
+  // Host only: trigger next round after countdown ends
   useEffect(() => {
-    if (gameStatus !== "between_rounds" || isHost) return;
+    if (gameStatus !== "between_rounds" || !isHost || !room) return;
+    if (betweenRoundsCountdown > 0) return;
 
-    let countdown = 5;
-    const interval = setInterval(() => {
-      countdown -= 1;
-      setBetweenRoundsCountdown(Math.max(countdown, 0));
-      if (countdown <= 0) clearInterval(interval);
-    }, 1000);
+    const triggerNext = async () => {
+      const currentTracks = tracksRef.current;
+      const totalRounds = room.total_rounds || 10;
 
-    return () => clearInterval(interval);
-  }, [gameStatus, isHost]);
+      if (roundNumber >= totalRounds) {
+        console.log("Game ending");
+        endGameRef.current?.();
+      } else if (currentTracks.length > 0) {
+        console.log("Starting next round:", roundNumber + 1, "tracks available:", currentTracks.length);
+        await createRoundRef.current?.(currentTracks, roundNumber + 1);
+      } else {
+        console.error("No tracks available for next round!");
+        toast.error("Failed to load next round - no tracks");
+      }
+    };
+
+    triggerNext();
+  }, [betweenRoundsCountdown, gameStatus, isHost, room?.id, roundNumber]);
 
   // Submit answer
   const submitAnswer = useCallback(async (answer: string) => {
