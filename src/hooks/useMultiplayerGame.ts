@@ -293,28 +293,35 @@ export function useMultiplayerGame(roomCode: string) {
             round.options = JSON.parse(round.options);
           }
           
-          // Reset time up handled ref for new round
-          timeUpHandledRef.current = null;
-          
-          // Reset state for new round
-          setHasAnswered(false);
-          setSelectedAnswer(null);
-          setIsCorrect(null);
-          
-          // Reset player round scores
-          setPlayers((prev) => prev.map((p) => ({ ...p, roundScore: 0, hasAnswered: false })));
-          
-          // Set round data - this triggers audio playback
           const qType: QuestionType = round.question_type === 'song' ? "Guess the Song" : "Guess the Artist";
-          setRoundNumber(round.round_number);
-          setTimeLeft(ROUND_TIME);
-          setRoundStartTime(Date.now());
-          setCurrentRound(round);
-          setCurrentQuestionType(qType);
+          
+          // Always update the hint for the overlay
           setNextQuestionType(qType);
           
-          // Ensure game status is playing
-          setGameStatus("playing");
+          // If we're in between_rounds, just store the round data but don't start playing yet
+          // The countdown will handle the transition
+          setCurrentRound(round);
+          setRoundNumber(round.round_number);
+          setCurrentQuestionType(qType);
+          
+          // Only transition to playing if we're NOT in the between-rounds countdown
+          setGameStatus((prev) => {
+            if (prev === "between_rounds") {
+              console.log("[Realtime] Round pre-loaded during countdown, staying in between_rounds");
+              return prev; // Stay in between_rounds, countdown will handle transition
+            }
+            
+            // Reset state for new round
+            timeUpHandledRef.current = null;
+            setHasAnswered(false);
+            setSelectedAnswer(null);
+            setIsCorrect(null);
+            setPlayers((prevPlayers) => prevPlayers.map((p) => ({ ...p, roundScore: 0, hasAnswered: false })));
+            setTimeLeft(ROUND_TIME);
+            setRoundStartTime(Date.now());
+            
+            return "playing";
+          });
           
           console.log("[Realtime] Round state updated, question_type:", round.question_type, "preview_url:", round.preview_url);
         }
@@ -574,8 +581,7 @@ export function useMultiplayerGame(roomCode: string) {
 
     return () => clearInterval(pollAnswers);
   }, [gameStatus, currentRound?.id, room?.id, players.length]);
-  // All players: unified 5s countdown, host triggers next round at end
-  // All players: unified 5s countdown, host triggers next round at end
+  // All players: unified 5s countdown, host pre-creates next round immediately
   useEffect(() => {
     if (gameStatus !== "between_rounds") {
       countdownActiveRef.current = false;
@@ -585,6 +591,22 @@ export function useMultiplayerGame(roomCode: string) {
     countdownActiveRef.current = true;
 
     console.log("Starting 5s between-rounds countdown for all players, isHost:", isHost);
+
+    // Host pre-creates the next round immediately so question type is known for overlay
+    if (isHost && room) {
+      const currentTracks = tracksRef.current;
+      const totalRounds = room.total_rounds || 10;
+
+      if (roundNumber >= totalRounds) {
+        console.log("Last round complete, game will end after countdown");
+      } else if (currentTracks.length > 0) {
+        console.log("Pre-creating next round:", roundNumber + 1);
+        createRoundRef.current?.(currentTracks, roundNumber + 1);
+      } else {
+        console.error("No tracks available for next round!");
+        toast.error("Failed to load next round - no tracks");
+      }
+    }
 
     if (betweenRoundsRef.current) clearInterval(betweenRoundsRef.current);
 
@@ -599,22 +621,25 @@ export function useMultiplayerGame(roomCode: string) {
         if (betweenRoundsRef.current) clearInterval(betweenRoundsRef.current);
         countdownActiveRef.current = false;
 
-        // Only the host triggers the next round
+        // If last round, end the game after countdown
         if (isHost && room) {
-          const currentTracks = tracksRef.current;
           const totalRounds = room.total_rounds || 10;
-
           if (roundNumber >= totalRounds) {
             console.log("Game ending");
             endGameRef.current?.();
-          } else if (currentTracks.length > 0) {
-            console.log("Starting next round:", roundNumber + 1);
-            await createRoundRef.current?.(currentTracks, roundNumber + 1);
-          } else {
-            console.error("No tracks available for next round!");
-            toast.error("Failed to load next round - no tracks");
+            return;
           }
         }
+
+        // Transition to playing - reset round state
+        timeUpHandledRef.current = null;
+        setHasAnswered(false);
+        setSelectedAnswer(null);
+        setIsCorrect(null);
+        setPlayers((prev) => prev.map((p) => ({ ...p, roundScore: 0, hasAnswered: false })));
+        setTimeLeft(ROUND_TIME);
+        setRoundStartTime(Date.now());
+        setGameStatus("playing");
       }
     }, 1000);
 
