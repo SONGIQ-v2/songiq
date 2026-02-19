@@ -56,6 +56,8 @@ export default function MultiplayerGame() {
     currentQuestionType,
     submitAnswer,
     leaveRoom,
+    playAgain,
+    isHost: isHostPlayer,
     playerId,
     ROUND_TIME,
   } = useMultiplayerGame(code || "");
@@ -230,6 +232,12 @@ export default function MultiplayerGame() {
       resetActivityTimer(); // Reset on answer
     }
   };
+  // Redirect to lobby when room resets to waiting (Play Again)
+  useEffect(() => {
+    if (room?.status === "waiting") {
+      navigate(`/room/${code}`);
+    }
+  }, [room?.status, code, navigate]);
 
   // Loading state
   if (loading) {
@@ -301,7 +309,10 @@ export default function MultiplayerGame() {
             <Leaderboard players={players} currentPlayerId={playerId} compact />
           </div>
 
-          <Button variant="gold" size="lg" className="w-full" onClick={() => navigate("/multiplayer")}>
+          <Button variant="gold" size="lg" className="w-full" onClick={async () => {
+            await playAgain();
+            navigate(`/room/${code}`);
+          }}>
             Play Again
           </Button>
         </motion.div>
