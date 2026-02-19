@@ -30,6 +30,7 @@ export interface RoomData {
   current_round: number;
   total_rounds: number;
   max_players: number;
+  time_per_round: number;
 }
 
 export interface RoundData {
@@ -46,7 +47,7 @@ export interface RoundData {
   artwork_url?: string;
 }
 
-const ROUND_TIME = 20000; // 20 seconds per round
+const DEFAULT_ROUND_TIME = 20000; // fallback 20 seconds per round
 const BETWEEN_ROUNDS_TIME = 5000; // 5 seconds between rounds
 const QUESTION_TYPES = ["Guess the Artist", "Guess the Song"] as const;
 type QuestionType = typeof QUESTION_TYPES[number];
@@ -61,11 +62,14 @@ export function useMultiplayerGame(roomCode: string) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Compute ROUND_TIME from room settings (time_per_round is in seconds)
+  const ROUND_TIME = room ? room.time_per_round * 1000 : DEFAULT_ROUND_TIME;
+
   // Game state
   const [gameStatus, setGameStatus] = useState<"waiting" | "playing" | "between_rounds" | "results">("waiting");
   const [currentRound, setCurrentRound] = useState<RoundData | null>(null);
   const [roundNumber, setRoundNumber] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(ROUND_TIME);
+  const [timeLeft, setTimeLeft] = useState(DEFAULT_ROUND_TIME);
   const [hasAnswered, setHasAnswered] = useState(false);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
