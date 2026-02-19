@@ -381,7 +381,7 @@ export default function MultiplayerGame() {
                   transition={{ delay: 0.4 }}
                   className="text-xl text-foreground/80 font-semibold"
                 >
-                  {nextQuestionType === "Guess the Artist" ? "🎤 Guess the Artist" : "🎵 Guess the Song"}
+                  Round {roundNumber + 1}
                 </motion.p>
               </motion.div>
             )}
