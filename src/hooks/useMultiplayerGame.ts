@@ -526,6 +526,47 @@ export function useMultiplayerGame(roomCode: string) {
       setBetweenRoundsCountdown(5);
     }
   }, [players, gameStatus, currentRound?.id, room?.id]);
+
+  // Poll for all-answered as fallback (in case realtime misses an event)
+  useEffect(() => {
+    if (gameStatus !== "playing" || !currentRound || !room || players.length < 2) return;
+    if (timeUpHandledRef.current === currentRound.id) return;
+
+    const pollAnswers = setInterval(async () => {
+      if (timeUpHandledRef.current === currentRound.id) {
+        clearInterval(pollAnswers);
+        return;
+      }
+
+      const { data: answers } = await supabase
+        .from("player_answers")
+        .select("player_id")
+        .eq("round_id", currentRound.id);
+
+      if (answers && answers.length >= players.length) {
+        console.log("[Poll] All players answered! Skipping to next round.");
+        timeUpHandledRef.current = currentRound.id;
+        clearInterval(pollAnswers);
+
+        // Update player hasAnswered flags
+        setPlayers((prev) =>
+          prev.map((p) => ({
+            ...p,
+            hasAnswered: answers.some((a) => a.player_id === p.player_id) || p.hasAnswered,
+          }))
+        );
+
+        if (timerRef.current) clearInterval(timerRef.current);
+        setTimeLeft(0);
+
+        setGameStatus("between_rounds");
+        setNextQuestionType(QUESTION_TYPES[Math.floor(Math.random() * QUESTION_TYPES.length)]);
+        setBetweenRoundsCountdown(5);
+      }
+    }, 1500);
+
+    return () => clearInterval(pollAnswers);
+  }, [gameStatus, currentRound?.id, room?.id, players.length]);
   // All players: unified 5s countdown, host triggers next round at end
   const countdownActiveRef = useRef(false);
   useEffect(() => {
