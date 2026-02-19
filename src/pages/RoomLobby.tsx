@@ -74,6 +74,7 @@ export default function RoomLobby() {
     leaveRoom,
     isHost,
     playerId,
+    isTerminated,
   } = useMultiplayerGame(code || "");
 
   // Helper: get/set username cookie
@@ -169,6 +170,14 @@ export default function RoomLobby() {
       navigate(`/room/${code}/game`);
     }
   }, [gameStatus, room, code, navigate]);
+
+  // Redirect home when host terminates the room
+  useEffect(() => {
+    if (isTerminated) {
+      toast.error("The host has closed the room");
+      navigate("/");
+    }
+  }, [isTerminated, navigate]);
 
   const handleCopyCode = async () => {
     if (!room) return;

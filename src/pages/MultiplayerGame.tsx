@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Volume2, VolumeX, Music2, Trophy, X, AlertTriangle } from "lucide-react";
+import { toast } from "sonner";
 import { Starfield } from "@/components/Starfield";
 import { RoundIndicator } from "@/components/RoundIndicator";
 import { AudioVisualizer } from "@/components/AudioVisualizer";
@@ -60,6 +61,7 @@ export default function MultiplayerGame() {
     isHost: isHostPlayer,
     playerId,
     ROUND_TIME,
+    isTerminated,
   } = useMultiplayerGame(code || "");
 
   const handleLeaveGame = useCallback(async () => {
@@ -238,6 +240,15 @@ export default function MultiplayerGame() {
       navigate(`/room/${code}`);
     }
   }, [room?.status, code, navigate]);
+
+  // Redirect home when host terminates the room
+  useEffect(() => {
+    if (isTerminated) {
+      if (audioRef.current) audioRef.current.pause();
+      toast.error("The host has left the game");
+      navigate("/");
+    }
+  }, [isTerminated, navigate]);
 
   // Loading state
   if (loading) {

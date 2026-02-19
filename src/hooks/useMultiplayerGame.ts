@@ -245,7 +245,13 @@ export function useMultiplayerGame(roomCode: string) {
         { event: "*", schema: "public", table: "game_rooms", filter: `id=eq.${room.id}` },
         (payload) => {
           console.log("[Realtime] Room update received:", payload.new);
-        if (payload.new) {
+        if (payload.eventType === "DELETE") {
+            // Room was deleted (host left) — signal termination
+            setRoom(null);
+            setGameStatus("terminated" as any);
+            return;
+          }
+          if (payload.new) {
             const newRoom = payload.new as RoomData;
             setRoom(newRoom);
             if (newRoom.status === "playing") {
@@ -362,6 +368,12 @@ export function useMultiplayerGame(roomCode: string) {
           .eq("id", room.id)
           .single();
 
+        if (!roomData) {
+          // Room was deleted (host left)
+          setRoom(null);
+          setGameStatus("terminated" as any);
+          return;
+        }
         if (roomData) {
           // Check for status changes
           if (roomData.status === "playing" && gameStatus === "waiting") {
@@ -928,12 +940,16 @@ export function useMultiplayerGame(roomCode: string) {
     };
   }, []);
 
+  // Expose terminated status
+  const isTerminated = gameStatus === ("terminated" as any);
+
   return {
     room,
     players,
     loading,
     error,
     gameStatus,
+    isTerminated,
     currentRound,
     roundNumber,
     timeLeft,
