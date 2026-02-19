@@ -45,6 +45,7 @@ export interface RoundData {
   started_at: string;
   ended_at: string | null;
   artwork_url?: string;
+  question_type?: string;
 }
 
 const DEFAULT_ROUND_TIME = 20000; // fallback 20 seconds per round
@@ -77,6 +78,7 @@ export function useMultiplayerGame(roomCode: string) {
   const [tracks, setTracks] = useState<AppleMusicTrack[]>([]);
   const [betweenRoundsCountdown, setBetweenRoundsCountdown] = useState(0);
   const [nextQuestionType, setNextQuestionType] = useState<QuestionType>("Guess the Artist");
+  const [currentQuestionType, setCurrentQuestionType] = useState<QuestionType>("Guess the Artist");
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const betweenRoundsRef = useRef<NodeJS.Timeout | null>(null);
@@ -201,7 +203,6 @@ export function useMultiplayerGame(roomCode: string) {
               setRoundStartTime(new Date(round.started_at).getTime());
               setTimeLeft(0);
               setGameStatus("between_rounds");
-              setNextQuestionType(QUESTION_TYPES[Math.floor(Math.random() * QUESTION_TYPES.length)]);
               setBetweenRoundsCountdown(5);
             }
           } else {
@@ -304,15 +305,18 @@ export function useMultiplayerGame(roomCode: string) {
           setPlayers((prev) => prev.map((p) => ({ ...p, roundScore: 0, hasAnswered: false })));
           
           // Set round data - this triggers audio playback
+          const qType: QuestionType = round.question_type === 'song' ? "Guess the Song" : "Guess the Artist";
           setRoundNumber(round.round_number);
           setTimeLeft(ROUND_TIME);
           setRoundStartTime(Date.now());
           setCurrentRound(round);
+          setCurrentQuestionType(qType);
+          setNextQuestionType(qType);
           
           // Ensure game status is playing
           setGameStatus("playing");
           
-          console.log("[Realtime] Round state updated, preview_url:", round.preview_url);
+          console.log("[Realtime] Round state updated, question_type:", round.question_type, "preview_url:", round.preview_url);
         }
       )
       .on(
@@ -401,6 +405,7 @@ export function useMultiplayerGame(roomCode: string) {
             setTimeLeft(remaining);
             setRoundStartTime(new Date(round.started_at).getTime());
             setCurrentRound(round);
+            setCurrentQuestionType(round.question_type === 'song' ? "Guess the Song" : "Guess the Artist");
             setGameStatus("playing");
           }
         }
@@ -508,7 +513,6 @@ export function useMultiplayerGame(roomCode: string) {
     
     // All players go to between_rounds
       setGameStatus("between_rounds");
-      setNextQuestionType(QUESTION_TYPES[Math.floor(Math.random() * QUESTION_TYPES.length)]);
       setBetweenRoundsCountdown(5);
   }, [timeLeft, currentRound?.id, room?.id, hasAnswered, playerId, isHost, roundNumber, gameStatus]);
 
@@ -527,7 +531,6 @@ export function useMultiplayerGame(roomCode: string) {
       setTimeLeft(0);
 
       setGameStatus("between_rounds");
-      setNextQuestionType(QUESTION_TYPES[Math.floor(Math.random() * QUESTION_TYPES.length)]);
       setBetweenRoundsCountdown(5);
     }
   }, [players, gameStatus, currentRound?.id, room?.id]);
@@ -565,7 +568,6 @@ export function useMultiplayerGame(roomCode: string) {
         setTimeLeft(0);
 
         setGameStatus("between_rounds");
-        setNextQuestionType(QUESTION_TYPES[Math.floor(Math.random() * QUESTION_TYPES.length)]);
         setBetweenRoundsCountdown(5);
       }
     }, 1500);
@@ -626,7 +628,9 @@ export function useMultiplayerGame(roomCode: string) {
   const submitAnswer = useCallback(async (answer: string) => {
     if (hasAnswered || !currentRound || !room || !playerId) return;
 
-    const correct = answer === currentRound.artist_name;
+    const correct = currentQuestionType === "Guess the Song"
+      ? answer === currentRound.track_name
+      : answer === currentRound.artist_name;
     const answerTime = Date.now() - roundStartTime;
     const points = calculatePoints(correct, answerTime, ROUND_TIME);
 
@@ -707,15 +711,29 @@ export function useMultiplayerGame(roomCode: string) {
       return;
     }
 
-    // Generate options
-    const otherArtists = availableTracks
-      .filter((t) => t.trackId !== track.trackId && t.artistName !== track.artistName)
-      .map((t) => t.artistName)
-      .filter((a, i, arr) => arr.indexOf(a) === i)
-      .sort(() => Math.random() - 0.5)
-      .slice(0, 3);
+    // Randomly pick question type for this round
+    const questionType = QUESTION_TYPES[Math.floor(Math.random() * QUESTION_TYPES.length)];
+    const isGuessSong = questionType === "Guess the Song";
 
-    const options = [track.artistName, ...otherArtists].sort(() => Math.random() - 0.5);
+    // Generate options based on question type
+    let options: string[];
+    if (isGuessSong) {
+      const otherSongs = availableTracks
+        .filter((t) => t.trackId !== track.trackId && t.trackName !== track.trackName)
+        .map((t) => t.trackName)
+        .filter((s, i, arr) => arr.indexOf(s) === i)
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 3);
+      options = [track.trackName, ...otherSongs].sort(() => Math.random() - 0.5);
+    } else {
+      const otherArtists = availableTracks
+        .filter((t) => t.trackId !== track.trackId && t.artistName !== track.artistName)
+        .map((t) => t.artistName)
+        .filter((a, i, arr) => arr.indexOf(a) === i)
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 3);
+      options = [track.artistName, ...otherArtists].sort(() => Math.random() - 0.5);
+    }
 
     await supabase.from("game_rounds").insert({
       room_id: room.id,
@@ -726,6 +744,7 @@ export function useMultiplayerGame(roomCode: string) {
       preview_url: track.previewUrl,
       options: JSON.stringify(options),
       artwork_url: track.artworkUrl100?.replace('100x100', '600x600') || '',
+      question_type: isGuessSong ? 'song' : 'artist',
     });
 
     await supabase
@@ -854,6 +873,7 @@ export function useMultiplayerGame(roomCode: string) {
     isCorrect,
     betweenRoundsCountdown,
     nextQuestionType,
+    currentQuestionType,
     startGame,
     submitAnswer,
     toggleReady,
