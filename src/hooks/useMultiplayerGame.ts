@@ -47,7 +47,7 @@ export interface RoundData {
 }
 
 const ROUND_TIME = 20000; // 20 seconds per round
-const BETWEEN_ROUNDS_TIME = 10000; // 10 seconds between rounds
+const BETWEEN_ROUNDS_TIME = 5000; // 5 seconds between rounds
 const QUESTION_TYPES = ["Guess the Artist", "Guess the Song"] as const;
 type QuestionType = typeof QUESTION_TYPES[number];
 
@@ -503,7 +503,7 @@ export function useMultiplayerGame(roomCode: string) {
     // All players go to between_rounds
       setGameStatus("between_rounds");
       setNextQuestionType(QUESTION_TYPES[Math.floor(Math.random() * QUESTION_TYPES.length)]);
-      setBetweenRoundsCountdown(10);
+      setBetweenRoundsCountdown(5);
   }, [timeLeft, currentRound?.id, room?.id, hasAnswered, playerId, isHost, roundNumber, gameStatus]);
 
   // Check if all players have answered → skip to next round early
@@ -522,14 +522,14 @@ export function useMultiplayerGame(roomCode: string) {
 
       setGameStatus("between_rounds");
       setNextQuestionType(QUESTION_TYPES[Math.floor(Math.random() * QUESTION_TYPES.length)]);
-      setBetweenRoundsCountdown(10);
+      setBetweenRoundsCountdown(5);
     }
   }, [players, gameStatus, currentRound?.id, room?.id]);
   useEffect(() => {
     if (gameStatus !== "between_rounds" || !isHost || !room) return;
 
     console.log("Host starting between rounds countdown, roundNumber:", roundNumber);
-    let countdown = 10;
+    let countdown = 5;
 
     betweenRoundsRef.current = setInterval(async () => {
       countdown -= 1;

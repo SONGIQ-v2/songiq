@@ -337,29 +337,54 @@ export default function MultiplayerGame() {
               </div>
             )}
 
-            <div className="relative w-24 h-24 mx-auto mb-4">
-              <svg className="w-24 h-24 -rotate-90" viewBox="0 0 100 100">
-                <circle cx="50" cy="50" r="45" fill="none" stroke="hsl(var(--muted))" strokeWidth="6" />
-                <circle
-                  cx="50" cy="50" r="45" fill="none"
-                  stroke="hsl(var(--primary))"
-                  strokeWidth="6"
-                  strokeLinecap="round"
-                  strokeDasharray={`${2 * Math.PI * 45}`}
-                  strokeDashoffset={`${2 * Math.PI * 45 * (1 - betweenRoundsCountdown / 10)}`}
-                  className="transition-all duration-1000 ease-linear"
-                />
-              </svg>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-3xl font-bold text-primary">{betweenRoundsCountdown}</span>
-              </div>
-            </div>
-
-            <h3 className="text-2xl font-bold text-gold mb-1">Up Next</h3>
-            <p className="text-lg text-foreground/80 font-semibold">
-              {nextQuestionType === "Guess the Artist" ? "🎤 Guess the Artist" : "🎵 Guess the Song"}
-            </p>
           </motion.div>
+
+          {/* Up Next Overlay */}
+          <AnimatePresence>
+            {betweenRoundsCountdown > 0 && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center z-50"
+              >
+                <div className="relative w-28 h-28 mb-6">
+                  <svg className="w-28 h-28 -rotate-90" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="45" fill="none" stroke="hsl(var(--muted) / 0.3)" strokeWidth="5" />
+                    <circle
+                      cx="50" cy="50" r="45" fill="none"
+                      stroke="hsl(var(--primary))"
+                      strokeWidth="5"
+                      strokeLinecap="round"
+                      strokeDasharray={`${2 * Math.PI * 45}`}
+                      strokeDashoffset={`${2 * Math.PI * 45 * (1 - betweenRoundsCountdown / 5)}`}
+                      className="transition-all duration-1000 ease-linear"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-4xl font-bold text-primary">{betweenRoundsCountdown}</span>
+                  </div>
+                </div>
+
+                <motion.h3
+                  initial={{ y: 10, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 0.2 }}
+                  className="text-3xl font-bold text-gold mb-2"
+                >
+                  Up Next
+                </motion.h3>
+                <motion.p
+                  initial={{ y: 10, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 0.4 }}
+                  className="text-xl text-foreground/80 font-semibold"
+                >
+                  {nextQuestionType === "Guess the Artist" ? "🎤 Guess the Artist" : "🎵 Guess the Song"}
+                </motion.p>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Leaderboard */}
           <div className="lg:w-80">
