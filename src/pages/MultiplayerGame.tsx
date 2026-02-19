@@ -25,7 +25,7 @@ import { useMultiplayerGame } from "@/hooks/useMultiplayerGame";
 const INACTIVITY_WARNING_TIME = 30000; // 30 seconds
 const TERMINATION_COUNTDOWN = 10; // 10 seconds
 
-// Force HMR reset after hook count change
+// Force HMR reset v2 - hook order stabilized
 export default function MultiplayerGame() {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
