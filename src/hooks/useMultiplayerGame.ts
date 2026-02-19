@@ -823,18 +823,43 @@ export function useMultiplayerGame(roomCode: string) {
     if (!room || !playerId) return;
 
     if (isHost) {
-      // Host resets room status and scores
+      // Delete old answers first (references rounds)
       await supabase
-        .from("game_rooms")
-        .update({ status: "waiting", current_round: 0, started_at: null, finished_at: null })
-        .eq("id", room.id);
+        .from("player_answers")
+        .delete()
+        .eq("room_id", room.id);
+
+      // Delete old rounds
+      await supabase
+        .from("game_rounds")
+        .delete()
+        .eq("room_id", room.id);
 
       // Reset all player scores and ready status
       await supabase
         .from("room_players")
         .update({ score: 0, is_ready: false })
         .eq("room_id", room.id);
+
+      // Reset room status last (triggers realtime for other players)
+      await supabase
+        .from("game_rooms")
+        .update({ status: "waiting", current_round: 0, started_at: null, finished_at: null })
+        .eq("id", room.id);
     }
+
+    // Reset local game state
+    setGameStatus("waiting");
+    setCurrentRound(null);
+    setRoundNumber(0);
+    setTimeLeft(DEFAULT_ROUND_TIME);
+    setHasAnswered(false);
+    setSelectedAnswer(null);
+    setIsCorrect(null);
+    setTracks([]);
+    tracksRef.current = [];
+    timeUpHandledRef.current = null;
+    countdownActiveRef.current = false;
   }, [room, playerId, isHost]);
 
   // Leave room
