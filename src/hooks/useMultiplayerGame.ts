@@ -79,6 +79,7 @@ export function useMultiplayerGame(roomCode: string) {
   const tracksRef = useRef<AppleMusicTrack[]>([]);
   const createRoundRef = useRef<(tracks: AppleMusicTrack[], roundNum: number) => Promise<void>>();
   const endGameRef = useRef<() => Promise<void>>();
+  const countdownActiveRef = useRef(false);
   
   // Initialize auth on mount
   useEffect(() => {
@@ -568,7 +569,7 @@ export function useMultiplayerGame(roomCode: string) {
     return () => clearInterval(pollAnswers);
   }, [gameStatus, currentRound?.id, room?.id, players.length]);
   // All players: unified 5s countdown, host triggers next round at end
-  const countdownActiveRef = useRef(false);
+  // All players: unified 5s countdown, host triggers next round at end
   useEffect(() => {
     if (gameStatus !== "between_rounds") {
       countdownActiveRef.current = false;
