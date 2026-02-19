@@ -818,6 +818,25 @@ export function useMultiplayerGame(roomCode: string) {
       .eq("player_id", playerId);
   }, [room, playerId, players]);
 
+  // Play again - reset room to lobby state
+  const playAgain = useCallback(async () => {
+    if (!room || !playerId) return;
+
+    if (isHost) {
+      // Host resets room status and scores
+      await supabase
+        .from("game_rooms")
+        .update({ status: "waiting", current_round: 0, started_at: null, finished_at: null })
+        .eq("id", room.id);
+
+      // Reset all player scores and ready status
+      await supabase
+        .from("room_players")
+        .update({ score: 0, is_ready: false })
+        .eq("room_id", room.id);
+    }
+  }, [room, playerId, isHost]);
+
   // Leave room
   const leaveRoom = useCallback(async () => {
     if (!room || !playerId) return;
@@ -903,6 +922,7 @@ export function useMultiplayerGame(roomCode: string) {
     submitAnswer,
     toggleReady,
     leaveRoom,
+    playAgain,
     isHost,
     playerId,
     ROUND_TIME,
