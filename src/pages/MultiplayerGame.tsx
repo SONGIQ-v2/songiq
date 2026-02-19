@@ -384,8 +384,9 @@ export default function MultiplayerGame() {
                   transition={{ delay: 0.2 }}
                   className="text-3xl font-bold text-gold mb-2"
                 >
-                  Up Next
+                  {room && roundNumber >= room.total_rounds ? "Loading Results" : "Up Next"}
                 </motion.h3>
+                {room && roundNumber < room.total_rounds && (
                 <motion.p
                   initial={{ y: 10, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
@@ -394,6 +395,7 @@ export default function MultiplayerGame() {
                 >
                   {nextQuestionType === "Guess the Artist" ? "🎤 Guess the Artist" : "🎵 Guess the Song"}
                 </motion.p>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
