@@ -53,6 +53,7 @@ export default function MultiplayerGame() {
     isCorrect,
     betweenRoundsCountdown,
     nextQuestionType,
+    currentQuestionType,
     submitAnswer,
     leaveRoom,
     playerId,
@@ -534,10 +535,17 @@ export default function MultiplayerGame() {
               )}
             </AnimatePresence>
 
+            {/* Question type indicator */}
+            <div className="mb-4 text-center">
+              <span className="text-lg font-bold text-gold">
+                {currentQuestionType === "Guess the Song" ? "🎵 GUESS THE SONG" : "🎤 GUESS THE ARTIST"}
+              </span>
+            </div>
+
             {/* Answer options - 2x2 grid */}
             <div className="w-full max-w-2xl grid grid-cols-2 gap-3">
               {currentRound?.options.map((option, index) => {
-                const correctAnswer = currentRound.artist_name;
+                const correctAnswer = currentQuestionType === "Guess the Song" ? currentRound.track_name : currentRound.artist_name;
 
                 return (
                   <AnswerOption

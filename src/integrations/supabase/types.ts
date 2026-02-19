@@ -70,6 +70,7 @@ export type Database = {
           id: string
           options: Json
           preview_url: string
+          question_type: string
           room_id: string
           round_number: number
           started_at: string
@@ -83,6 +84,7 @@ export type Database = {
           id?: string
           options: Json
           preview_url: string
+          question_type?: string
           room_id: string
           round_number: number
           started_at?: string
@@ -96,6 +98,7 @@ export type Database = {
           id?: string
           options?: Json
           preview_url?: string
+          question_type?: string
           room_id?: string
           round_number?: number
           started_at?: string
