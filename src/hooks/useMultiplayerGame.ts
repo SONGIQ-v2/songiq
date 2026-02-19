@@ -525,6 +525,7 @@ export function useMultiplayerGame(roomCode: string) {
       setBetweenRoundsCountdown(5);
     }
   }, [players, gameStatus, currentRound?.id, room?.id]);
+  // Host: countdown + trigger next round
   useEffect(() => {
     if (gameStatus !== "between_rounds" || !isHost || !room) return;
 
@@ -558,6 +559,20 @@ export function useMultiplayerGame(roomCode: string) {
       if (betweenRoundsRef.current) clearInterval(betweenRoundsRef.current);
     };
   }, [gameStatus, isHost, room?.id, roundNumber]);
+
+  // Non-host: local visual countdown only
+  useEffect(() => {
+    if (gameStatus !== "between_rounds" || isHost) return;
+
+    let countdown = 5;
+    const interval = setInterval(() => {
+      countdown -= 1;
+      setBetweenRoundsCountdown(Math.max(countdown, 0));
+      if (countdown <= 0) clearInterval(interval);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [gameStatus, isHost]);
 
   // Submit answer
   const submitAnswer = useCallback(async (answer: string) => {
