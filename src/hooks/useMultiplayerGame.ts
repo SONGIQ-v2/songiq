@@ -699,13 +699,25 @@ export function useMultiplayerGame(roomCode: string) {
     }
   }, [hasAnswered, currentRound, room, playerId, roundStartTime, players]);
 
+  // Shuffle array helper
+  const shuffleArray = <T,>(arr: T[]): T[] => {
+    const shuffled = [...arr];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  };
+
   // Load tracks for the game
   const loadTracks = useCallback(async (category: string) => {
     const playlist = getPlaylistById(category) || PLAYLISTS[0];
     const result = await getPlaylistTracks(playlist.searchTerms, playlist.name, 50);
     if (result?.tracks) {
-      setTracks(result.tracks);
-      return result.tracks;
+      // Shuffle tracks to ensure unique, non-repeating order each game
+      const shuffled = shuffleArray(result.tracks);
+      setTracks(shuffled);
+      return shuffled;
     }
     return [];
   }, [getPlaylistTracks]);
