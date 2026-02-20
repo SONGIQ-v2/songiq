@@ -320,12 +320,18 @@ export default function MultiplayerGame() {
             <Leaderboard players={players} currentPlayerId={playerId} compact />
           </div>
 
-          <Button variant="gold" size="lg" className="w-full" onClick={async () => {
-            await playAgain();
-            navigate(`/room/${code}`);
-          }}>
-            Play Again
-          </Button>
+          {isHostPlayer ? (
+            <Button variant="gold" size="lg" className="w-full" onClick={async () => {
+              await playAgain();
+              navigate(`/room/${code}`);
+            }}>
+              Play Again
+            </Button>
+          ) : (
+            <Button variant="gold" size="lg" className="w-full" onClick={() => navigate("/")}>
+              Back to Home
+            </Button>
+          )}
         </motion.div>
       </div>
     );
