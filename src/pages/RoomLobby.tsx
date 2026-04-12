@@ -286,40 +286,42 @@ export default function RoomLobby() {
       </Dialog>
       <Starfield />
       {/* Custom header with Leave Room instead of menu */}
-      <header className="fixed top-0 left-0 right-0 z-50 px-4 py-3">
+      <header className="fixed top-0 left-0 right-0 z-50 px-4 py-3 bg-background/60 backdrop-blur-xl border-b border-white/10">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10 gap-1.5">
-                <LogOut className="w-4 h-4" />
-                <span className="text-sm">Leave</span>
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Leave Room?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  {isHost
-                    ? "As the host, leaving will close the room for everyone."
-                    : "Are you sure you want to leave the room?"}
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Stay</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={handleLeaveRoom}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                >
-                  Leave
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-
-          <Link to="/" className="flex items-center gap-2">
-            <span className="font-display text-2xl md:text-3xl tracking-tight text-foreground">Song</span>
-            <span className="font-display text-2xl md:text-3xl tracking-tight text-primary">IQ</span>
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link to="/" className="flex items-center gap-0.5">
+              <span className="font-display text-xl md:text-2xl font-bold tracking-tight bg-gradient-to-r from-green-400 via-cyan-400 to-purple-500 bg-clip-text text-transparent">
+                SONG IQ
+              </span>
+            </Link>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10 gap-1.5">
+                  <LogOut className="w-4 h-4" />
+                  <span className="text-sm">Leave</span>
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Leave Room?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {isHost
+                      ? "As the host, leaving will close the room for everyone."
+                      : "Are you sure you want to leave the room?"}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Stay</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleLeaveRoom}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Leave
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
 
           <Button
             variant="ghost"
