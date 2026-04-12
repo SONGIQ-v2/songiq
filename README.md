@@ -22,3 +22,17 @@ npm run dev
 - Vite
 - Tailwind CSS
 - Framer Motion
+- Zustand (state management)
+- Supabase (auth, database, realtime, edge functions)
+
+## Documentation
+
+See the [`docs/`](./docs/) folder for detailed technical documentation:
+
+- [Architecture Overview](./docs/architecture.md)
+- [Room Management](./docs/room-management.md)
+- [Multiplayer Game Engine](./docs/multiplayer-game-engine.md)
+- [Scoring & Leaderboard](./docs/scoring-and-leaderboard.md)
+- [Music Catalogue & Track Fetching](./docs/music-catalogue.md)
+- [State Management](./docs/state-management.md)
+- [Solo Game Mode](./docs/solo-game-mode.md)
