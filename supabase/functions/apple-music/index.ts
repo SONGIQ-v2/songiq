@@ -1,9 +1,10 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 interface iTunesTrack {
@@ -42,7 +43,6 @@ async function searchTracks(query: string, limit: number = 50): Promise<iTunesTr
 
 // Get tracks by genre/category
 async function getTracksByGenre(genre: string, limit: number = 50): Promise<iTunesTrack[]> {
-  // Use genre-specific search terms to get relevant tracks
   const genreSearchTerms: Record<string, string[]> = {
     afrobeats: ["afrobeats", "wizkid", "burna boy", "davido", "rema", "tems", "ckay", "fireboy dml"],
     amapiano: ["amapiano", "kabza de small", "dj maphorisa", "focalistic", "uncle waffles"],
@@ -57,13 +57,11 @@ async function getTracksByGenre(genre: string, limit: number = 50): Promise<iTun
   const searchTerms = genreSearchTerms[genre] || [genre];
   const allTracks: iTunesTrack[] = [];
 
-  // Search using multiple terms to get variety
   for (const term of searchTerms.slice(0, 3)) {
     const tracks = await searchTracks(term, Math.ceil(limit / 3));
     allTracks.push(...tracks);
   }
 
-  // Remove duplicates by trackId
   const uniqueTracks = allTracks.filter((track, index, self) =>
     index === self.findIndex(t => t.trackId === track.trackId)
   );
@@ -73,7 +71,7 @@ async function getTracksByGenre(genre: string, limit: number = 50): Promise<iTun
   return uniqueTracks.slice(0, limit);
 }
 
-// Get curated playlist-like results based on search terms array
+// Get curated playlist-like results
 async function getPlaylistTracks(
   searchTerms: string[], 
   playlistName: string,
@@ -84,12 +82,10 @@ async function getPlaylistTracks(
   tracks: iTunesTrack[];
 }> {
   console.log(`[Apple Music] Fetching playlist tracks for: ${playlistName}`);
-  console.log(`[Apple Music] Using search terms: ${searchTerms.join(', ')}`);
   
   const allTracks: iTunesTrack[] = [];
   const tracksPerTerm = Math.ceil(limit / searchTerms.length);
 
-  // Search for each term and collect tracks
   for (const term of searchTerms) {
     try {
       const tracks = await searchTracks(term, tracksPerTerm);
@@ -99,20 +95,15 @@ async function getPlaylistTracks(
     }
   }
 
-  // Remove duplicates by trackId
   const uniqueTracks = allTracks.filter((track, index, self) =>
     index === self.findIndex(t => t.trackId === track.trackId)
   );
 
-  // Shuffle the tracks for variety
   const shuffledTracks = uniqueTracks.sort(() => Math.random() - 0.5).slice(0, limit);
 
-  // Use the first track's artwork as playlist image
   const playlistImage = shuffledTracks.length > 0 
     ? shuffledTracks[0].artworkUrl100.replace('100x100', '600x600')
     : '';
-
-  console.log(`[Apple Music] Playlist "${playlistName}": ${shuffledTracks.length} unique tracks`);
 
   return {
     playlistName,
@@ -122,12 +113,39 @@ async function getPlaylistTracks(
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    // Verify authentication
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ error: 'Missing authorization' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const jwt = authHeader.replace('Bearer ', '');
+    const { data, error: authError } = await supabaseClient.auth.getClaims(jwt);
+    
+    if (authError || !data?.claims) {
+      console.error("Auth error:", authError);
+      return new Response(
+        JSON.stringify({ error: 'Invalid authorization' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log("Authenticated user:", data.claims.sub);
+
     const { action, query, genre, searchTerms, playlistName, limit } = await req.json();
     
     console.log(`[Apple Music] Action: ${action}`);
@@ -136,16 +154,12 @@ serve(async (req) => {
 
     switch (action) {
       case 'search':
-        if (!query) {
-          throw new Error('Query parameter required for search');
-        }
+        if (!query) throw new Error('Query parameter required for search');
         result = { tracks: await searchTracks(query, limit || 50) };
         break;
 
       case 'genre':
-        if (!genre) {
-          throw new Error('Genre parameter required');
-        }
+        if (!genre) throw new Error('Genre parameter required');
         result = { tracks: await getTracksByGenre(genre, limit || 50) };
         break;
 
@@ -157,7 +171,6 @@ serve(async (req) => {
         break;
 
       case 'test':
-        // Test the API with a simple search
         const testTracks = await searchTracks('afrobeats', 5);
         result = {
           success: true,
