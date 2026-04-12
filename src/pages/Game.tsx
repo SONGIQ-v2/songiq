@@ -77,8 +77,8 @@ export default function Game() {
   const [nextQuestionType, setNextQuestionType] = useState<QuestionType>("song");
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const countdownRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const countdownRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Cleanup function to stop all audio and timers
   const cleanupGame = useCallback(() => {
