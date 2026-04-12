@@ -41,9 +41,17 @@ const Multiplayer = () => {
     if (saved) setPlayerName(saved);
   }, [initializeAuth]);
 
+  const sanitizeName = (name: string): string => {
+    return name
+      .trim()
+      .replace(/[\x00-\x1F\x7F]/g, '')
+      .slice(0, 20);
+  };
+
   const handleCreateRoom = async () => {
-    if (!playerName.trim()) {
-      toast.error("Please enter your name");
+    const sanitized = sanitizeName(playerName);
+    if (!sanitized) {
+      toast.error("Please enter a valid name");
       return;
     }
 
