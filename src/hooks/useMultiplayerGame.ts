@@ -80,8 +80,8 @@ export function useMultiplayerGame(roomCode: string) {
   const [nextQuestionType, setNextQuestionType] = useState<QuestionType>("Guess the Artist");
   const [currentQuestionType, setCurrentQuestionType] = useState<QuestionType>("Guess the Artist");
 
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const betweenRoundsRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const betweenRoundsRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tracksRef = useRef<AppleMusicTrack[]>([]);
   const createRoundRef = useRef<(tracks: AppleMusicTrack[], roundNum: number) => Promise<void>>();
   const endGameRef = useRef<() => Promise<void>>();

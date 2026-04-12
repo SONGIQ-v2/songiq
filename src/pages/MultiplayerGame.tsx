@@ -37,8 +37,8 @@ export default function MultiplayerGame() {
   // Inactivity state
   const [showInactivityWarning, setShowInactivityWarning] = useState(false);
   const [terminationCountdown, setTerminationCountdown] = useState(TERMINATION_COUNTDOWN);
-  const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const terminationTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const terminationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const {
     room,
