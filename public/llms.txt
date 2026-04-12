@@ -1,0 +1,36 @@
+# SongIQ
+
+> SongIQ is a free online music quiz game where players guess songs from audio clips. It supports solo and real-time multiplayer modes across genres like Afrobeats, Amapiano, Pop, Hip-Hop, R&B, and more.
+
+## About
+
+SongIQ is a browser-based music trivia game. Players listen to short audio previews and guess the song title or artist from multiple-choice options. The game features a scoring system based on speed and accuracy.
+
+## Game Modes
+
+- **Solo Play**: Practice on your own with curated playlists across multiple genres. Choose a category, listen to clips, and try to beat your high score.
+- **Multiplayer**: Create or join a room with friends. Compete in real-time, see live leaderboards, and crown the music champion.
+
+## Supported Genres
+
+- Afrobeats
+- Amapiano
+- Pop
+- Hip-Hop
+- R&B
+- Gospel
+- Highlife
+- And more
+
+## Links
+
+- Website: https://songiq.xyz
+- Solo Play: https://songiq.xyz/solo
+- Multiplayer: https://songiq.xyz/multiplayer
+
+## Technical Details
+
+- Platform: Web (browser-based, no download required)
+- Price: Free to play
+- Authentication: Anonymous sessions for quick play
+- Real-time: Live multiplayer with instant score updates
