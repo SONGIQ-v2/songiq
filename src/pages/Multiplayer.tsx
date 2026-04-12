@@ -98,8 +98,9 @@ const Multiplayer = () => {
   };
 
   const handleJoinRoom = async () => {
-    if (!playerName.trim()) {
-      toast.error("Please enter your name");
+    const sanitized = sanitizeName(playerName);
+    if (!sanitized) {
+      toast.error("Please enter a valid name");
       return;
     }
     if (!roomCode.trim()) {
