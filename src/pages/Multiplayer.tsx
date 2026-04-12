@@ -41,9 +41,17 @@ const Multiplayer = () => {
     if (saved) setPlayerName(saved);
   }, [initializeAuth]);
 
+  const sanitizeName = (name: string): string => {
+    return name
+      .trim()
+      .replace(/[\x00-\x1F\x7F]/g, '')
+      .slice(0, 20);
+  };
+
   const handleCreateRoom = async () => {
-    if (!playerName.trim()) {
-      toast.error("Please enter your name");
+    const sanitized = sanitizeName(playerName);
+    if (!sanitized) {
+      toast.error("Please enter a valid name");
       return;
     }
 
@@ -61,7 +69,7 @@ const Multiplayer = () => {
         .insert({
           room_code: code,
           host_id: playerId, // Now using authenticated user ID
-          host_name: playerName,
+          host_name: sanitized,
           status: "waiting",
         })
         .select()
@@ -72,7 +80,7 @@ const Multiplayer = () => {
       await supabase.from("room_players").insert({
         room_id: room.id,
         player_id: playerId, // Now using authenticated user ID
-        player_name: playerName,
+        player_name: sanitized,
         avatar_index: Math.floor(Math.random() * 8) + 1,
         is_host: true,
       });
@@ -90,8 +98,9 @@ const Multiplayer = () => {
   };
 
   const handleJoinRoom = async () => {
-    if (!playerName.trim()) {
-      toast.error("Please enter your name");
+    const sanitized = sanitizeName(playerName);
+    if (!sanitized) {
+      toast.error("Please enter a valid name");
       return;
     }
     if (!roomCode.trim()) {
@@ -130,7 +139,7 @@ const Multiplayer = () => {
       await supabase.from("room_players").insert({
         room_id: room.id,
         player_id: playerId, // Now using authenticated user ID
-        player_name: playerName,
+        player_name: sanitized,
         avatar_index: Math.floor(Math.random() * 8) + 1,
         is_host: false,
       });
