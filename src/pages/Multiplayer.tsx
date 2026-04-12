@@ -80,7 +80,7 @@ const Multiplayer = () => {
       await supabase.from("room_players").insert({
         room_id: room.id,
         player_id: playerId, // Now using authenticated user ID
-        player_name: playerName,
+        player_name: sanitized,
         avatar_index: Math.floor(Math.random() * 8) + 1,
         is_host: true,
       });
