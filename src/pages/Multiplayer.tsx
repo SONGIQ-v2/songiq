@@ -69,7 +69,7 @@ const Multiplayer = () => {
         .insert({
           room_code: code,
           host_id: playerId, // Now using authenticated user ID
-          host_name: playerName,
+          host_name: sanitized,
           status: "waiting",
         })
         .select()
