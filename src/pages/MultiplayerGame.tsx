@@ -22,6 +22,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useMultiplayerGame } from "@/hooks/useMultiplayerGame";
+import { Header } from "@/components/Header";
 
 const INACTIVITY_WARNING_TIME = 30000; // 30 seconds
 const TERMINATION_COUNTDOWN = 10; // 10 seconds
@@ -289,50 +290,40 @@ export default function MultiplayerGame() {
     const currentPlayerRank = sortedPlayers.findIndex((p) => p.player_id === playerId) + 1;
 
     return (
-      <div className="min-h-screen bg-background relative overflow-hidden flex items-center justify-center p-4">
+      <div className="min-h-screen bg-background relative overflow-hidden flex flex-col">
         <Starfield />
-        <motion.div
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="card-african p-8 max-w-lg w-full text-center z-10"
-        >
-          <Trophy className="w-20 h-20 text-gold mx-auto mb-6" />
-          <h1 className="text-3xl font-bold text-foreground mb-2">Game Over!</h1>
-          
-          {winner && (
-            <div className="mb-6">
-              <p className="text-muted-foreground mb-2">Winner</p>
-              <p className="text-2xl font-bold text-gold">{winner.player_name}</p>
-              <p className="text-lg text-foreground/80">{winner.score} points</p>
+        <Header />
+        <div className="flex-1 flex items-center justify-center p-4 pt-20">
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="card-african p-8 max-w-lg w-full text-center z-10"
+          >
+            <Trophy className="w-20 h-20 text-gold mx-auto mb-6" />
+            <h1 className="text-3xl font-bold text-foreground mb-2">Game Over!</h1>
+            
+            {winner && (
+              <div className="mb-6">
+                <p className="text-muted-foreground mb-2">Winner</p>
+                <p className="text-2xl font-bold text-gold">{winner.player_name}</p>
+                <p className="text-lg text-foreground/80">{winner.score} points</p>
+              </div>
+            )}
+
+            <div className="bg-background/50 rounded-xl p-4 mb-6">
+              <p className="text-muted-foreground mb-2">Your Position</p>
+              <p className="text-4xl font-bold text-primary">#{currentPlayerRank}</p>
+              <p className="text-foreground/60">
+                {players.find((p) => p.player_id === playerId)?.score || 0} points
+              </p>
             </div>
-          )}
 
-          <div className="bg-background/50 rounded-xl p-4 mb-6">
-            <p className="text-muted-foreground mb-2">Your Position</p>
-            <p className="text-4xl font-bold text-primary">#{currentPlayerRank}</p>
-            <p className="text-foreground/60">
-              {players.find((p) => p.player_id === playerId)?.score || 0} points
-            </p>
-          </div>
-
-          {/* Final Leaderboard */}
-          <div className="mb-6">
-            <Leaderboard players={players} currentPlayerId={playerId} compact />
-          </div>
-
-          {isHostPlayer ? (
-            <Button variant="gold" size="lg" className="w-full" onClick={async () => {
-              await playAgain();
-              navigate(`/room/${code}`);
-            }}>
-              Play Again
-            </Button>
-          ) : (
-            <Button variant="gold" size="lg" className="w-full" onClick={() => navigate("/")}>
-              Back to Home
-            </Button>
-          )}
-        </motion.div>
+            {/* Final Leaderboard */}
+            <div className="mb-6">
+              <Leaderboard players={players} currentPlayerId={playerId} compact />
+            </div>
+          </motion.div>
+        </div>
       </div>
     );
   }
