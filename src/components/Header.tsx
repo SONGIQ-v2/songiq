@@ -14,7 +14,7 @@ import {
 import { toast } from "@/hooks/use-toast";
 
 export const Header = () => {
-  const [isMuted, setIsMuted] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const { playerName, setPlayer, avatarIndex } = useGameStore();
   const [editName, setEditName] = useState("");
