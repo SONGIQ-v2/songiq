@@ -22,7 +22,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useMultiplayerGame } from "@/hooks/useMultiplayerGame";
-import { Header } from "@/components/Header";
+
 
 const INACTIVITY_WARNING_TIME = 30000; // 30 seconds
 const TERMINATION_COUNTDOWN = 10; // 10 seconds
