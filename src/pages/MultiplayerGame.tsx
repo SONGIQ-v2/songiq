@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Volume2, VolumeX, Music2, Trophy, X, AlertTriangle } from "lucide-react";
+import { Volume2, VolumeX, Music2, Trophy, X, AlertTriangle, LogOut, UserCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Starfield } from "@/components/Starfield";
 import { RoundIndicator } from "@/components/RoundIndicator";
@@ -292,26 +292,51 @@ export default function MultiplayerGame() {
     return (
       <div className="min-h-screen bg-background relative overflow-hidden">
         <Starfield />
-        {/* Gameplay-style header */}
-        <div className="relative z-10 p-4 flex items-center justify-between safe-area-inset-top">
-          <div className="flex items-center gap-3">
+        <header className="fixed top-0 left-0 right-0 z-50 px-4 py-3 bg-background/60 backdrop-blur-xl border-b border-white/10">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Link to="/" className="flex items-center gap-0.5">
+                <span className="font-display text-xl md:text-2xl font-bold tracking-tight bg-gradient-to-r from-green-400 via-cyan-400 to-purple-500 bg-clip-text text-transparent">
+                  SONG IQ
+                </span>
+              </Link>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10 gap-1.5">
+                    <LogOut className="w-4 h-4" />
+                    <span className="text-sm">Leave</span>
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Leave Room?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to leave?
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Stay</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleLeaveGame}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Leave
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
             <Button
               variant="ghost"
               size="icon"
-              className="text-foreground/60 hover:text-foreground"
+              className="text-foreground/70 hover:text-foreground"
               onClick={() => navigate("/")}
             >
-              <X className="w-5 h-5" />
+              <UserCircle className="w-6 h-6" />
             </Button>
           </div>
-          <div className="text-right">
-            <p className="text-sm text-foreground/60">Your Score</p>
-            <p className="text-xl font-bold text-gold">
-              {players.find((p) => p.player_id === playerId)?.score || 0}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center justify-center min-h-[calc(100vh-80px)] p-4">
+        </header>
+        <div className="flex items-center justify-center min-h-[calc(100vh-80px)] pt-16 p-4">
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
