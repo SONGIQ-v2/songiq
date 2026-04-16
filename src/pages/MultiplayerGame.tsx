@@ -292,8 +292,26 @@ export default function MultiplayerGame() {
     return (
       <div className="min-h-screen bg-background relative overflow-hidden">
         <Starfield />
-        <Header />
-        <div className="flex items-center justify-center min-h-screen p-4 pt-20">
+        {/* Gameplay-style header */}
+        <div className="relative z-10 p-4 flex items-center justify-between safe-area-inset-top">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-foreground/60 hover:text-foreground"
+              onClick={() => navigate("/")}
+            >
+              <X className="w-5 h-5" />
+            </Button>
+          </div>
+          <div className="text-right">
+            <p className="text-sm text-foreground/60">Your Score</p>
+            <p className="text-xl font-bold text-gold">
+              {players.find((p) => p.player_id === playerId)?.score || 0}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center justify-center min-h-[calc(100vh-80px)] p-4">
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
