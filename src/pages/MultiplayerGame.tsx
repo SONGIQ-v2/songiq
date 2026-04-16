@@ -343,81 +343,82 @@ export default function MultiplayerGame() {
       <div className="min-h-screen bg-background relative overflow-hidden flex items-center justify-center p-4">
         <Starfield />
         <div className="flex flex-col lg:flex-row gap-6 w-full max-w-6xl z-10">
-          {/* Round Results */}
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="flex-1 text-center"
-          >
-            <h2 className="text-2xl font-bold text-foreground mb-4">Round {roundNumber} Complete!</h2>
-            
-            {currentRound && (
-              <div className="game-card mb-6">
-                <img
-                  src={currentRound.artwork_url || "/placeholder.svg"}
-                  alt={currentRound.track_name}
-                  className="w-32 h-32 rounded-xl mx-auto mb-4 object-cover"
-                  onError={(e) => {
-                    e.currentTarget.src = "/placeholder.svg";
-                  }}
-                />
-                <h3 className="text-xl font-bold">{currentRound.track_name}</h3>
-                <p className="text-muted-foreground">{currentRound.artist_name}</p>
-              </div>
-            )}
-
-          </motion.div>
-
-          {/* Up Next Overlay */}
-          <AnimatePresence>
-            {betweenRoundsCountdown > 0 && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center z-50"
-              >
-                <div className="relative w-28 h-28 mb-6">
-                  <svg className="w-28 h-28 -rotate-90" viewBox="0 0 100 100">
-                    <circle cx="50" cy="50" r="45" fill="none" stroke="hsl(var(--muted) / 0.3)" strokeWidth="5" />
-                    <circle
-                      cx="50" cy="50" r="45" fill="none"
-                      stroke="hsl(var(--primary))"
-                      strokeWidth="5"
-                      strokeLinecap="round"
-                      strokeDasharray={`${2 * Math.PI * 45}`}
-                      strokeDashoffset={`${2 * Math.PI * 45 * (1 - betweenRoundsCountdown / 5)}`}
-                      className="transition-all duration-1000 ease-linear"
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-4xl font-bold text-primary">{betweenRoundsCountdown}</span>
-                  </div>
+          {/* Round Results + Up Next Overlay container */}
+          <div className="flex-1 relative">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="text-center"
+            >
+              <h2 className="text-2xl font-bold text-foreground mb-4">Round {roundNumber} Complete!</h2>
+              
+              {currentRound && (
+                <div className="game-card mb-6">
+                  <img
+                    src={currentRound.artwork_url || "/placeholder.svg"}
+                    alt={currentRound.track_name}
+                    className="w-32 h-32 rounded-xl mx-auto mb-4 object-cover"
+                    onError={(e) => {
+                      e.currentTarget.src = "/placeholder.svg";
+                    }}
+                  />
+                  <h3 className="text-xl font-bold">{currentRound.track_name}</h3>
+                  <p className="text-muted-foreground">{currentRound.artist_name}</p>
                 </div>
+              )}
+            </motion.div>
 
-                <motion.h3
-                  initial={{ y: 10, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: 0.2 }}
-                  className="text-3xl font-bold text-gold mb-2"
+            {/* Up Next Overlay - scoped to main area only */}
+            <AnimatePresence>
+              {betweenRoundsCountdown > 0 && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center z-10 rounded-xl"
                 >
-                  {room && roundNumber >= room.total_rounds ? "Loading Results" : "Up Next"}
-                </motion.h3>
-                {room && roundNumber < room.total_rounds && (
-                <motion.p
-                  initial={{ y: 10, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: 0.4 }}
-                  className="text-xl text-foreground/80 font-semibold"
-                >
-                  {nextQuestionType === "Guess the Artist" ? "🎤 Guess the Artist" : "🎵 Guess the Song"}
-                </motion.p>
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
+                  <div className="relative w-28 h-28 mb-6">
+                    <svg className="w-28 h-28 -rotate-90" viewBox="0 0 100 100">
+                      <circle cx="50" cy="50" r="45" fill="none" stroke="hsl(var(--muted) / 0.3)" strokeWidth="5" />
+                      <circle
+                        cx="50" cy="50" r="45" fill="none"
+                        stroke="hsl(var(--primary))"
+                        strokeWidth="5"
+                        strokeLinecap="round"
+                        strokeDasharray={`${2 * Math.PI * 45}`}
+                        strokeDashoffset={`${2 * Math.PI * 45 * (1 - betweenRoundsCountdown / 5)}`}
+                        className="transition-all duration-1000 ease-linear"
+                      />
+                    </svg>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-4xl font-bold text-primary">{betweenRoundsCountdown}</span>
+                    </div>
+                  </div>
 
-          {/* Leaderboard */}
+                  <motion.h3
+                    initial={{ y: 10, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.2 }}
+                    className="text-3xl font-bold text-gold mb-2"
+                  >
+                    {room && roundNumber >= room.total_rounds ? "Loading Results" : "Up Next"}
+                  </motion.h3>
+                  {room && roundNumber < room.total_rounds && (
+                  <motion.p
+                    initial={{ y: 10, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.4 }}
+                    className="text-xl text-foreground/80 font-semibold"
+                  >
+                    {nextQuestionType === "Guess the Artist" ? "🎤 Guess the Artist" : "🎵 Guess the Song"}
+                  </motion.p>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Leaderboard - always visible */}
           <div className="lg:w-80">
             <Leaderboard players={players} currentPlayerId={playerId} showRoundScore />
           </div>
