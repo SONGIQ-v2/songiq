@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Volume2, VolumeX, UserCircle } from "lucide-react";
+import { UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useState, useEffect } from "react";
@@ -14,7 +14,6 @@ import {
 import { toast } from "@/hooks/use-toast";
 
 export const Header = () => {
-  const [isMuted, setIsMuted] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const { playerName, setPlayer, avatarIndex } = useGameStore();
   const [editName, setEditName] = useState("");
@@ -52,14 +51,6 @@ export const Header = () => {
 
           {/* Right side actions */}
           <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsMuted(!isMuted)}
-              className="text-foreground/70 hover:text-foreground"
-            >
-              {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-            </Button>
             <Button
               variant="ghost"
               size="icon"
