@@ -976,7 +976,7 @@ export function useMultiplayerGame(roomCode: string) {
     toggleReady,
     leaveRoom,
     playAgain,
-    isHost,
+    isHost: room ? room.host_id === playerId : isHost,
     playerId,
     ROUND_TIME,
   };
