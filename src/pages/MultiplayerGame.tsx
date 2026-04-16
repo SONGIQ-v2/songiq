@@ -336,7 +336,7 @@ export default function MultiplayerGame() {
             </Button>
           </div>
         </header>
-        <div className="flex items-center justify-center min-h-[calc(100vh-80px)] p-4">
+        <div className="flex items-center justify-center min-h-[calc(100vh-80px)] pt-16 p-4">
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
