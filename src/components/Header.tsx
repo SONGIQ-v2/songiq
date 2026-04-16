@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Volume2, VolumeX, UserCircle } from "lucide-react";
+import { UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useState, useEffect } from "react";
