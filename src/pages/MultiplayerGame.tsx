@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Volume2, VolumeX, Music2, Trophy, X, AlertTriangle, LogOut, UserCircle } from "lucide-react";
 import { toast } from "sonner";
