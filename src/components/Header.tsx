@@ -55,14 +55,6 @@ export const Header = () => {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setIsMuted(!isMuted)}
-              className="text-foreground/70 hover:text-foreground"
-            >
-              {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
               onClick={() => {
                 setEditName(playerName || localStorage.getItem("songiq_player_name") || "");
                 setShowProfileModal(true);
