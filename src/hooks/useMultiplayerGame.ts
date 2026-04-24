@@ -134,9 +134,10 @@ export function useMultiplayerGame(roomCode: string) {
       
       // Set game status based on room status
       if (roomData.status === "playing") {
-        // Fetch current round if game is in progress
-        const { data: roundData } = await supabase
-          .from("game_rounds")
+        // Fetch current round if game is in progress.
+        // Use the safe view: hides track_name/artist_name from non-host players during active rounds.
+        const { data: roundData } = await (supabase as any)
+          .from("game_rounds_public")
           .select("*")
           .eq("room_id", roomData.id)
           .eq("round_number", roomData.current_round)
@@ -172,9 +173,9 @@ export function useMultiplayerGame(roomCode: string) {
           // If round time has expired (more than ROUND_TIME + buffer passed)
           if (remaining <= 0) {
             console.log("Round already expired on load, checking for next round...");
-            // Check if there's a newer round
-            const { data: latestRound } = await supabase
-              .from("game_rounds")
+            // Check if there's a newer round (via safe view)
+            const { data: latestRound } = await (supabase as any)
+              .from("game_rounds_public")
               .select("*")
               .eq("room_id", roomData.id)
               .order("round_number", { ascending: false })
@@ -392,10 +393,10 @@ export function useMultiplayerGame(roomCode: string) {
           }
         }
 
-        // Poll for new rounds during gameplay
+        // Poll for new rounds during gameplay (via safe view)
         if (gameStatus === "playing" || gameStatus === "between_rounds") {
-          const { data: latestRound } = await supabase
-            .from("game_rounds")
+          const { data: latestRound } = await (supabase as any)
+            .from("game_rounds_public")
             .select("*")
             .eq("room_id", room.id)
             .order("round_number", { ascending: false })
