@@ -77,6 +77,7 @@ export function useMultiplayerGame(roomCode: string) {
   const [roundStartTime, setRoundStartTime] = useState<number>(0);
   const [tracks, setTracks] = useState<AppleMusicTrack[]>([]);
   const [betweenRoundsCountdown, setBetweenRoundsCountdown] = useState(0);
+  const [isFinalizingResults, setIsFinalizingResults] = useState(false);
   const [nextQuestionType, setNextQuestionType] = useState<QuestionType>("Guess the Artist");
   const [currentQuestionType, setCurrentQuestionType] = useState<QuestionType>("Guess the Artist");
 
@@ -624,24 +625,29 @@ export function useMultiplayerGame(roomCode: string) {
     if (betweenRoundsRef.current) clearInterval(betweenRoundsRef.current);
 
     let countdown = 5;
+    const totalRounds = room?.total_rounds || 10;
+    const isFinalRound = !!room && roundNumber >= totalRounds;
+
+    setIsFinalizingResults(false);
     setBetweenRoundsCountdown(5);
 
     betweenRoundsRef.current = setInterval(async () => {
       countdown -= 1;
-      setBetweenRoundsCountdown(Math.max(countdown, 0));
 
       if (countdown <= 0) {
         if (betweenRoundsRef.current) clearInterval(betweenRoundsRef.current);
         countdownActiveRef.current = false;
+        setBetweenRoundsCountdown(0);
 
-        // If last round, end the game after countdown
-        if (isHost && room) {
-          const totalRounds = room.total_rounds || 10;
-          if (roundNumber >= totalRounds) {
+        if (isFinalRound) {
+          setIsFinalizingResults(true);
+
+          if (isHost) {
             console.log("Game ending");
             endGameRef.current?.();
-            return;
           }
+
+          return;
         }
 
         // Transition to playing - reset round state
@@ -653,7 +659,10 @@ export function useMultiplayerGame(roomCode: string) {
         setTimeLeft(ROUND_TIME);
         setRoundStartTime(Date.now());
         setGameStatus("playing");
+        return;
       }
+
+      setBetweenRoundsCountdown(countdown);
     }, 1000);
 
     return () => {
@@ -832,6 +841,12 @@ export function useMultiplayerGame(roomCode: string) {
     tracksRef.current = tracks;
   }, [tracks]);
 
+  useEffect(() => {
+    if (gameStatus === "playing" || gameStatus === "results" || gameStatus === "waiting") {
+      setIsFinalizingResults(false);
+    }
+  }, [gameStatus]);
+
   const toggleReady = useCallback(async () => {
     if (!room || !playerId) return;
 
@@ -970,6 +985,7 @@ export function useMultiplayerGame(roomCode: string) {
     selectedAnswer,
     isCorrect,
     betweenRoundsCountdown,
+    isFinalizingResults,
     nextQuestionType,
     currentQuestionType,
     startGame,
