@@ -161,6 +161,13 @@ export type Database = {
             referencedRelation: "game_rounds"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "player_answers_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "game_rounds_public"
+            referencedColumns: ["id"]
+          },
         ]
       }
       room_players: {
@@ -209,7 +216,59 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      game_rounds_public: {
+        Row: {
+          artist_name: string | null
+          artwork_url: string | null
+          ended_at: string | null
+          id: string | null
+          options: Json | null
+          preview_url: string | null
+          question_type: string | null
+          room_id: string | null
+          round_number: number | null
+          started_at: string | null
+          track_id: string | null
+          track_name: string | null
+        }
+        Insert: {
+          artist_name?: never
+          artwork_url?: string | null
+          ended_at?: string | null
+          id?: string | null
+          options?: never
+          preview_url?: string | null
+          question_type?: string | null
+          room_id?: string | null
+          round_number?: number | null
+          started_at?: string | null
+          track_id?: string | null
+          track_name?: never
+        }
+        Update: {
+          artist_name?: never
+          artwork_url?: string | null
+          ended_at?: string | null
+          id?: string | null
+          options?: never
+          preview_url?: string | null
+          question_type?: string | null
+          room_id?: string | null
+          round_number?: number | null
+          started_at?: string | null
+          track_id?: string | null
+          track_name?: never
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_rounds_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "game_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       [_ in never]: never
