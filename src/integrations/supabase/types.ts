@@ -236,7 +236,7 @@ export type Database = {
           artwork_url?: string | null
           ended_at?: string | null
           id?: string | null
-          options?: never
+          options?: Json | null
           preview_url?: string | null
           question_type?: string | null
           room_id?: string | null
@@ -250,7 +250,7 @@ export type Database = {
           artwork_url?: string | null
           ended_at?: string | null
           id?: string | null
-          options?: never
+          options?: Json | null
           preview_url?: string | null
           question_type?: string | null
           room_id?: string | null
