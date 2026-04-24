@@ -411,11 +411,13 @@ export default function MultiplayerGame() {
               )}
             </motion.div>
 
-            {/* Up Next Overlay - scoped to main area only */}
+            {/* Up Next Overlay - scoped to main area only.
+                 Render immediately (no fade-in) so the previous round's answer
+                 card behind it never flashes when the round ends early. */}
             <AnimatePresence>
               {betweenRoundsCountdown > 0 && (
                 <motion.div
-                  initial={{ opacity: 0 }}
+                  initial={{ opacity: 1 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   className="absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center z-10 rounded-xl"
