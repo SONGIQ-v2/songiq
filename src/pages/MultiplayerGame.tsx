@@ -681,6 +681,41 @@ export default function MultiplayerGame() {
         </div>
       </div>
 
+      {/* Up Next overlay — fullscreen on the gameplay screen as well, so the
+           moment the last player answers (betweenRoundsCountdown > 0) the
+           overlay instantly covers the answer reveal underneath. Prevents the
+           "previous answer flash" before transitioning to the between-rounds
+           screen. */}
+      {betweenRoundsCountdown > 0 && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-sm flex flex-col items-center justify-center z-40">
+          <div className="relative w-28 h-28 mb-6">
+            <svg className="w-28 h-28 -rotate-90" viewBox="0 0 100 100">
+              <circle cx="50" cy="50" r="45" fill="none" stroke="hsl(var(--muted) / 0.3)" strokeWidth="5" />
+              <circle
+                cx="50" cy="50" r="45" fill="none"
+                stroke="hsl(var(--primary))"
+                strokeWidth="5"
+                strokeLinecap="round"
+                strokeDasharray={`${2 * Math.PI * 45}`}
+                strokeDashoffset={`${2 * Math.PI * 45 * (1 - betweenRoundsCountdown / 5)}`}
+                className="transition-all duration-1000 ease-linear"
+              />
+            </svg>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-4xl font-bold text-primary">{betweenRoundsCountdown}</span>
+            </div>
+          </div>
+          <h3 className="text-3xl font-bold text-gold mb-2">
+            {room && roundNumber >= room.total_rounds ? "Loading Results" : "Up Next"}
+          </h3>
+          {room && roundNumber < room.total_rounds && (
+            <p className="text-xl text-foreground/80 font-semibold">
+              {nextQuestionType === "Guess the Artist" ? "🎤 Guess the Artist" : "🎵 Guess the Song"}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Inactivity Warning Modal */}
       <AnimatePresence>
         {showInactivityWarning && (
