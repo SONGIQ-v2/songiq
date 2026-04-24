@@ -634,12 +634,17 @@ export function useMultiplayerGame(roomCode: string) {
         if (betweenRoundsRef.current) clearInterval(betweenRoundsRef.current);
         countdownActiveRef.current = false;
 
-        // If last round, end the game after countdown
-        if (isHost && room) {
+        // If last round: host ends game; ALL clients (host + non-host) stay out of "playing"
+        // so the last round's audio doesn't replay while waiting for the "finished" status.
+        if (room) {
           const totalRounds = room.total_rounds || 10;
           if (roundNumber >= totalRounds) {
-            console.log("Game ending");
-            endGameRef.current?.();
+            if (isHost) {
+              console.log("Game ending");
+              endGameRef.current?.();
+            } else {
+              console.log("Last round complete, waiting for host to finish game");
+            }
             return;
           }
         }
