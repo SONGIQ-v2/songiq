@@ -675,30 +675,31 @@ export function useMultiplayerGame(roomCode: string) {
   const submitAnswer = useCallback(async (answer: string) => {
     if (hasAnswered || !currentRound || !room || !playerId) return;
 
-    const correct = currentQuestionType === "Guess the Song"
-      ? answer === currentRound.track_name
-      : answer === currentRound.artist_name;
-    const answerTime = Date.now() - roundStartTime;
-    const points = calculatePoints(correct, answerTime, ROUND_TIME);
-
     setSelectedAnswer(answer);
-    setIsCorrect(correct);
     setHasAnswered(true);
 
     const currentPlayerScore = players.find((p) => p.player_id === playerId)?.score || 0;
 
     try {
-      // Insert answer
-      await supabase.from("player_answers").insert({
-        room_id: room.id,
-        round_id: currentRound.id,
-        player_id: playerId,
-        answer,
-        is_correct: correct,
-        points_earned: points,
-      });
+      // Insert answer — server-side trigger grades it and sets is_correct + points_earned
+      const { data: inserted, error: insertErr } = await supabase
+        .from("player_answers")
+        .insert({
+          room_id: room.id,
+          round_id: currentRound.id,
+          player_id: playerId,
+          answer,
+        })
+        .select("is_correct, points_earned")
+        .single();
 
-      // Update player score
+      if (insertErr) throw insertErr;
+
+      const correct = inserted?.is_correct ?? false;
+      const points = inserted?.points_earned ?? 0;
+      setIsCorrect(correct);
+
+      // Update player score with server-graded points
       await supabase
         .from("room_players")
         .update({ score: currentPlayerScore + points })
@@ -707,7 +708,7 @@ export function useMultiplayerGame(roomCode: string) {
     } catch (err) {
       console.error("Error submitting answer:", err);
     }
-  }, [hasAnswered, currentRound, room, playerId, roundStartTime, players]);
+  }, [hasAnswered, currentRound, room, playerId, players]);
 
   // Shuffle array helper
   const shuffleArray = <T,>(arr: T[]): T[] => {
