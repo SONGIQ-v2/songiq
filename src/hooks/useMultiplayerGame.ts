@@ -477,10 +477,10 @@ export function useMultiplayerGame(roomCode: string) {
       } catch (err) {
         console.error("[Poll] Error:", err);
       }
-    }, 2000); // Poll every 2 seconds
+    }, 1500); // Poll every 1.5s
 
     return () => clearInterval(pollInterval);
-  }, [room?.id, gameStatus, roundNumber]);
+  }, [room?.id, gameStatus, roundNumber, room?.current_round, room?.status]);
 
   // Track if time up has been handled for current round
   const timeUpHandledRef = useRef<string | null>(null);
