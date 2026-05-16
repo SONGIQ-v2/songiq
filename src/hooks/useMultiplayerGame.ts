@@ -376,26 +376,35 @@ export function useMultiplayerGame(roomCode: string) {
           setGameStatus("terminated" as any);
           return;
         }
-        if (roomData) {
-          // Check for status changes
-          if (roomData.status === "playing" && gameStatus === "waiting") {
-            console.log("[Poll] Room status changed to playing");
-            setRoom(roomData as RoomData);
-            setGameStatus("playing");
-          }
-          if (roomData.status === "finished" && gameStatus !== "results") {
-            console.log("[Poll] Room status changed to finished");
-            setRoom(roomData as RoomData);
-            setGameStatus("results");
-          }
-          // Update current_round if changed
-          if (roomData.current_round !== room.current_round) {
-            setRoom(roomData as RoomData);
-          }
+
+        // Check for status changes
+        if (roomData.status === "playing" && gameStatus === "waiting") {
+          console.log("[Poll] Room status changed to playing");
+          setGameStatus("playing");
+        }
+        if (roomData.status === "finished" && gameStatus !== "results") {
+          console.log("[Poll] Room status changed to finished");
+          setGameStatus("results");
+        }
+        // Always keep local room object fresh
+        if (
+          roomData.status !== room.status ||
+          roomData.current_round !== room.current_round
+        ) {
+          setRoom(roomData as RoomData);
         }
 
-        // Poll for new rounds during gameplay (via safe view)
-        if (gameStatus === "playing" || gameStatus === "between_rounds") {
+        // ---- Unified round-sync rescue ----
+        // Whenever the room is actively playing, make sure our local round matches
+        // the server's authoritative `current_round`. This is the catch-all that
+        // rescues clients which missed the realtime INSERT for a new round.
+        const serverRoundNum = roomData.current_round || 0;
+        const isBehind =
+          roomData.status === "playing" &&
+          serverRoundNum > 0 &&
+          serverRoundNum > roundNumber;
+
+        if (isBehind || gameStatus === "between_rounds") {
           const { data: latestRound } = await (supabase as any)
             .from("game_rounds_public")
             .select("*")
@@ -405,28 +414,38 @@ export function useMultiplayerGame(roomCode: string) {
             .maybeSingle();
 
           if (latestRound && latestRound.round_number > roundNumber) {
-            console.log("[Poll] New round detected:", latestRound.round_number);
+            console.log(
+              "[Poll] Catching up to round",
+              latestRound.round_number,
+              "(was on",
+              roundNumber,
+              ")"
+            );
             const round = latestRound as RoundData;
-            if (typeof round.options === 'string') {
+            if (typeof round.options === "string") {
               round.options = JSON.parse(round.options);
             }
 
-            // Reset time up handled ref
             timeUpHandledRef.current = null;
-
-            // Reset state for new round
             setHasAnswered(false);
             setSelectedAnswer(null);
             setIsCorrect(null);
-            setPlayers((prev) => prev.map((p) => ({ ...p, roundScore: 0, hasAnswered: false })));
+            setPlayers((prev) =>
+              prev.map((p) => ({ ...p, roundScore: 0, hasAnswered: false }))
+            );
 
             setRoundNumber(round.round_number);
-            const elapsed = Date.now() - new Date(round.started_at).getTime();
+            const elapsed =
+              Date.now() - new Date(round.started_at).getTime();
             const remaining = Math.max(0, ROUND_TIME - elapsed);
             setTimeLeft(remaining);
             setRoundStartTime(new Date(round.started_at).getTime());
             setCurrentRound(round);
-            setCurrentQuestionType(round.question_type === 'song' ? "Guess the Song" : "Guess the Artist");
+            setCurrentQuestionType(
+              round.question_type === "song"
+                ? "Guess the Song"
+                : "Guess the Artist"
+            );
             setGameStatus("playing");
           }
         }
@@ -458,10 +477,10 @@ export function useMultiplayerGame(roomCode: string) {
       } catch (err) {
         console.error("[Poll] Error:", err);
       }
-    }, 2000); // Poll every 2 seconds
+    }, 1500); // Poll every 1.5s
 
     return () => clearInterval(pollInterval);
-  }, [room?.id, gameStatus, roundNumber]);
+  }, [room?.id, gameStatus, roundNumber, room?.current_round, room?.status]);
 
   // Track if time up has been handled for current round
   const timeUpHandledRef = useRef<string | null>(null);
@@ -945,21 +964,36 @@ export function useMultiplayerGame(roomCode: string) {
     });
   }, [isHost, room?.id, room?.category, gameStatus, tracks.length, loadTracks]);
 
-  // Re-sync timer when tab becomes visible (handles background tab pause)
+  // Re-sync timer + round when tab becomes visible (handles background tab pause)
   useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && gameStatus === 'playing' && currentRound) {
-        // Recalculate time left based on server timestamp
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState !== 'visible') return;
+
+      // 1) Resync timer for the current round
+      if (gameStatus === 'playing' && currentRound) {
         const elapsed = Date.now() - new Date(currentRound.started_at).getTime();
         const remaining = Math.max(0, ROUND_TIME - elapsed);
         console.log("Tab visible, syncing timer. Remaining:", remaining);
         setTimeLeft(remaining);
       }
+
+      // 2) If we're behind the server's current_round, force a refetch immediately
+      if (room?.id) {
+        const { data: roomData } = await supabase
+          .from("game_rooms")
+          .select("*")
+          .eq("id", room.id)
+          .single();
+        if (roomData && roomData.status === "playing" && (roomData.current_round || 0) > roundNumber) {
+          console.log("[Visibility] Behind server round, forcing resync");
+          setRoom(roomData as RoomData);
+        }
+      }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [gameStatus, currentRound]);
+  }, [gameStatus, currentRound, room?.id, roundNumber, ROUND_TIME]);
 
   // Cleanup
   useEffect(() => {
