@@ -1,12 +1,27 @@
 // Curated playlists for SongIQ
 // Each playlist uses search terms to fetch tracks from Apple Music/iTunes
 
+export type PlaylistCategory = "africa" | "rap" | "rnb" | "pop";
+
+export interface PlaylistCategoryOption {
+  id: "all" | PlaylistCategory;
+  label: string;
+}
+
+export const PLAYLIST_CATEGORIES: PlaylistCategoryOption[] = [
+  { id: "all", label: "All" },
+  { id: "rnb", label: "R&B" },
+  { id: "rap", label: "Rap & Hip-Hop" },
+  { id: "africa", label: "Africa" },
+];
+
 export interface Playlist {
   id: string;
   name: string;
   description: string;
   image: string; // Placeholder - will be fetched from first track or provided
   searchTerms: string[]; // Artists/songs to search for
+  category: PlaylistCategory;
 }
 
 // African music playlists with curated search terms
