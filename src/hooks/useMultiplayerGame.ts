@@ -376,26 +376,35 @@ export function useMultiplayerGame(roomCode: string) {
           setGameStatus("terminated" as any);
           return;
         }
-        if (roomData) {
-          // Check for status changes
-          if (roomData.status === "playing" && gameStatus === "waiting") {
-            console.log("[Poll] Room status changed to playing");
-            setRoom(roomData as RoomData);
-            setGameStatus("playing");
-          }
-          if (roomData.status === "finished" && gameStatus !== "results") {
-            console.log("[Poll] Room status changed to finished");
-            setRoom(roomData as RoomData);
-            setGameStatus("results");
-          }
-          // Update current_round if changed
-          if (roomData.current_round !== room.current_round) {
-            setRoom(roomData as RoomData);
-          }
+
+        // Check for status changes
+        if (roomData.status === "playing" && gameStatus === "waiting") {
+          console.log("[Poll] Room status changed to playing");
+          setGameStatus("playing");
+        }
+        if (roomData.status === "finished" && gameStatus !== "results") {
+          console.log("[Poll] Room status changed to finished");
+          setGameStatus("results");
+        }
+        // Always keep local room object fresh
+        if (
+          roomData.status !== room.status ||
+          roomData.current_round !== room.current_round
+        ) {
+          setRoom(roomData as RoomData);
         }
 
-        // Poll for new rounds during gameplay (via safe view)
-        if (gameStatus === "playing" || gameStatus === "between_rounds") {
+        // ---- Unified round-sync rescue ----
+        // Whenever the room is actively playing, make sure our local round matches
+        // the server's authoritative `current_round`. This is the catch-all that
+        // rescues clients which missed the realtime INSERT for a new round.
+        const serverRoundNum = roomData.current_round || 0;
+        const isBehind =
+          roomData.status === "playing" &&
+          serverRoundNum > 0 &&
+          serverRoundNum > roundNumber;
+
+        if (isBehind || gameStatus === "between_rounds") {
           const { data: latestRound } = await (supabase as any)
             .from("game_rounds_public")
             .select("*")
@@ -405,28 +414,38 @@ export function useMultiplayerGame(roomCode: string) {
             .maybeSingle();
 
           if (latestRound && latestRound.round_number > roundNumber) {
-            console.log("[Poll] New round detected:", latestRound.round_number);
+            console.log(
+              "[Poll] Catching up to round",
+              latestRound.round_number,
+              "(was on",
+              roundNumber,
+              ")"
+            );
             const round = latestRound as RoundData;
-            if (typeof round.options === 'string') {
+            if (typeof round.options === "string") {
               round.options = JSON.parse(round.options);
             }
 
-            // Reset time up handled ref
             timeUpHandledRef.current = null;
-
-            // Reset state for new round
             setHasAnswered(false);
             setSelectedAnswer(null);
             setIsCorrect(null);
-            setPlayers((prev) => prev.map((p) => ({ ...p, roundScore: 0, hasAnswered: false })));
+            setPlayers((prev) =>
+              prev.map((p) => ({ ...p, roundScore: 0, hasAnswered: false }))
+            );
 
             setRoundNumber(round.round_number);
-            const elapsed = Date.now() - new Date(round.started_at).getTime();
+            const elapsed =
+              Date.now() - new Date(round.started_at).getTime();
             const remaining = Math.max(0, ROUND_TIME - elapsed);
             setTimeLeft(remaining);
             setRoundStartTime(new Date(round.started_at).getTime());
             setCurrentRound(round);
-            setCurrentQuestionType(round.question_type === 'song' ? "Guess the Song" : "Guess the Artist");
+            setCurrentQuestionType(
+              round.question_type === "song"
+                ? "Guess the Song"
+                : "Guess the Artist"
+            );
             setGameStatus("playing");
           }
         }
