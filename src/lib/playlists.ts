@@ -1,18 +1,34 @@
 // Curated playlists for SongIQ
 // Each playlist uses search terms to fetch tracks from Apple Music/iTunes
 
+export type PlaylistCategory = "africa" | "rap" | "rnb" | "pop";
+
+export interface PlaylistCategoryOption {
+  id: "all" | PlaylistCategory;
+  label: string;
+}
+
+export const PLAYLIST_CATEGORIES: PlaylistCategoryOption[] = [
+  { id: "all", label: "All" },
+  { id: "rnb", label: "R&B" },
+  { id: "rap", label: "Rap & Hip-Hop" },
+  { id: "africa", label: "Africa" },
+];
+
 export interface Playlist {
   id: string;
   name: string;
   description: string;
   image: string; // Placeholder - will be fetched from first track or provided
   searchTerms: string[]; // Artists/songs to search for
+  category: PlaylistCategory;
 }
 
 // African music playlists with curated search terms
 export const PLAYLISTS: Playlist[] = [
   {
     id: "afrobeats-chill",
+    category: "africa",
     name: "Afrobeats & Chill",
     description: "Smooth Afrobeats vibes",
     image: "",
@@ -70,6 +86,7 @@ export const PLAYLISTS: Playlist[] = [
   },
   {
     id: "amapiano-hits",
+    category: "africa",
     name: "Amapiano Hits",
     description: "South African piano vibes",
     image: "",
@@ -115,6 +132,7 @@ export const PLAYLISTS: Playlist[] = [
   },
   {
     id: "naija-throwback",
+    category: "africa",
     name: "Naija Throwback",
     description: "Classic Nigerian hits",
     image: "",
@@ -165,6 +183,7 @@ export const PLAYLISTS: Playlist[] = [
   },
   {
     id: "afro-classics",
+    category: "africa",
     name: "Afro Classics",
     description: "Legendary African sounds",
     image: "",
@@ -205,6 +224,7 @@ export const PLAYLISTS: Playlist[] = [
   },
   {
     id: "east-africa-vibes",
+    category: "africa",
     name: "East Africa Vibes",
     description: "Bongo Flava & more",
     image: "",
@@ -249,6 +269,7 @@ export const PLAYLISTS: Playlist[] = [
   },
   {
     id: "ghana-sounds",
+    category: "africa",
     name: "Ghana Sounds",
     description: "Hiplife & Highlife hits",
     image: "",
@@ -293,6 +314,7 @@ export const PLAYLISTS: Playlist[] = [
   },
   {
     id: "us-hip-hop",
+    category: "rap",
     name: "US Hip-Hop & Rap",
     description: "Top US rap hits",
     image: "",
@@ -312,6 +334,7 @@ export const PLAYLISTS: Playlist[] = [
   },
   {
     id: "us-rnb",
+    category: "rnb",
     name: "US R&B",
     description: "Smooth R&B & soul",
     image: "",
@@ -330,6 +353,7 @@ export const PLAYLISTS: Playlist[] = [
   },
   {
     id: "us-pop-hits",
+    category: "pop",
     name: "US Pop Hits",
     description: "Chart-topping pop",
     image: "",
@@ -348,6 +372,7 @@ export const PLAYLISTS: Playlist[] = [
   },
   {
     id: "us-throwbacks-2000s",
+    category: "pop",
     name: "2000s Throwbacks",
     description: "Y2K & 2000s hits",
     image: "",

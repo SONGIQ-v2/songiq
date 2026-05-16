@@ -5,7 +5,8 @@ import { Starfield } from "@/components/Starfield";
 import { Header } from "@/components/Header";
 import { PlaylistCard } from "@/components/PlaylistCard";
 import { Button } from "@/components/ui/button";
-import { PLAYLISTS } from "@/lib/playlists";
+import { PLAYLISTS, PLAYLIST_CATEGORIES, type PlaylistCategory } from "@/lib/playlists";
+import { cn } from "@/lib/utils";
 import { useGameStore } from "@/lib/gameStore";
 import { useAppleMusic } from "@/hooks/useAppleMusic";
 import { ArrowLeft, Play, Loader2 } from "lucide-react";
@@ -15,8 +16,13 @@ const SoloPlay = () => {
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string>(PLAYLISTS[0]?.id || "");
   const [playlistImages, setPlaylistImages] = useState<Record<string, string>>({});
   const [loadingImages, setLoadingImages] = useState(true);
+  const [activeCategory, setActiveCategory] = useState<"all" | PlaylistCategory>("all");
   const { setCategory } = useGameStore();
   const { getPlaylistTracks } = useAppleMusic();
+
+  const visiblePlaylists = activeCategory === "all"
+    ? PLAYLISTS
+    : PLAYLISTS.filter((p) => p.category === activeCategory);
 
   // Fetch playlist images on mount
   useEffect(() => {
@@ -93,14 +99,38 @@ const SoloPlay = () => {
             </p>
           </motion.div>
 
+          {/* Category Tabs */}
+          <motion.div
+            className="flex flex-wrap justify-center gap-2 mb-6"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 }}
+          >
+            {PLAYLIST_CATEGORIES.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => setActiveCategory(cat.id)}
+                className={cn(
+                  "px-4 py-2 rounded-full text-sm font-medium uppercase tracking-wide transition-all border",
+                  activeCategory === cat.id
+                    ? "bg-primary text-primary-foreground border-primary shadow-[0_0_20px_hsl(var(--primary)/0.5)]"
+                    : "bg-card/40 text-muted-foreground border-border/40 hover:text-foreground hover:border-border"
+                )}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </motion.div>
+
           {/* Playlists Grid */}
           <motion.div
+            key={activeCategory}
             className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
           >
-            {PLAYLISTS.map((playlist) => (
+            {visiblePlaylists.map((playlist) => (
               <PlaylistCard
                 key={playlist.id}
                 playlist={playlist}
