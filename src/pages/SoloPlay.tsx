@@ -16,8 +16,13 @@ const SoloPlay = () => {
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string>(PLAYLISTS[0]?.id || "");
   const [playlistImages, setPlaylistImages] = useState<Record<string, string>>({});
   const [loadingImages, setLoadingImages] = useState(true);
+  const [activeCategory, setActiveCategory] = useState<"all" | PlaylistCategory>("all");
   const { setCategory } = useGameStore();
   const { getPlaylistTracks } = useAppleMusic();
+
+  const visiblePlaylists = activeCategory === "all"
+    ? PLAYLISTS
+    : PLAYLISTS.filter((p) => p.category === activeCategory);
 
   // Fetch playlist images on mount
   useEffect(() => {
