@@ -964,21 +964,36 @@ export function useMultiplayerGame(roomCode: string) {
     });
   }, [isHost, room?.id, room?.category, gameStatus, tracks.length, loadTracks]);
 
-  // Re-sync timer when tab becomes visible (handles background tab pause)
+  // Re-sync timer + round when tab becomes visible (handles background tab pause)
   useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && gameStatus === 'playing' && currentRound) {
-        // Recalculate time left based on server timestamp
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState !== 'visible') return;
+
+      // 1) Resync timer for the current round
+      if (gameStatus === 'playing' && currentRound) {
         const elapsed = Date.now() - new Date(currentRound.started_at).getTime();
         const remaining = Math.max(0, ROUND_TIME - elapsed);
         console.log("Tab visible, syncing timer. Remaining:", remaining);
         setTimeLeft(remaining);
       }
+
+      // 2) If we're behind the server's current_round, force a refetch immediately
+      if (room?.id) {
+        const { data: roomData } = await supabase
+          .from("game_rooms")
+          .select("*")
+          .eq("id", room.id)
+          .single();
+        if (roomData && roomData.status === "playing" && (roomData.current_round || 0) > roundNumber) {
+          console.log("[Visibility] Behind server round, forcing resync");
+          setRoom(roomData as RoomData);
+        }
+      }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [gameStatus, currentRound]);
+  }, [gameStatus, currentRound, room?.id, roundNumber, ROUND_TIME]);
 
   // Cleanup
   useEffect(() => {
