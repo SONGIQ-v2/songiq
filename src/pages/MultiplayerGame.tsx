@@ -153,62 +153,62 @@ export default function MultiplayerGame() {
     resetActivityTimer();
   };
 
-  // Audio handling - play when round changes
+  // Audio handling — preload during between_rounds, play instantly when round starts
   useEffect(() => {
     let cancelled = false;
 
-    const playAudio = async () => {
-      if (currentRound?.preview_url && gameStatus === "playing") {
-        // Stop any existing audio
-        if (audioRef.current) {
-          audioRef.current.pause();
-          audioRef.current = null;
-        }
-        
+    const setupAudio = async () => {
+      if (!currentRound?.preview_url) return;
+      if (gameStatus !== "playing" && gameStatus !== "between_rounds") return;
+
+      const existing = audioRef.current;
+      const sameTrack = existing && existing.src === currentRound.preview_url;
+
+      if (!sameTrack) {
+        if (existing) existing.pause();
+        const audio = new Audio(currentRound.preview_url);
+        audio.volume = isMuted ? 0 : 0.7;
+        audio.preload = "auto";
+        audioRef.current = audio;
+
         try {
-          const audio = new Audio(currentRound.preview_url);
-          audio.volume = isMuted ? 0 : 0.7;
-          audio.preload = "auto";
-          audioRef.current = audio;
-          
-          // Use 'canplay' instead of 'canplaythrough' for faster start
           await new Promise((resolve, reject) => {
             audio.oncanplay = resolve;
             audio.onerror = reject;
             audio.load();
-            // Fallback: if canplay doesn't fire within 1s, try playing anyway
-            setTimeout(resolve, 1000);
+            setTimeout(resolve, 1000); // fallback
           });
+        } catch (err) {
+          console.error("Error preloading audio:", err);
+        }
+      }
 
-          if (cancelled) return;
-          
-          await audio.play();
+      if (cancelled) return;
+
+      // Only start playback once the round is actually live
+      if (gameStatus === "playing" && audioRef.current) {
+        try {
+          await audioRef.current.play();
           setIsPlaying(true);
           console.log("Audio playing for round:", roundNumber);
         } catch (err) {
           console.error("Error playing audio:", err);
-          // Try playing without waiting for load event
-          if (!cancelled && audioRef.current) {
-            try {
-              await audioRef.current.play();
-              setIsPlaying(true);
-            } catch {
-              setIsPlaying(false);
-            }
-          }
+          setIsPlaying(false);
         }
       }
     };
 
-    playAudio();
+    setupAudio();
 
     return () => {
       cancelled = true;
-      if (audioRef.current) {
+      // Don't pause during between_rounds — we want preloaded audio ready to play
+      if (gameStatus !== "between_rounds" && audioRef.current) {
         audioRef.current.pause();
       }
     };
   }, [currentRound?.id, gameStatus]);
+
 
   useEffect(() => {
     if (audioRef.current) {
