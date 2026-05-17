@@ -201,6 +201,9 @@ export function useMultiplayerGame(roomCode: string) {
               setRoundNumber(newRound.round_number);
               setRoundStartTime(new Date(newRound.started_at).getTime());
               setTimeLeft(newRemaining);
+              const newQType: QuestionType = newRound.question_type === 'song' ? "Guess the Song" : "Guess the Artist";
+              setCurrentQuestionType(newQType);
+              setNextQuestionType(newQType);
               setGameStatus("playing");
             } else {
               // No newer round - host needs to create next round
