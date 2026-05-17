@@ -382,7 +382,7 @@ export default function RoomLobby() {
             </p>
           </motion.div>
 
-          <div className={isHost ? "contents" : "flex flex-col-reverse"}>
+          <div className="flex flex-col-reverse">
           {/* Players Grid */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
