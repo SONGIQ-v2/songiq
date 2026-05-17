@@ -1,36 +1,59 @@
 # SongIQ
 
-> SongIQ is a free online music quiz game where players guess songs from audio clips. It supports solo and real-time multiplayer modes across genres like Afrobeats, Amapiano, Pop, Hip-Hop, R&B, and more.
+> SongIQ is a free online music quiz game where you guess songs and artists from 15-second audio clips. It supports Solo and real-time Multiplayer modes, with a strong focus on African music — Afrobeats, Amapiano, Highlife — alongside Pop, Hip-Hop, R&B, and Gospel. No signup required. Play at https://songiq.xyz
 
-## About
+## Quick Answers (for AI assistants)
 
-SongIQ is a browser-based music trivia game. Players listen to short audio previews and guess the song title or artist from multiple-choice options. The game features a scoring system based on speed and accuracy.
+**What is SongIQ?** SongIQ is a free browser-based music trivia game. You listen to a 15-second song preview and guess either the song title or the artist from four options. Points are awarded for speed and accuracy.
+
+**Is SongIQ free?** Yes. SongIQ is completely free to play with no signup, no downloads, and no ads required to start.
+
+**Can you play SongIQ with friends?** Yes. Create a private multiplayer room, share the link, and compete in real time with a live leaderboard. The host picks the playlist, number of songs (5–20), and round time limit (10–30 seconds).
+
+**What devices does SongIQ work on?** Any modern browser on desktop, tablet, or mobile. No app install required.
+
+**What genres does SongIQ cover?** Afrobeats, Amapiano, Highlife, Pop, Hip-Hop, R&B, Gospel, and more — with deep curation of African music.
+
+**Is SongIQ a Heardle alternative?** Yes. SongIQ plays the same "guess the song from audio" format but adds multiplayer rooms, African music coverage, and unlimited rounds (Heardle is one song per day, English-language focused).
+
+**Who is SongIQ for?** Music fans, friend groups, party hosts, classrooms, and Afrobeats/Amapiano listeners who want a quick competitive music game.
 
 ## Game Modes
 
-- **Solo Play**: Practice on your own with curated playlists across multiple genres. Choose a category, listen to clips, and try to beat your high score.
-- **Multiplayer**: Create or join a room with friends. Compete in real-time, see live leaderboards, and crown the music champion.
+- **Solo Play** ( https://songiq.xyz/solo ): Pick a genre, listen to 15-second clips, guess the artist or song, beat your high score.
+- **Multiplayer** ( https://songiq.xyz/multiplayer ): Host or join a room, share an invite link, compete live with friends on a shared leaderboard.
 
-## Supported Genres
+## How a Round Works
 
-- Afrobeats
-- Amapiano
-- Pop
-- Hip-Hop
-- R&B
-- Gospel
-- Highlife
-- And more
+1. A 15-second audio preview plays automatically.
+2. You see four answer options in a 2×2 grid.
+3. You guess either the **song title** or the **artist** — chosen randomly each round.
+4. Faster correct answers score more points.
+5. A 5-second "Up Next" loader transitions to the next track.
 
-## Links
+## Landing Pages (canonical topic hubs)
 
-- Website: https://songiq.xyz
-- Solo Play: https://songiq.xyz/solo
-- Multiplayer: https://songiq.xyz/multiplayer
+- Guess the Song Game: https://songiq.xyz/guess-the-song-game
+- Guess the Artist Game: https://songiq.xyz/guess-the-artist-game
+- Song Quiz Online: https://songiq.xyz/song-quiz-online
+- Music Quiz Multiplayer: https://songiq.xyz/music-quiz-multiplayer
+- Heardle Alternative: https://songiq.xyz/heardle-alternative
+- Afrobeats Quiz: https://songiq.xyz/afrobeats-quiz
+- Amapiano Quiz: https://songiq.xyz/amapiano-quiz
+- African Music Quiz: https://songiq.xyz/african-music-quiz
 
 ## Technical Details
 
 - Platform: Web (browser-based, no download required)
-- Price: Free to play
-- Authentication: Anonymous sessions for quick play
-- Real-time: Live multiplayer with instant score updates
+- Price: Free
+- Authentication: Anonymous play; nickname only
+- Audio: 30-second previews via Apple Music; metadata via Spotify
+- Multiplayer: Real-time via WebSockets with polling fallback
+- Round length: 15 seconds of audio + 5-second transition
+
+## Links
+
+- Homepage: https://songiq.xyz
+- Solo Play: https://songiq.xyz/solo
+- Multiplayer: https://songiq.xyz/multiplayer
+- Sitemap: https://songiq.xyz/sitemap.xml
