@@ -946,6 +946,24 @@ export function useMultiplayerGame(roomCode: string) {
     }
   }, [room, playerId, isHost]);
 
+  // Host: kick a player from the room
+  const kickPlayer = useCallback(async (targetPlayerId: string) => {
+    if (!room || !isHost) return;
+    if (targetPlayerId === playerId) return;
+    const { error: kickErr } = await supabase
+      .from("room_players")
+      .delete()
+      .eq("room_id", room.id)
+      .eq("player_id", targetPlayerId);
+    if (kickErr) throw kickErr;
+  }, [room, playerId, isHost]);
+
+  // Host: end the game immediately
+  const endGameNow = useCallback(async () => {
+    if (!room || !isHost) return;
+    await endGame();
+  }, [room, isHost, endGame]);
+
   // Initialize
   // Initialize - wait for auth before fetching
   useEffect(() => {
@@ -1036,6 +1054,8 @@ export function useMultiplayerGame(roomCode: string) {
     toggleReady,
     leaveRoom,
     playAgain,
+    kickPlayer,
+    endGameNow,
     isHost: room ? room.host_id === playerId : isHost,
     playerId,
     ROUND_TIME,

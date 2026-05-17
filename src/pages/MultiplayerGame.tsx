@@ -65,7 +65,21 @@ export default function MultiplayerGame() {
     playerId,
     ROUND_TIME,
     isTerminated,
+    endGameNow,
   } = useMultiplayerGame(code || "");
+
+  // Kicked detection
+  const wasInRoomRef = useRef(false);
+  useEffect(() => {
+    if (!playerId || loading) return;
+    const me = players.find((p) => p.player_id === playerId);
+    if (me) {
+      wasInRoomRef.current = true;
+    } else if (wasInRoomRef.current && room && !isHostPlayer) {
+      toast.error("You were removed from the game by the host");
+      navigate("/multiplayer");
+    }
+  }, [players, playerId, loading, room, isHostPlayer, navigate]);
 
   const handleLeaveGame = useCallback(async () => {
     if (audioRef.current) audioRef.current.pause();
@@ -541,6 +555,40 @@ export default function MultiplayerGame() {
                 </AlertDialogContent>
               </AlertDialog>
               <RoundIndicator currentRound={roundNumber} totalRounds={room.total_rounds} />
+              {isHostPlayer && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive gap-1.5"
+                    >
+                      <Trophy className="w-4 h-4" />
+                      End Game
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>End the game now?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will immediately finish the game for everyone and show the final leaderboard.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Keep Playing</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={async () => {
+                          try { await endGameNow(); toast.success("Game ended"); }
+                          catch { toast.error("Failed to end game"); }
+                        }}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        End Game
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
             </div>
 
             <div className="flex items-center gap-4">
