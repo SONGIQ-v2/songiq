@@ -670,15 +670,21 @@ export default function MultiplayerGame() {
             <div className="w-full max-w-2xl grid grid-cols-2 gap-3">
               {currentRound?.options.map((option, index) => {
                 const correctAnswer = currentQuestionType === "Guess the Song" ? currentRound.track_name : currentRound.artist_name;
+                const hasCorrectAnswer = Boolean(correctAnswer);
+                const optionIsSelected = selectedAnswer === option;
+                const optionIsCorrect = hasCorrectAnswer
+                  ? option === correctAnswer
+                  : optionIsSelected && isCorrect === true;
+                const shouldRevealOption = hasAnswered && (hasCorrectAnswer || optionIsSelected);
 
                 return (
                   <AnswerOption
                     key={`${roundNumber}-${index}`}
                     option={option}
                     index={index}
-                    isSelected={selectedAnswer === option}
-                    isCorrect={option === correctAnswer}
-                    isRevealed={hasAnswered}
+                    isSelected={optionIsSelected}
+                    isCorrect={optionIsCorrect}
+                    isRevealed={shouldRevealOption}
                     disabled={hasAnswered}
                     onClick={() => handleAnswer(option)}
                   />
