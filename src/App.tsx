@@ -10,6 +10,14 @@ import Multiplayer from "./pages/Multiplayer";
 import RoomLobby from "./pages/RoomLobby";
 import MultiplayerGame from "./pages/MultiplayerGame";
 import NotFound from "./pages/NotFound";
+import GuessTheSongGame from "./pages/landing/GuessTheSongGame";
+import GuessTheArtistGame from "./pages/landing/GuessTheArtistGame";
+import SongQuizOnline from "./pages/landing/SongQuizOnline";
+import MusicQuizMultiplayer from "./pages/landing/MusicQuizMultiplayer";
+import HeardleAlternative from "./pages/landing/HeardleAlternative";
+import AfrobeatsQuiz from "./pages/landing/AfrobeatsQuiz";
+import AmapianoQuiz from "./pages/landing/AmapianoQuiz";
+import AfricanMusicQuiz from "./pages/landing/AfricanMusicQuiz";
 
 const queryClient = new QueryClient();
 
@@ -26,6 +34,14 @@ const App = () => (
           <Route path="/multiplayer" element={<Multiplayer />} />
           <Route path="/room/:code" element={<RoomLobby />} />
           <Route path="/room/:code/game" element={<MultiplayerGame />} />
+          <Route path="/guess-the-song-game" element={<GuessTheSongGame />} />
+          <Route path="/guess-the-artist-game" element={<GuessTheArtistGame />} />
+          <Route path="/song-quiz-online" element={<SongQuizOnline />} />
+          <Route path="/music-quiz-multiplayer" element={<MusicQuizMultiplayer />} />
+          <Route path="/heardle-alternative" element={<HeardleAlternative />} />
+          <Route path="/afrobeats-quiz" element={<AfrobeatsQuiz />} />
+          <Route path="/amapiano-quiz" element={<AmapianoQuiz />} />
+          <Route path="/african-music-quiz" element={<AfricanMusicQuiz />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
