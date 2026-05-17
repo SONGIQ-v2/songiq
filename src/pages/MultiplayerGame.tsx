@@ -66,7 +66,6 @@ export default function MultiplayerGame() {
     ROUND_TIME,
     isTerminated,
     endGameNow,
-    kickPlayer,
   } = useMultiplayerGame(code || "");
 
   // Kicked detection
