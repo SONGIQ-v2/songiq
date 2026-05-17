@@ -670,11 +670,13 @@ export default function MultiplayerGame() {
             <div className="w-full max-w-2xl grid grid-cols-2 gap-3">
               {currentRound?.options.map((option, index) => {
                 const correctAnswer = currentQuestionType === "Guess the Song" ? currentRound.track_name : currentRound.artist_name;
+                const normalize = (v: string | null | undefined) => (v ?? "").trim().toLowerCase();
                 const hasCorrectAnswer = Boolean(correctAnswer);
                 const optionIsSelected = selectedAnswer === option;
-                const optionIsCorrect = hasCorrectAnswer
-                  ? option === correctAnswer
-                  : optionIsSelected && isCorrect === true;
+                // Trust the backend grade for the selected option; otherwise compare normalized strings.
+                const optionIsCorrect = optionIsSelected
+                  ? isCorrect === true
+                  : hasCorrectAnswer && normalize(option) === normalize(correctAnswer);
                 const shouldRevealOption = hasAnswered && isCorrect !== null && (hasCorrectAnswer || optionIsSelected);
 
                 return (
