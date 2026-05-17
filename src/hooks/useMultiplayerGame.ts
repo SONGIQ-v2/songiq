@@ -354,6 +354,10 @@ export function useMultiplayerGame(roomCode: string) {
                 : p
             )
           );
+          // If this is our own answer, use the realtime-graded result as the source of truth
+          if (answer.player_id === playerId) {
+            setIsCorrect(answer.is_correct);
+          }
         }
       )
       .subscribe((status) => {
@@ -722,9 +726,9 @@ export function useMultiplayerGame(roomCode: string) {
 
       if (insertErr) throw insertErr;
 
-      const correct = inserted?.is_correct ?? false;
+      const correct = inserted?.is_correct;
       const points = inserted?.points_earned ?? 0;
-      setIsCorrect(correct);
+      if (typeof correct === "boolean") setIsCorrect(correct);
 
       // Update player score with server-graded points
       await supabase
