@@ -150,6 +150,11 @@ export function useMultiplayerGame(roomCode: string) {
           if (typeof round.options === 'string') {
             round.options = JSON.parse(round.options);
           }
+
+          // Sync question type from the loaded round (critical for guests on first round)
+          const qType: QuestionType = round.question_type === 'song' ? "Guess the Song" : "Guess the Artist";
+          setCurrentQuestionType(qType);
+          setNextQuestionType(qType);
           
           // Calculate remaining time based on when round started
           const elapsed = Date.now() - new Date(round.started_at).getTime();
