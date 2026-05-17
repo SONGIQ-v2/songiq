@@ -10,6 +10,7 @@ export interface PlaylistCategoryOption {
 
 export const PLAYLIST_CATEGORIES: PlaylistCategoryOption[] = [
   { id: "all", label: "All" },
+  { id: "pop", label: "Pop" },
   { id: "rnb", label: "R&B" },
   { id: "rap", label: "Rap & Hip-Hop" },
   { id: "africa", label: "Africa" },
