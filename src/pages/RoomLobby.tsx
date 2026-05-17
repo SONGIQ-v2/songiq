@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Copy, Check, Users, Play, Crown, LogOut, Loader2, UserCircle, Music, Clock, Hash, ChevronLeft, ChevronRight } from "lucide-react";
+import { Copy, Check, Users, Play, Crown, LogOut, Loader2, UserCircle, Music, Clock, Hash, ChevronLeft, ChevronRight, UserX } from "lucide-react";
 import { useRef } from "react";
 import { Link } from "react-router-dom";
 import { Starfield } from "@/components/Starfield";
@@ -429,6 +429,22 @@ export default function RoomLobby() {
                       isHost={player.is_host}
                       size="md"
                     />
+                    {isHost && !player.is_host && (
+                      <button
+                        onClick={async () => {
+                          try {
+                            await kickPlayer(player.player_id);
+                            toast.success(`Removed ${player.player_name}`);
+                          } catch {
+                            toast.error("Failed to remove player");
+                          }
+                        }}
+                        title={`Remove ${player.player_name}`}
+                        className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
+                      >
+                        <UserX className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </motion.div>
                 ))}
 
