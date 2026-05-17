@@ -5,6 +5,7 @@ import { Copy, Check, Users, Play, Crown, LogOut, Loader2, UserCircle, Music, Cl
 import { useRef } from "react";
 import { Link } from "react-router-dom";
 import { Starfield } from "@/components/Starfield";
+import songiqLogo from "@/assets/songiq-logo.png";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
