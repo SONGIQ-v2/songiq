@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Volume2, VolumeX, Music2, Trophy, X, AlertTriangle, LogOut, UserCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Starfield } from "@/components/Starfield";
+import songiqLogo from "@/assets/songiq-logo.png";
 import { RoundIndicator } from "@/components/RoundIndicator";
 import { AudioVisualizer } from "@/components/AudioVisualizer";
 import { AnswerOption } from "@/components/AnswerOption";
