@@ -643,7 +643,7 @@ export default function MultiplayerGame() {
 
             {/* Song info (shown after answer) */}
             <AnimatePresence>
-              {hasAnswered && currentRound && (
+              {hasAnswered && currentRound && isCorrect !== null && (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -652,8 +652,8 @@ export default function MultiplayerGame() {
                 >
                   <h2 className="text-xl font-bold text-foreground">{currentRound.track_name}</h2>
                   <p className="text-foreground/60">{currentRound.artist_name}</p>
-                  <div className={`mt-2 text-lg font-bold ${isCorrect === null ? "text-muted-foreground" : isCorrect ? "text-green-500" : "text-red-500"}`}>
-                    {isCorrect === null ? "Checking..." : isCorrect ? "Correct! 🎉" : "Wrong!"}
+                  <div className={`mt-2 text-lg font-bold ${isCorrect ? "text-green-500" : "text-red-500"}`}>
+                    {isCorrect ? "Correct! 🎉" : "Wrong!"}
                   </div>
                 </motion.div>
               )}
