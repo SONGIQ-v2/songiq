@@ -81,17 +81,29 @@ async function getPlaylistTracks(
   playlistImage: string;
   tracks: iTunesTrack[];
 }> {
-  console.log(`[Apple Music] Fetching playlist tracks for: ${playlistName}`);
-  
-  const allTracks: iTunesTrack[] = [];
-  const tracksPerTerm = Math.ceil(limit / searchTerms.length);
+  console.log(`[Apple Music] Fetching playlist tracks for: ${playlistName} (${searchTerms.length} terms)`);
 
-  for (const term of searchTerms) {
-    try {
-      const tracks = await searchTracks(term, tracksPerTerm);
-      allTracks.push(...tracks);
-    } catch (e) {
-      console.error(`[Apple Music] Error searching for "${term}":`, e);
+  // Cap how many terms we actually search to keep latency bounded.
+  // With many terms we'd otherwise do 50+ sequential iTunes calls and time out the client invoke.
+  const MAX_TERMS = 25;
+  const usedTerms = searchTerms.length > MAX_TERMS
+    ? [...searchTerms].sort(() => Math.random() - 0.5).slice(0, MAX_TERMS)
+    : searchTerms;
+
+  // Ensure each term returns enough candidates so post-preview-filter + dedup leaves us with `limit` tracks.
+  const tracksPerTerm = Math.max(3, Math.ceil((limit * 2) / usedTerms.length));
+
+  // Run all iTunes searches in PARALLEL — sequential was the source of the 30s+ start-game timeouts.
+  const results = await Promise.allSettled(
+    usedTerms.map((term) => searchTracks(term, tracksPerTerm))
+  );
+
+  const allTracks: iTunesTrack[] = [];
+  for (const r of results) {
+    if (r.status === 'fulfilled') {
+      allTracks.push(...r.value);
+    } else {
+      console.error(`[Apple Music] Search failed:`, r.reason);
     }
   }
 
