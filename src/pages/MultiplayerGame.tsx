@@ -65,7 +65,22 @@ export default function MultiplayerGame() {
     playerId,
     ROUND_TIME,
     isTerminated,
+    endGameNow,
+    kickPlayer,
   } = useMultiplayerGame(code || "");
+
+  // Kicked detection
+  const wasInRoomRef = useRef(false);
+  useEffect(() => {
+    if (!playerId || loading) return;
+    const me = players.find((p) => p.player_id === playerId);
+    if (me) {
+      wasInRoomRef.current = true;
+    } else if (wasInRoomRef.current && room && !isHostPlayer) {
+      toast.error("You were removed from the game by the host");
+      navigate("/multiplayer");
+    }
+  }, [players, playerId, loading, room, isHostPlayer, navigate]);
 
   const handleLeaveGame = useCallback(async () => {
     if (audioRef.current) audioRef.current.pause();
