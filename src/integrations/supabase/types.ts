@@ -271,7 +271,7 @@ export type Database = {
       }
     }
     Functions: {
-      [_ in never]: never
+      normalize_quiz_answer: { Args: { _value: string }; Returns: string }
     }
     Enums: {
       [_ in never]: never
