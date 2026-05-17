@@ -150,6 +150,11 @@ export function useMultiplayerGame(roomCode: string) {
           if (typeof round.options === 'string') {
             round.options = JSON.parse(round.options);
           }
+
+          // Sync question type from the loaded round (critical for guests on first round)
+          const qType: QuestionType = round.question_type === 'song' ? "Guess the Song" : "Guess the Artist";
+          setCurrentQuestionType(qType);
+          setNextQuestionType(qType);
           
           // Calculate remaining time based on when round started
           const elapsed = Date.now() - new Date(round.started_at).getTime();
@@ -196,6 +201,9 @@ export function useMultiplayerGame(roomCode: string) {
               setRoundNumber(newRound.round_number);
               setRoundStartTime(new Date(newRound.started_at).getTime());
               setTimeLeft(newRemaining);
+              const newQType: QuestionType = newRound.question_type === 'song' ? "Guess the Song" : "Guess the Artist";
+              setCurrentQuestionType(newQType);
+              setNextQuestionType(newQType);
               setGameStatus("playing");
             } else {
               // No newer round - host needs to create next round
