@@ -600,6 +600,7 @@ export default function RoomLobby() {
               </div>
             </motion.div>
           )}
+          </div>
 
         </div>
       </main>
