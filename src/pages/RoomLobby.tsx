@@ -76,7 +76,21 @@ export default function RoomLobby() {
     isHost,
     playerId,
     isTerminated,
+    kickPlayer,
   } = useMultiplayerGame(code || "");
+
+  // Kicked detection: if I was in the room but my row is gone, redirect.
+  const wasInRoomRef = useRef(false);
+  useEffect(() => {
+    if (!playerId || loading) return;
+    const me = players.find((p) => p.player_id === playerId);
+    if (me) {
+      wasInRoomRef.current = true;
+    } else if (wasInRoomRef.current && room && !isHost) {
+      toast.error("You were removed from the room by the host");
+      navigate("/multiplayer");
+    }
+  }, [players, playerId, loading, room, isHost, navigate]);
 
   // Helper: get/set username cookie
   const getUsernameCookie = () => {
