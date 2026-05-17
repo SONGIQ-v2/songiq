@@ -354,6 +354,10 @@ export function useMultiplayerGame(roomCode: string) {
                 : p
             )
           );
+          // If this is our own answer, use the realtime-graded result as the source of truth
+          if (answer.player_id === playerId) {
+            setIsCorrect(answer.is_correct);
+          }
         }
       )
       .subscribe((status) => {
