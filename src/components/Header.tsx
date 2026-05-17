@@ -45,7 +45,7 @@ export const Header = () => {
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           {/* Logo - left aligned */}
           <Link to="/" className="flex items-center" aria-label="SongIQ home">
-            <img src={songiqLogo} alt="SongIQ — Music Trivia Game" className="h-12 md:h-16 w-auto" />
+            <img src={songiqLogo} alt="SongIQ — Music Trivia Game" className="h-8 md:h-10 w-auto" />
           </Link>
 
           {/* Right side actions */}
