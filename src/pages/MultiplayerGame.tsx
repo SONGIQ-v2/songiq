@@ -652,8 +652,8 @@ export default function MultiplayerGame() {
                 >
                   <h2 className="text-xl font-bold text-foreground">{currentRound.track_name}</h2>
                   <p className="text-foreground/60">{currentRound.artist_name}</p>
-                  <div className={`mt-2 text-lg font-bold ${isCorrect ? "text-green-500" : "text-red-500"}`}>
-                    {isCorrect ? "Correct! 🎉" : "Wrong!"}
+                  <div className={`mt-2 text-lg font-bold ${isCorrect === null ? "text-muted-foreground" : isCorrect ? "text-green-500" : "text-red-500"}`}>
+                    {isCorrect === null ? "Checking..." : isCorrect ? "Correct! 🎉" : "Wrong!"}
                   </div>
                 </motion.div>
               )}
@@ -670,15 +670,21 @@ export default function MultiplayerGame() {
             <div className="w-full max-w-2xl grid grid-cols-2 gap-3">
               {currentRound?.options.map((option, index) => {
                 const correctAnswer = currentQuestionType === "Guess the Song" ? currentRound.track_name : currentRound.artist_name;
+                const hasCorrectAnswer = Boolean(correctAnswer);
+                const optionIsSelected = selectedAnswer === option;
+                const optionIsCorrect = hasCorrectAnswer
+                  ? option === correctAnswer
+                  : optionIsSelected && isCorrect === true;
+                const shouldRevealOption = hasAnswered && isCorrect !== null && (hasCorrectAnswer || optionIsSelected);
 
                 return (
                   <AnswerOption
                     key={`${roundNumber}-${index}`}
                     option={option}
                     index={index}
-                    isSelected={selectedAnswer === option}
-                    isCorrect={option === correctAnswer}
-                    isRevealed={hasAnswered}
+                    isSelected={optionIsSelected}
+                    isCorrect={optionIsCorrect}
+                    isRevealed={shouldRevealOption}
                     disabled={hasAnswered}
                     onClick={() => handleAnswer(option)}
                   />
