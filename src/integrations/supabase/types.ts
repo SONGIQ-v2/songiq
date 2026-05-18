@@ -14,6 +14,69 @@ export type Database = {
   }
   public: {
     Tables: {
+      game_history: {
+        Row: {
+          answers: Json
+          archived_at: string
+          category: string
+          created_at: string
+          finished_at: string | null
+          host_id: string
+          host_name: string
+          id: string
+          players: Json
+          reason: string
+          room_code: string
+          room_id: string
+          rounds: Json
+          rounds_played: number
+          started_at: string | null
+          status: string
+          time_per_round: number
+          total_rounds: number
+        }
+        Insert: {
+          answers?: Json
+          archived_at?: string
+          category: string
+          created_at: string
+          finished_at?: string | null
+          host_id: string
+          host_name: string
+          id?: string
+          players?: Json
+          reason: string
+          room_code: string
+          room_id: string
+          rounds?: Json
+          rounds_played: number
+          started_at?: string | null
+          status: string
+          time_per_round: number
+          total_rounds: number
+        }
+        Update: {
+          answers?: Json
+          archived_at?: string
+          category?: string
+          created_at?: string
+          finished_at?: string | null
+          host_id?: string
+          host_name?: string
+          id?: string
+          players?: Json
+          reason?: string
+          room_code?: string
+          room_id?: string
+          rounds?: Json
+          rounds_played?: number
+          started_at?: string | null
+          status?: string
+          time_per_round?: number
+          total_rounds?: number
+        }
+        Relationships: []
+      }
       game_rooms: {
         Row: {
           category: string
