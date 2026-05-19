@@ -29,6 +29,12 @@ Deno.serve(async (req) => {
       .delete({ count: "exact" })
       .lt("archived_at", historyCutoff);
 
+    // Purge client logs older than 14 days
+    const { count: purgedLogs } = await supabase
+      .from("client_logs")
+      .delete({ count: "exact" })
+      .lt("created_at", historyCutoff);
+
     // 1) waiting rooms older than 2h (never started) — not archived (no gameplay data)
     const { data: waitingRooms } = await supabase
       .from("game_rooms")
