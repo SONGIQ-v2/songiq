@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      client_logs: {
+        Row: {
+          context: Json
+          created_at: string
+          event: string | null
+          id: string
+          level: string
+          message: string
+          player_id: string | null
+          room_code: string | null
+          room_id: string | null
+          stack: string | null
+          url: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          context?: Json
+          created_at?: string
+          event?: string | null
+          id?: string
+          level?: string
+          message: string
+          player_id?: string | null
+          room_code?: string | null
+          room_id?: string | null
+          stack?: string | null
+          url?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          context?: Json
+          created_at?: string
+          event?: string | null
+          id?: string
+          level?: string
+          message?: string
+          player_id?: string | null
+          room_code?: string | null
+          room_id?: string | null
+          stack?: string | null
+          url?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       game_history: {
         Row: {
           answers: Json
