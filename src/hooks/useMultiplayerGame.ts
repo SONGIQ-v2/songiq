@@ -766,6 +766,14 @@ export function useMultiplayerGame(roomCode: string) {
         .eq("player_id", playerId);
     } catch (err) {
       console.error("Error submitting answer:", err);
+      logError("multiplayer.submit_answer_failed", "Failed to submit multiplayer answer", {
+        roomId: room.id,
+        roomCode: room.room_code,
+        roundId: currentRound.id,
+        roundNumber,
+        answer,
+        error: (err as Error)?.message,
+      }, (err as Error)?.stack);
     }
   }, [hasAnswered, currentRound, room, playerId, players]);
 
