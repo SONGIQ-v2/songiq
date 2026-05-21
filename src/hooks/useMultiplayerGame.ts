@@ -367,6 +367,11 @@ export function useMultiplayerGame(roomCode: string) {
       )
       .subscribe((status) => {
         console.log("[Realtime] Channel status:", status);
+        if (status === "SUBSCRIBED") {
+          logInfo("realtime.subscribed", "Realtime channel subscribed", { roomId: room.id, roomCode: room.room_code });
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          logWarn("realtime.disconnected", `Realtime channel ${status}`, { roomId: room.id, roomCode: room.room_code, status });
+        }
       });
 
     return () => {
