@@ -5,6 +5,7 @@ import { useAppleMusic, type AppleMusicTrack } from "@/hooks/useAppleMusic";
 import { getPlaylistById, PLAYLISTS } from "@/lib/playlists";
 import { calculatePoints } from "@/lib/spotify";
 import { toast } from "sonner";
+import { logError, logWarn, logInfo } from "@/lib/clientLogger";
 
 export interface MultiplayerPlayer {
   id: string;
@@ -238,6 +239,10 @@ export function useMultiplayerGame(roomCode: string) {
       console.error("Error fetching room:", err);
       setError("Failed to load room");
       setLoading(false);
+      logError("multiplayer.fetch_room_failed", "Failed to load multiplayer room", {
+        roomCode,
+        error: (err as Error)?.message,
+      }, (err as Error)?.stack);
     }
   }, [roomCode, playerId]);
 
@@ -362,6 +367,11 @@ export function useMultiplayerGame(roomCode: string) {
       )
       .subscribe((status) => {
         console.log("[Realtime] Channel status:", status);
+        if (status === "SUBSCRIBED") {
+          logInfo("realtime.subscribed", "Realtime channel subscribed", { roomId: room.id, roomCode: room.room_code });
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          logWarn("realtime.disconnected", `Realtime channel ${status}`, { roomId: room.id, roomCode: room.room_code, status });
+        }
       });
 
     return () => {
@@ -433,6 +443,12 @@ export function useMultiplayerGame(roomCode: string) {
               roundNumber,
               ")"
             );
+            logWarn("realtime.missed_round_insert", "Polling fallback caught a missed round", {
+              roomId: room.id,
+              roomCode: room.room_code,
+              previousRound: roundNumber,
+              caughtUpTo: latestRound.round_number,
+            });
             const round = latestRound as RoundData;
             if (typeof round.options === "string") {
               round.options = JSON.parse(round.options);
@@ -555,8 +571,20 @@ export function useMultiplayerGame(roomCode: string) {
             points_earned: 0,
           });
           setHasAnswered(true);
+          logWarn("multiplayer.answer_timeout", "Multiplayer round timed out before player answered", {
+            roomId: room.id,
+            roomCode: room.room_code,
+            roundId: currentRound.id,
+            roundNumber,
+          });
         } catch (err) {
           console.error("Error submitting empty answer:", err);
+          logError("multiplayer.empty_answer_failed", "Failed to submit empty answer on timeout", {
+            roomId: room.id,
+            roomCode: room.room_code,
+            roundId: currentRound.id,
+            error: (err as Error)?.message,
+          }, (err as Error)?.stack);
         }
       }
     };
@@ -738,6 +766,14 @@ export function useMultiplayerGame(roomCode: string) {
         .eq("player_id", playerId);
     } catch (err) {
       console.error("Error submitting answer:", err);
+      logError("multiplayer.submit_answer_failed", "Failed to submit multiplayer answer", {
+        roomId: room.id,
+        roomCode: room.room_code,
+        roundId: currentRound.id,
+        roundNumber,
+        answer,
+        error: (err as Error)?.message,
+      }, (err as Error)?.stack);
     }
   }, [hasAnswered, currentRound, room, playerId, players]);
 

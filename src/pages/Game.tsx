@@ -23,6 +23,7 @@ import { useAppleMusic, type AppleMusicTrack } from "@/hooks/useAppleMusic";
 import { useGameStore } from "@/lib/gameStore";
 import { PLAYLISTS, getPlaylistById } from "@/lib/playlists";
 import { calculatePoints } from "@/lib/spotify";
+import { logError, logWarn, logInfo } from "@/lib/clientLogger";
 
 const ROUND_TIME = 15000; // 15 seconds per round
 const TOTAL_ROUNDS = 10;
@@ -128,6 +129,13 @@ export default function Game() {
       startRound(shuffledTracks, 1);
     } else {
       console.error("Not enough tracks loaded:", result?.tracks.length || 0);
+      logError("solo.tracks_load_failed", "Solo game failed to load enough tracks", {
+        playlistId: playlist.id,
+        playlistName: playlist.name,
+        loaded: result?.tracks.length ?? 0,
+        required: TOTAL_ROUNDS,
+        musicError,
+      });
     }
   };
 
@@ -177,6 +185,11 @@ export default function Game() {
     setIsCorrect(false);
     setGameState("answered");
     setIsPlaying(false);
+    logWarn("solo.answer_timeout", "Solo player did not answer in time", {
+      round: currentRound,
+      trackId: currentTrack?.trackId,
+      questionType,
+    });
   };
 
   const handleAnswer = useCallback((answer: string) => {
@@ -261,7 +274,16 @@ export default function Game() {
       const audio = new Audio(currentTrack.previewUrl);
       audio.volume = isMuted ? 0 : 0.7;
       audioRef.current = audio;
-      audio.play().catch(console.error);
+      audio.play().catch((err) => {
+        console.error(err);
+        logError("solo.audio_play_failed", "Solo audio playback failed", {
+          round: currentRound,
+          trackId: currentTrack.trackId,
+          trackName: currentTrack.trackName,
+          previewUrl: currentTrack.previewUrl,
+          error: (err as Error)?.message,
+        }, (err as Error)?.stack);
+      });
     }
 
     return () => {
