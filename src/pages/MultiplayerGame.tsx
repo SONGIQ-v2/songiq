@@ -195,6 +195,12 @@ export default function MultiplayerGame() {
           });
         } catch (err) {
           console.error("Error preloading audio:", err);
+          logError("audio.preload_failed", "Failed to preload multiplayer round audio", {
+            roundNumber,
+            roundId: currentRound?.id,
+            preview_url: currentRound?.preview_url,
+            error: (err as Error)?.message,
+          }, (err as Error)?.stack);
         }
       }
 
@@ -209,6 +215,12 @@ export default function MultiplayerGame() {
         } catch (err) {
           console.error("Error playing audio:", err);
           setIsPlaying(false);
+          logError("audio.play_failed", "Failed to start multiplayer audio playback", {
+            roundNumber,
+            roundId: currentRound?.id,
+            preview_url: currentRound?.preview_url,
+            error: (err as Error)?.message,
+          }, (err as Error)?.stack);
         }
       }
     };
