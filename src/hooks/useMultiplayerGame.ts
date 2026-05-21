@@ -5,6 +5,7 @@ import { useAppleMusic, type AppleMusicTrack } from "@/hooks/useAppleMusic";
 import { getPlaylistById, PLAYLISTS } from "@/lib/playlists";
 import { calculatePoints } from "@/lib/spotify";
 import { toast } from "sonner";
+import { logError, logWarn, logInfo } from "@/lib/clientLogger";
 
 export interface MultiplayerPlayer {
   id: string;
