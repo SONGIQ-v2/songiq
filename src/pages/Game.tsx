@@ -129,6 +129,13 @@ export default function Game() {
       startRound(shuffledTracks, 1);
     } else {
       console.error("Not enough tracks loaded:", result?.tracks.length || 0);
+      logError("solo.tracks_load_failed", "Solo game failed to load enough tracks", {
+        playlistId: playlist.id,
+        playlistName: playlist.name,
+        loaded: result?.tracks.length ?? 0,
+        required: TOTAL_ROUNDS,
+        musicError,
+      });
     }
   };
 
