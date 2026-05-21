@@ -239,6 +239,10 @@ export function useMultiplayerGame(roomCode: string) {
       console.error("Error fetching room:", err);
       setError("Failed to load room");
       setLoading(false);
+      logError("multiplayer.fetch_room_failed", "Failed to load multiplayer room", {
+        roomCode,
+        error: (err as Error)?.message,
+      }, (err as Error)?.stack);
     }
   }, [roomCode, playerId]);
 
