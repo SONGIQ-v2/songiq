@@ -23,6 +23,7 @@ import { useAppleMusic, type AppleMusicTrack } from "@/hooks/useAppleMusic";
 import { useGameStore } from "@/lib/gameStore";
 import { PLAYLISTS, getPlaylistById } from "@/lib/playlists";
 import { calculatePoints } from "@/lib/spotify";
+import { logError, logWarn, logInfo } from "@/lib/clientLogger";
 
 const ROUND_TIME = 15000; // 15 seconds per round
 const TOTAL_ROUNDS = 10;
