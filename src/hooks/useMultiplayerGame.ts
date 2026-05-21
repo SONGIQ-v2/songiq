@@ -571,8 +571,20 @@ export function useMultiplayerGame(roomCode: string) {
             points_earned: 0,
           });
           setHasAnswered(true);
+          logWarn("multiplayer.answer_timeout", "Multiplayer round timed out before player answered", {
+            roomId: room.id,
+            roomCode: room.room_code,
+            roundId: currentRound.id,
+            roundNumber,
+          });
         } catch (err) {
           console.error("Error submitting empty answer:", err);
+          logError("multiplayer.empty_answer_failed", "Failed to submit empty answer on timeout", {
+            roomId: room.id,
+            roomCode: room.room_code,
+            roundId: currentRound.id,
+            error: (err as Error)?.message,
+          }, (err as Error)?.stack);
         }
       }
     };
