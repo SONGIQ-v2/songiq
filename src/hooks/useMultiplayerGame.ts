@@ -443,6 +443,12 @@ export function useMultiplayerGame(roomCode: string) {
               roundNumber,
               ")"
             );
+            logWarn("realtime.missed_round_insert", "Polling fallback caught a missed round", {
+              roomId: room.id,
+              roomCode: room.room_code,
+              previousRound: roundNumber,
+              caughtUpTo: latestRound.round_number,
+            });
             const round = latestRound as RoundData;
             if (typeof round.options === "string") {
               round.options = JSON.parse(round.options);
