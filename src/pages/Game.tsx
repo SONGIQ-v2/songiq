@@ -185,6 +185,11 @@ export default function Game() {
     setIsCorrect(false);
     setGameState("answered");
     setIsPlaying(false);
+    logWarn("solo.answer_timeout", "Solo player did not answer in time", {
+      round: currentRound,
+      trackId: currentTrack?.trackId,
+      questionType,
+    });
   };
 
   const handleAnswer = useCallback((answer: string) => {
