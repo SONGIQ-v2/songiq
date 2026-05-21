@@ -274,7 +274,16 @@ export default function Game() {
       const audio = new Audio(currentTrack.previewUrl);
       audio.volume = isMuted ? 0 : 0.7;
       audioRef.current = audio;
-      audio.play().catch(console.error);
+      audio.play().catch((err) => {
+        console.error(err);
+        logError("solo.audio_play_failed", "Solo audio playback failed", {
+          round: currentRound,
+          trackId: currentTrack.trackId,
+          trackName: currentTrack.trackName,
+          previewUrl: currentTrack.previewUrl,
+          error: (err as Error)?.message,
+        }, (err as Error)?.stack);
+      });
     }
 
     return () => {
