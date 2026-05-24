@@ -267,6 +267,26 @@ export default function Game() {
     loadTracks();
   };
 
+  // Preload the next round's audio during the countdown so it can start instantly.
+  useEffect(() => {
+    if (gameState !== "countdown") return;
+    if (currentRound >= TOTAL_ROUNDS) return;
+    const nextTrack = tracks[currentRound]; // currentRound is 1-indexed; next = tracks[currentRound]
+    if (!nextTrack?.previewUrl) return;
+
+    warmAudioUrl(nextTrack.previewUrl);
+    const { audio } = preloadAudio(nextTrack.previewUrl, {
+      timeoutMs: 2500,
+      volume: isMuted ? 0 : 0.7,
+    });
+    // Discard any previously preloaded audio.
+    if (preloadedAudioRef.current) {
+      preloadedAudioRef.current.pause();
+      preloadedAudioRef.current.src = "";
+    }
+    preloadedAudioRef.current = audio;
+  }, [gameState, currentRound, tracks, isMuted]);
+
   // Audio handling
   useEffect(() => {
     // Stop any existing audio first
@@ -277,10 +297,21 @@ export default function Game() {
     }
 
     if (currentTrack?.previewUrl && gameState === "playing") {
-      const audio = new Audio(currentTrack.previewUrl);
-      audio.volume = isMuted ? 0 : 0.7;
+      const desiredVolume = isMuted ? 0 : 0.7;
+      // Reuse the preloaded element if it matches the current track.
+      let audio: HTMLAudioElement;
+      const preloaded = preloadedAudioRef.current;
+      if (preloaded && preloaded.src === currentTrack.previewUrl) {
+        audio = preloaded;
+        audio.volume = desiredVolume;
+        preloadedAudioRef.current = null;
+      } else {
+        audio = new Audio(currentTrack.previewUrl);
+        audio.preload = "auto";
+        audio.volume = desiredVolume;
+      }
       audioRef.current = audio;
-      audio.play().catch((err) => {
+      playWithUnmute(audio, desiredVolume).catch((err) => {
         console.error(err);
         logError("solo.audio_play_failed", "Solo audio playback failed", {
           round: currentRound,
