@@ -596,29 +596,35 @@ export function useMultiplayerGame(roomCode: string) {
       setBetweenRoundsCountdown(5);
   }, [timeLeft, currentRound?.id, room?.id, hasAnswered, playerId, isHost, roundNumber, gameStatus]);
 
-  // Check if all players have answered → skip to next round early
+  // Check if all players have answered → skip to next round early (with 2s delay)
   useEffect(() => {
     if (gameStatus !== "playing" || !currentRound || !room || players.length < 2) return;
     if (timeUpHandledRef.current === currentRound.id) return; // Already transitioning
 
     const allAnswered = players.every((p) => p.hasAnswered);
-    if (allAnswered) {
-      console.log("All players answered! Skipping to next round early.");
-      timeUpHandledRef.current = currentRound.id;
+    if (!allAnswered) return;
 
+    console.log("All players answered! Waiting 2s before next round...");
+    timeUpHandledRef.current = currentRound.id;
+
+    const delayTimer = setTimeout(() => {
       // Clear the timer
       if (timerRef.current) clearInterval(timerRef.current);
-      setTimeLeft(0);
+      setTimeLeft(1);
 
       setGameStatus("between_rounds");
       setBetweenRoundsCountdown(5);
-    }
+    }, 2000);
+
+    return () => clearTimeout(delayTimer);
   }, [players, gameStatus, currentRound?.id, room?.id]);
 
   // Poll for all-answered as fallback (in case realtime misses an event)
   useEffect(() => {
     if (gameStatus !== "playing" || !currentRound || !room || players.length < 2) return;
     if (timeUpHandledRef.current === currentRound.id) return;
+
+    let delayTimer: ReturnType<typeof setTimeout> | null = null;
 
     const pollAnswers = setInterval(async () => {
       if (timeUpHandledRef.current === currentRound.id) {
@@ -632,11 +638,11 @@ export function useMultiplayerGame(roomCode: string) {
         .eq("round_id", currentRound.id);
 
       if (answers && answers.length >= players.length) {
-        console.log("[Poll] All players answered! Skipping to next round.");
+        console.log("[Poll] All players answered! Waiting 2s before next round...");
         timeUpHandledRef.current = currentRound.id;
         clearInterval(pollAnswers);
 
-        // Update player hasAnswered flags
+        // Update player hasAnswered flags immediately
         setPlayers((prev) =>
           prev.map((p) => ({
             ...p,
@@ -644,15 +650,20 @@ export function useMultiplayerGame(roomCode: string) {
           }))
         );
 
-        if (timerRef.current) clearInterval(timerRef.current);
-        setTimeLeft(0);
+        delayTimer = setTimeout(() => {
+          if (timerRef.current) clearInterval(timerRef.current);
+          setTimeLeft(1);
 
-        setGameStatus("between_rounds");
-        setBetweenRoundsCountdown(5);
+          setGameStatus("between_rounds");
+          setBetweenRoundsCountdown(5);
+        }, 2000);
       }
     }, 1500);
 
-    return () => clearInterval(pollAnswers);
+    return () => {
+      clearInterval(pollAnswers);
+      if (delayTimer) clearTimeout(delayTimer);
+    };
   }, [gameStatus, currentRound?.id, room?.id, players.length]);
   // All players: unified 5s countdown, host pre-creates next round immediately
   useEffect(() => {
