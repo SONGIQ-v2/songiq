@@ -128,6 +128,10 @@ export default function Game() {
       const shuffledTracks = [...result.tracks].sort(() => Math.random() - 0.5);
       setTracks(shuffledTracks);
       setPlaylistName(result.playlistName);
+      // Warm CDN for the first track so round 1 starts faster.
+      warmAudioUrl(shuffledTracks[0]?.previewUrl);
+      // Also warm round 2 so the first countdown preload is instant.
+      warmAudioUrl(shuffledTracks[1]?.previewUrl);
       startRound(shuffledTracks, 1);
     } else {
       console.error("Not enough tracks loaded:", result?.tracks.length || 0);
