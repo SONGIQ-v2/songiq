@@ -98,6 +98,11 @@ export default function Game() {
       audioRef.current.src = '';
       audioRef.current = null;
     }
+    if (preloadedAudioRef.current) {
+      preloadedAudioRef.current.pause();
+      preloadedAudioRef.current.src = '';
+      preloadedAudioRef.current = null;
+    }
   }, []);
 
   // Get playlist info
