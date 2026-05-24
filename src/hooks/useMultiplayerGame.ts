@@ -596,23 +596,27 @@ export function useMultiplayerGame(roomCode: string) {
       setBetweenRoundsCountdown(5);
   }, [timeLeft, currentRound?.id, room?.id, hasAnswered, playerId, isHost, roundNumber, gameStatus]);
 
-  // Check if all players have answered → skip to next round early
+  // Check if all players have answered → skip to next round early (with 2s delay)
   useEffect(() => {
     if (gameStatus !== "playing" || !currentRound || !room || players.length < 2) return;
     if (timeUpHandledRef.current === currentRound.id) return; // Already transitioning
 
     const allAnswered = players.every((p) => p.hasAnswered);
-    if (allAnswered) {
-      console.log("All players answered! Skipping to next round early.");
-      timeUpHandledRef.current = currentRound.id;
+    if (!allAnswered) return;
 
+    console.log("All players answered! Waiting 2s before next round...");
+    timeUpHandledRef.current = currentRound.id;
+
+    const delayTimer = setTimeout(() => {
       // Clear the timer
       if (timerRef.current) clearInterval(timerRef.current);
-      setTimeLeft(0);
+      setTimeLeft(1);
 
       setGameStatus("between_rounds");
       setBetweenRoundsCountdown(5);
-    }
+    }, 2000);
+
+    return () => clearTimeout(delayTimer);
   }, [players, gameStatus, currentRound?.id, room?.id]);
 
   // Poll for all-answered as fallback (in case realtime misses an event)
