@@ -24,6 +24,7 @@ import { useGameStore } from "@/lib/gameStore";
 import { PLAYLISTS, getPlaylistById } from "@/lib/playlists";
 import { calculatePoints } from "@/lib/spotify";
 import { logError, logWarn, logInfo } from "@/lib/clientLogger";
+import { warmAudioUrl, preloadAudio, playWithUnmute } from "@/lib/audioPreload";
 
 const ROUND_TIME = 15000; // 15 seconds per round
 const TOTAL_ROUNDS = 10;
@@ -78,6 +79,7 @@ export default function Game() {
   const [nextQuestionType, setNextQuestionType] = useState<QuestionType>("song");
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const preloadedAudioRef = useRef<HTMLAudioElement | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const countdownRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -95,6 +97,11 @@ export default function Game() {
       audioRef.current.pause();
       audioRef.current.src = '';
       audioRef.current = null;
+    }
+    if (preloadedAudioRef.current) {
+      preloadedAudioRef.current.pause();
+      preloadedAudioRef.current.src = '';
+      preloadedAudioRef.current = null;
     }
   }, []);
 
@@ -126,6 +133,10 @@ export default function Game() {
       const shuffledTracks = [...result.tracks].sort(() => Math.random() - 0.5);
       setTracks(shuffledTracks);
       setPlaylistName(result.playlistName);
+      // Warm CDN for the first track so round 1 starts faster.
+      warmAudioUrl(shuffledTracks[0]?.previewUrl);
+      // Also warm round 2 so the first countdown preload is instant.
+      warmAudioUrl(shuffledTracks[1]?.previewUrl);
       startRound(shuffledTracks, 1);
     } else {
       console.error("Not enough tracks loaded:", result?.tracks.length || 0);
@@ -261,6 +272,26 @@ export default function Game() {
     loadTracks();
   };
 
+  // Preload the next round's audio during the countdown so it can start instantly.
+  useEffect(() => {
+    if (gameState !== "countdown") return;
+    if (currentRound >= TOTAL_ROUNDS) return;
+    const nextTrack = tracks[currentRound]; // currentRound is 1-indexed; next = tracks[currentRound]
+    if (!nextTrack?.previewUrl) return;
+
+    warmAudioUrl(nextTrack.previewUrl);
+    const { audio } = preloadAudio(nextTrack.previewUrl, {
+      timeoutMs: 2500,
+      volume: isMuted ? 0 : 0.7,
+    });
+    // Discard any previously preloaded audio.
+    if (preloadedAudioRef.current) {
+      preloadedAudioRef.current.pause();
+      preloadedAudioRef.current.src = "";
+    }
+    preloadedAudioRef.current = audio;
+  }, [gameState, currentRound, tracks, isMuted]);
+
   // Audio handling
   useEffect(() => {
     // Stop any existing audio first
@@ -271,10 +302,21 @@ export default function Game() {
     }
 
     if (currentTrack?.previewUrl && gameState === "playing") {
-      const audio = new Audio(currentTrack.previewUrl);
-      audio.volume = isMuted ? 0 : 0.7;
+      const desiredVolume = isMuted ? 0 : 0.7;
+      // Reuse the preloaded element if it matches the current track.
+      let audio: HTMLAudioElement;
+      const preloaded = preloadedAudioRef.current;
+      if (preloaded && preloaded.src === currentTrack.previewUrl) {
+        audio = preloaded;
+        audio.volume = desiredVolume;
+        preloadedAudioRef.current = null;
+      } else {
+        audio = new Audio(currentTrack.previewUrl);
+        audio.preload = "auto";
+        audio.volume = desiredVolume;
+      }
       audioRef.current = audio;
-      audio.play().catch((err) => {
+      playWithUnmute(audio, desiredVolume).catch((err) => {
         console.error(err);
         logError("solo.audio_play_failed", "Solo audio playback failed", {
           round: currentRound,

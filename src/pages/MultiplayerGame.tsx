@@ -12,6 +12,7 @@ import { TimerBar } from "@/components/TimerBar";
 import { Leaderboard } from "@/components/Leaderboard";
 import { Button } from "@/components/ui/button";
 import { logError, logWarn, logInfo } from "@/lib/clientLogger";
+import { warmAudioUrl, preloadAudio, playWithUnmute } from "@/lib/audioPreload";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -169,6 +170,14 @@ export default function MultiplayerGame() {
     resetActivityTimer();
   };
 
+  // Warm the CDN connection as soon as we know the next preview URL,
+  // even before we start preloading. Cheap and idempotent.
+  useEffect(() => {
+    if (currentRound?.preview_url) {
+      warmAudioUrl(currentRound.preview_url);
+    }
+  }, [currentRound?.preview_url]);
+
   // Audio handling — preload during between_rounds, play instantly when round starts
   useEffect(() => {
     let cancelled = false;
@@ -177,32 +186,27 @@ export default function MultiplayerGame() {
       if (!currentRound?.preview_url) return;
       if (gameStatus !== "playing" && gameStatus !== "between_rounds") return;
 
+      const desiredVolume = isMuted ? 0 : 0.7;
       const existing = audioRef.current;
       const sameTrack = existing && existing.src === currentRound.preview_url;
 
       if (!sameTrack) {
         if (existing) existing.pause();
-        const audio = new Audio(currentRound.preview_url);
-        audio.volume = isMuted ? 0 : 0.7;
-        audio.preload = "auto";
-        audioRef.current = audio;
-
-        try {
-          await new Promise((resolve, reject) => {
-            audio.oncanplay = resolve;
-            audio.onerror = reject;
-            audio.load();
-            setTimeout(resolve, 1000); // fallback
-          });
-        } catch (err) {
-          console.error("Error preloading audio:", err);
+        warmAudioUrl(currentRound.preview_url);
+        const { audio, ready } = preloadAudio(currentRound.preview_url, {
+          timeoutMs: 2500,
+          volume: desiredVolume,
+        });
+        audio.onerror = (e) => {
           logError("audio.preload_failed", "Failed to preload multiplayer round audio", {
             roundNumber,
             roundId: currentRound?.id,
             preview_url: currentRound?.preview_url,
-            error: (err as Error)?.message,
-          }, (err as Error)?.stack);
-        }
+            error: String((e as ErrorEvent)?.message ?? "audio error"),
+          });
+        };
+        audioRef.current = audio;
+        await ready;
       }
 
       if (cancelled) return;
@@ -210,7 +214,7 @@ export default function MultiplayerGame() {
       // Only start playback once the round is actually live
       if (gameStatus === "playing" && audioRef.current) {
         try {
-          await audioRef.current.play();
+          await playWithUnmute(audioRef.current, desiredVolume);
           setIsPlaying(true);
           console.log("Audio playing for round:", roundNumber);
         } catch (err) {
