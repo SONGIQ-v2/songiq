@@ -79,6 +79,7 @@ export default function Game() {
   const [nextQuestionType, setNextQuestionType] = useState<QuestionType>("song");
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const preloadedAudioRef = useRef<HTMLAudioElement | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const countdownRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
