@@ -596,31 +596,24 @@ export function useMultiplayerGame(roomCode: string) {
       setBetweenRoundsCountdown(5);
   }, [timeLeft, currentRound?.id, room?.id, hasAnswered, playerId, isHost, roundNumber, gameStatus]);
 
-  // Grace delay so the last answerer briefly sees the reveal before the round ends
-  const ALL_ANSWERED_GRACE_MS = 2000;
-
-  const finishRoundEarly = useCallback(() => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    setTimeLeft(0);
-    setGameStatus("between_rounds");
-    setBetweenRoundsCountdown(5);
-  }, []);
-
-  // Check if all players have answered → skip to next round early (with 2s grace)
+  // Check if all players have answered → skip to next round early
   useEffect(() => {
     if (gameStatus !== "playing" || !currentRound || !room || players.length < 2) return;
     if (timeUpHandledRef.current === currentRound.id) return; // Already transitioning
 
     const allAnswered = players.every((p) => p.hasAnswered);
-    if (!allAnswered) return;
+    if (allAnswered) {
+      console.log("All players answered! Skipping to next round early.");
+      timeUpHandledRef.current = currentRound.id;
 
-    console.log("All players answered! Ending round after grace delay.");
-    timeUpHandledRef.current = currentRound.id;
+      // Clear the timer
+      if (timerRef.current) clearInterval(timerRef.current);
+      setTimeLeft(0);
 
-    const delay = Math.min(ALL_ANSWERED_GRACE_MS, Math.max(0, timeLeft));
-    const t = setTimeout(finishRoundEarly, delay);
-    return () => clearTimeout(t);
-  }, [players, gameStatus, currentRound?.id, room?.id, timeLeft, finishRoundEarly]);
+      setGameStatus("between_rounds");
+      setBetweenRoundsCountdown(5);
+    }
+  }, [players, gameStatus, currentRound?.id, room?.id]);
 
   // Poll for all-answered as fallback (in case realtime misses an event)
   useEffect(() => {
@@ -639,7 +632,7 @@ export function useMultiplayerGame(roomCode: string) {
         .eq("round_id", currentRound.id);
 
       if (answers && answers.length >= players.length) {
-        console.log("[Poll] All players answered! Ending round after grace delay.");
+        console.log("[Poll] All players answered! Skipping to next round.");
         timeUpHandledRef.current = currentRound.id;
         clearInterval(pollAnswers);
 
@@ -651,13 +644,16 @@ export function useMultiplayerGame(roomCode: string) {
           }))
         );
 
-        const delay = Math.min(ALL_ANSWERED_GRACE_MS, Math.max(0, timeLeft));
-        setTimeout(finishRoundEarly, delay);
+        if (timerRef.current) clearInterval(timerRef.current);
+        setTimeLeft(0);
+
+        setGameStatus("between_rounds");
+        setBetweenRoundsCountdown(5);
       }
     }, 1500);
 
     return () => clearInterval(pollAnswers);
-  }, [gameStatus, currentRound?.id, room?.id, players.length, timeLeft, finishRoundEarly]);
+  }, [gameStatus, currentRound?.id, room?.id, players.length]);
   // All players: unified 5s countdown, host pre-creates next round immediately
   useEffect(() => {
     if (gameStatus !== "between_rounds") {
