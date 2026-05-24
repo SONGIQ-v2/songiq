@@ -12,6 +12,7 @@ import { TimerBar } from "@/components/TimerBar";
 import { Leaderboard } from "@/components/Leaderboard";
 import { Button } from "@/components/ui/button";
 import { logError, logWarn, logInfo } from "@/lib/clientLogger";
+import { warmAudioUrl, preloadAudio, playWithUnmute } from "@/lib/audioPreload";
 import {
   AlertDialog,
   AlertDialogAction,
