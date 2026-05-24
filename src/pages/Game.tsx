@@ -24,6 +24,7 @@ import { useGameStore } from "@/lib/gameStore";
 import { PLAYLISTS, getPlaylistById } from "@/lib/playlists";
 import { calculatePoints } from "@/lib/spotify";
 import { logError, logWarn, logInfo } from "@/lib/clientLogger";
+import { warmAudioUrl, preloadAudio, playWithUnmute } from "@/lib/audioPreload";
 
 const ROUND_TIME = 15000; // 15 seconds per round
 const TOTAL_ROUNDS = 10;
