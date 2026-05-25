@@ -700,7 +700,7 @@ export function useMultiplayerGame(roomCode: string) {
     };
   }, [gameStatus, currentRound?.id, room?.id, players.length]);
 
-  // All players: unified 5s countdown, host pre-creates next round immediately
+  // All players: countdown is derived from the next round's server timestamp when available
   useEffect(() => {
     if (gameStatus !== "between_rounds") {
       countdownActiveRef.current = false;
@@ -729,20 +729,24 @@ export function useMultiplayerGame(roomCode: string) {
 
     if (betweenRoundsRef.current) clearInterval(betweenRoundsRef.current);
 
-    let countdown = 5;
     const totalRounds = room?.total_rounds || 10;
     const isFinalRound = !!room && roundNumber >= totalRounds;
 
     setIsFinalizingResults(false);
-    setBetweenRoundsCountdown(5);
+    const getCountdown = () => {
+      if (isFinalRound || !currentRound || currentRound.round_number <= roundNumber) return 5;
+      const elapsedToNextRound = serverNow() - new Date(currentRound.started_at).getTime();
+      return Math.max(0, Math.ceil((BETWEEN_ROUNDS_TIME - elapsedToNextRound) / 1000));
+    };
+    setBetweenRoundsCountdown(getCountdown());
 
     betweenRoundsRef.current = setInterval(async () => {
-      countdown -= 1;
+      const countdown = getCountdown();
+      setBetweenRoundsCountdown(countdown);
 
       if (countdown <= 0) {
         if (betweenRoundsRef.current) clearInterval(betweenRoundsRef.current);
         countdownActiveRef.current = false;
-        setBetweenRoundsCountdown(0);
 
         if (isFinalRound) {
           setIsFinalizingResults(true);
