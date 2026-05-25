@@ -485,7 +485,7 @@ export function useMultiplayerGame(roomCode: string) {
 
             setRoundNumber(round.round_number);
             const elapsed =
-              Date.now() - new Date(round.started_at).getTime();
+              serverNow() - new Date(round.started_at).getTime();
             const remaining = Math.max(0, ROUND_TIME - elapsed);
             setTimeLeft(remaining);
             setRoundStartTime(new Date(round.started_at).getTime());
@@ -529,7 +529,7 @@ export function useMultiplayerGame(roomCode: string) {
     }, 1500); // Poll every 1.5s
 
     return () => clearInterval(pollInterval);
-  }, [room?.id, gameStatus, roundNumber, room?.current_round, room?.status]);
+  }, [room?.id, gameStatus, roundNumber, room?.current_round, room?.status, serverNow]);
 
   // Track if time up has been handled for current round
   const timeUpHandledRef = useRef<string | null>(null);
