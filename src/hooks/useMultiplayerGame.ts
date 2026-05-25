@@ -543,20 +543,25 @@ export function useMultiplayerGame(roomCode: string) {
       timeUpHandledRef.current = null;
     }
 
+    const updateTimerFromServerClock = () => {
+      const elapsed = serverNow() - new Date(currentRound.started_at).getTime();
+      const remaining = Math.max(0, ROUND_TIME - elapsed);
+      setTimeLeft(remaining);
+
+      if (remaining <= 0 && timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+
+    updateTimerFromServerClock();
     timerRef.current = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 100) {
-          if (timerRef.current) clearInterval(timerRef.current);
-          return 0;
-        }
-        return prev - 100;
-      });
+      updateTimerFromServerClock();
     }, 100);
 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [gameStatus, currentRound?.id]);
+  }, [gameStatus, currentRound?.id, currentRound?.started_at, ROUND_TIME, serverNow]);
 
   // Handle time up as separate effect
   useEffect(() => {
