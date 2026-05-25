@@ -1100,7 +1100,8 @@ export function useMultiplayerGame(roomCode: string) {
 
       // 1) Resync timer for the current round
       if (gameStatus === 'playing' && currentRound) {
-        const elapsed = Date.now() - new Date(currentRound.started_at).getTime();
+        await syncServerClock();
+        const elapsed = serverNow() - new Date(currentRound.started_at).getTime();
         const remaining = Math.max(0, ROUND_TIME - elapsed);
         console.log("Tab visible, syncing timer. Remaining:", remaining);
         setTimeLeft(remaining);
@@ -1122,7 +1123,7 @@ export function useMultiplayerGame(roomCode: string) {
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [gameStatus, currentRound, room?.id, roundNumber, ROUND_TIME]);
+  }, [gameStatus, currentRound, room?.id, roundNumber, ROUND_TIME, serverNow, syncServerClock]);
 
   // Cleanup
   useEffect(() => {
