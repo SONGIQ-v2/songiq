@@ -179,7 +179,7 @@ export function useMultiplayerGame(roomCode: string) {
           setNextQuestionType(qType);
           
           // Calculate remaining time based on when round started
-          const elapsed = Date.now() - new Date(round.started_at).getTime();
+          const elapsed = serverNow() - new Date(round.started_at).getTime();
           const remaining = Math.max(0, ROUND_TIME - elapsed);
           
           // Check if this player has already answered this round
@@ -216,7 +216,7 @@ export function useMultiplayerGame(roomCode: string) {
               if (typeof newRound.options === 'string') {
                 newRound.options = JSON.parse(newRound.options);
               }
-              const newElapsed = Date.now() - new Date(newRound.started_at).getTime();
+              const newElapsed = serverNow() - new Date(newRound.started_at).getTime();
               const newRemaining = Math.max(0, ROUND_TIME - newElapsed);
               
               setCurrentRound(newRound);
@@ -265,7 +265,7 @@ export function useMultiplayerGame(roomCode: string) {
         error: (err as Error)?.message,
       }, (err as Error)?.stack);
     }
-  }, [roomCode, playerId]);
+    }, [roomCode, playerId, serverNow]);
 
   // Subscribe to realtime updates
   useEffect(() => {
