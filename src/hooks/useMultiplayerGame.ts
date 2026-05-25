@@ -85,6 +85,7 @@ export function useMultiplayerGame(roomCode: string) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const betweenRoundsRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tracksRef = useRef<AppleMusicTrack[]>([]);
+  const currentRoundRef = useRef<RoundData | null>(null);
   const createRoundRef = useRef<(tracks: AppleMusicTrack[], roundNum: number) => Promise<void>>();
   const endGameRef = useRef<() => Promise<void>>();
   const countdownActiveRef = useRef(false);
@@ -958,6 +959,10 @@ export function useMultiplayerGame(roomCode: string) {
   useEffect(() => {
     tracksRef.current = tracks;
   }, [tracks]);
+
+  useEffect(() => {
+    currentRoundRef.current = currentRound;
+  }, [currentRound]);
 
   useEffect(() => {
     if (gameStatus === "playing" || gameStatus === "results" || gameStatus === "waiting") {
