@@ -736,9 +736,12 @@ export function useMultiplayerGame(roomCode: string) {
     const isFinalRound = !!room && roundNumber >= totalRounds;
 
     setIsFinalizingResults(false);
+    betweenRoundsEndsAtRef.current = serverNow() + BETWEEN_ROUNDS_TIME;
     const getCountdown = () => {
       const queuedRound = currentRoundRef.current;
-      if (isFinalRound || !queuedRound || queuedRound.round_number <= roundNumber) return 5;
+      if (isFinalRound || !queuedRound || queuedRound.round_number <= roundNumber) {
+        return Math.max(0, Math.ceil(((betweenRoundsEndsAtRef.current ?? serverNow()) - serverNow()) / 1000));
+      }
       const elapsedToNextRound = serverNow() - new Date(queuedRound.started_at).getTime();
       return Math.max(0, Math.ceil((BETWEEN_ROUNDS_TIME - elapsedToNextRound) / 1000));
     };
@@ -769,8 +772,10 @@ export function useMultiplayerGame(roomCode: string) {
         setSelectedAnswer(null);
         setIsCorrect(null);
         setPlayers((prev) => prev.map((p) => ({ ...p, roundScore: 0, hasAnswered: false })));
-        setTimeLeft(ROUND_TIME);
-        setRoundStartTime(Date.now());
+        const queuedRound = currentRoundRef.current;
+        const roundStartedAt = queuedRound ? new Date(queuedRound.started_at).getTime() : serverNow();
+        setTimeLeft(Math.max(0, ROUND_TIME - (serverNow() - roundStartedAt)));
+        setRoundStartTime(roundStartedAt);
         setGameStatus("playing");
         return;
       }
