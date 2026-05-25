@@ -89,6 +89,7 @@ export function useMultiplayerGame(roomCode: string) {
   const createRoundRef = useRef<(tracks: AppleMusicTrack[], roundNum: number) => Promise<void>>();
   const endGameRef = useRef<() => Promise<void>>();
   const countdownActiveRef = useRef(false);
+  const betweenRoundsEndsAtRef = useRef<number | null>(null);
   const serverTimeOffsetRef = useRef(0);
 
   const serverNow = useCallback(() => Date.now() + serverTimeOffsetRef.current, []);
