@@ -749,7 +749,7 @@ export function useMultiplayerGame(roomCode: string) {
     setIsFinalizingResults(false);
     betweenRoundsEndsAtRef.current = serverNow() + BETWEEN_ROUNDS_TIME;
     const getCountdown = () => {
-      const queuedRound = currentRoundRef.current;
+      const queuedRound = queuedRoundRef.current;
       if (isFinalRound || !queuedRound || queuedRound.round_number <= roundNumber) {
         return Math.max(0, Math.ceil(((betweenRoundsEndsAtRef.current ?? serverNow()) - serverNow()) / 1000));
       }
@@ -778,15 +778,26 @@ export function useMultiplayerGame(roomCode: string) {
         }
 
         // Transition to playing - reset round state
+        const queuedRound = queuedRoundRef.current;
+        if (queuedRound) {
+          setCurrentRound(queuedRound);
+          setRoundNumber(queuedRound.round_number);
+          setCurrentQuestionType(
+            queuedRound.question_type === "song"
+              ? "Guess the Song"
+              : "Guess the Artist"
+          );
+        }
+
         timeUpHandledRef.current = null;
         setHasAnswered(false);
         setSelectedAnswer(null);
         setIsCorrect(null);
         setPlayers((prev) => prev.map((p) => ({ ...p, roundScore: 0, hasAnswered: false })));
-        const queuedRound = currentRoundRef.current;
         const roundStartedAt = queuedRound ? new Date(queuedRound.started_at).getTime() : serverNow();
         setTimeLeft(Math.max(0, ROUND_TIME - (serverNow() - roundStartedAt)));
         setRoundStartTime(roundStartedAt);
+        queuedRoundRef.current = null;
         setGameStatus("playing");
         return;
       }
