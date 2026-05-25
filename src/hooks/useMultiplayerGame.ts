@@ -86,6 +86,7 @@ export function useMultiplayerGame(roomCode: string) {
   const betweenRoundsRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tracksRef = useRef<AppleMusicTrack[]>([]);
   const currentRoundRef = useRef<RoundData | null>(null);
+  const queuedRoundRef = useRef<RoundData | null>(null);
   const createRoundRef = useRef<(tracks: AppleMusicTrack[], roundNum: number, startsAtMs?: number) => Promise<void>>();
   const endGameRef = useRef<() => Promise<void>>();
   const countdownActiveRef = useRef(false);
@@ -344,18 +345,17 @@ export function useMultiplayerGame(roomCode: string) {
           const roundStartsAt = new Date(round.started_at).getTime();
           setRoundStartTime(roundStartsAt);
           
-          // If we're in between_rounds, just store the round data but don't start playing yet
-          // The countdown will handle the transition
-          setCurrentRound(round);
-          setRoundNumber(round.round_number);
-          setCurrentQuestionType(qType);
-          
           // Only transition to playing if we're NOT in the between-rounds countdown
           setGameStatus((prev) => {
             if (prev === "between_rounds") {
               console.log("[Realtime] Round pre-loaded during countdown, staying in between_rounds");
+              queuedRoundRef.current = round;
               return prev; // Stay in between_rounds, countdown will handle transition
             }
+
+            setCurrentRound(round);
+            setRoundNumber(round.round_number);
+            setCurrentQuestionType(qType);
             
             // Reset state for new round
             timeUpHandledRef.current = null;
