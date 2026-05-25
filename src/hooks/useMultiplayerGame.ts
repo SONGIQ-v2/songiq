@@ -478,14 +478,6 @@ export function useMultiplayerGame(roomCode: string) {
               round.options = JSON.parse(round.options);
             }
 
-            timeUpHandledRef.current = null;
-            setHasAnswered(false);
-            setSelectedAnswer(null);
-            setIsCorrect(null);
-            setPlayers((prev) =>
-              prev.map((p) => ({ ...p, roundScore: 0, hasAnswered: false }))
-            );
-
             setRoundNumber(round.round_number);
             const elapsed =
               serverNow() - new Date(round.started_at).getTime();
@@ -497,6 +489,24 @@ export function useMultiplayerGame(roomCode: string) {
               round.question_type === "song"
                 ? "Guess the Song"
                 : "Guess the Artist"
+            );
+            setNextQuestionType(
+              round.question_type === "song"
+                ? "Guess the Song"
+                : "Guess the Artist"
+            );
+
+            if (gameStatus === "between_rounds") {
+              console.log("[Poll] Pre-loaded next round during countdown");
+              return;
+            }
+
+            timeUpHandledRef.current = null;
+            setHasAnswered(false);
+            setSelectedAnswer(null);
+            setIsCorrect(null);
+            setPlayers((prev) =>
+              prev.map((p) => ({ ...p, roundScore: 0, hasAnswered: false }))
             );
             setGameStatus("playing");
           }
