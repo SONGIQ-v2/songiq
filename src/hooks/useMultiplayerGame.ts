@@ -88,6 +88,19 @@ export function useMultiplayerGame(roomCode: string) {
   const createRoundRef = useRef<(tracks: AppleMusicTrack[], roundNum: number) => Promise<void>>();
   const endGameRef = useRef<() => Promise<void>>();
   const countdownActiveRef = useRef(false);
+  const serverTimeOffsetRef = useRef(0);
+
+  const serverNow = useCallback(() => Date.now() + serverTimeOffsetRef.current, []);
+
+  const syncServerClock = useCallback(async () => {
+    const requestStartedAt = Date.now();
+    const { data, error } = await (supabase as any).rpc("server_time_ms");
+    if (error || data == null) return;
+
+    const requestEndedAt = Date.now();
+    const clientMidpoint = requestStartedAt + (requestEndedAt - requestStartedAt) / 2;
+    serverTimeOffsetRef.current = Number(data) - clientMidpoint;
+  }, []);
   
   // Initialize auth on mount
   useEffect(() => {
@@ -95,6 +108,14 @@ export function useMultiplayerGame(roomCode: string) {
       initializeAuth();
     }
   }, [isInitialized, initializeAuth]);
+
+  useEffect(() => {
+    if (!isInitialized || !playerId) return;
+
+    syncServerClock();
+    const clockSyncInterval = setInterval(syncServerClock, 30000);
+    return () => clearInterval(clockSyncInterval);
+  }, [isInitialized, playerId, syncServerClock]);
 
   // Fetch initial room data
   const fetchRoom = useCallback(async () => {
