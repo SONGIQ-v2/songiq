@@ -401,7 +401,7 @@ export function useMultiplayerGame(roomCode: string) {
     return () => {
       supabase.removeChannel(roomChannel);
     };
-  }, [room?.id]); // Don't re-subscribe on gameStatus change
+  }, [room?.id, playerId, ROUND_TIME, serverNow]); // Don't re-subscribe on gameStatus change
 
   // Polling fallback - ensures state syncs even if realtime fails
   useEffect(() => {
