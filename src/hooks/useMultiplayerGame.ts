@@ -86,7 +86,7 @@ export function useMultiplayerGame(roomCode: string) {
   const betweenRoundsRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tracksRef = useRef<AppleMusicTrack[]>([]);
   const currentRoundRef = useRef<RoundData | null>(null);
-  const createRoundRef = useRef<(tracks: AppleMusicTrack[], roundNum: number) => Promise<void>>();
+  const createRoundRef = useRef<(tracks: AppleMusicTrack[], roundNum: number, startsAtMs?: number) => Promise<void>>();
   const endGameRef = useRef<() => Promise<void>>();
   const countdownActiveRef = useRef(false);
   const betweenRoundsEndsAtRef = useRef<number | null>(null);
@@ -733,7 +733,7 @@ export function useMultiplayerGame(roomCode: string) {
         console.log("Last round complete, game will end after countdown");
       } else if (currentTracks.length > 0) {
         console.log("Pre-creating next round:", roundNumber + 1);
-        createRoundRef.current?.(currentTracks, roundNumber + 1);
+        createRoundRef.current?.(currentTracks, roundNumber + 1, serverNow() + BETWEEN_ROUNDS_TIME);
       } else {
         console.error("No tracks available for next round!");
         toast.error("Failed to load next round - no tracks");
