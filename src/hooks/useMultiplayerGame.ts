@@ -735,8 +735,9 @@ export function useMultiplayerGame(roomCode: string) {
 
     setIsFinalizingResults(false);
     const getCountdown = () => {
-      if (isFinalRound || !currentRound || currentRound.round_number <= roundNumber) return 5;
-      const elapsedToNextRound = serverNow() - new Date(currentRound.started_at).getTime();
+      const queuedRound = currentRoundRef.current;
+      if (isFinalRound || !queuedRound || queuedRound.round_number <= roundNumber) return 5;
+      const elapsedToNextRound = serverNow() - new Date(queuedRound.started_at).getTime();
       return Math.max(0, Math.ceil((BETWEEN_ROUNDS_TIME - elapsedToNextRound) / 1000));
     };
     setBetweenRoundsCountdown(getCountdown());
