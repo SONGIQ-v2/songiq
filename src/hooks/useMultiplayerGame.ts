@@ -898,7 +898,7 @@ export function useMultiplayerGame(roomCode: string) {
   }, [isHost, room, loadTracks]);
 
   // Create a new round
-  const createRound = useCallback(async (availableTracks: AppleMusicTrack[], roundNum: number) => {
+  const createRound = useCallback(async (availableTracks: AppleMusicTrack[], roundNum: number, startsAtMs?: number) => {
     if (!room) return;
 
     const track = availableTracks[roundNum - 1];
@@ -941,6 +941,7 @@ export function useMultiplayerGame(roomCode: string) {
       options: JSON.stringify(options),
       artwork_url: track.artworkUrl100?.replace('100x100', '600x600') || '',
       question_type: isGuessSong ? 'song' : 'artist',
+      started_at: new Date(startsAtMs ?? Date.now()).toISOString(),
     });
 
     await supabase
