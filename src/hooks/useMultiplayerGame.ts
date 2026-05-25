@@ -341,6 +341,8 @@ export function useMultiplayerGame(roomCode: string) {
           
           // Always update the hint for the overlay
           setNextQuestionType(qType);
+          const roundStartsAt = new Date(round.started_at).getTime();
+          setRoundStartTime(roundStartsAt);
           
           // If we're in between_rounds, just store the round data but don't start playing yet
           // The countdown will handle the transition
@@ -361,8 +363,7 @@ export function useMultiplayerGame(roomCode: string) {
             setSelectedAnswer(null);
             setIsCorrect(null);
             setPlayers((prevPlayers) => prevPlayers.map((p) => ({ ...p, roundScore: 0, hasAnswered: false })));
-            setTimeLeft(ROUND_TIME);
-            setRoundStartTime(Date.now());
+            setTimeLeft(Math.max(0, ROUND_TIME - (serverNow() - roundStartsAt)));
             
             return "playing";
           });
