@@ -380,7 +380,6 @@ export type Database = {
     }
     Functions: {
       normalize_quiz_answer: { Args: { _value: string }; Returns: string }
-      server_time_ms: { Args: never; Returns: number }
     }
     Enums: {
       [_ in never]: never
