@@ -203,8 +203,9 @@ const Multiplayer = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
           >
-            <label className="block text-sm font-medium mb-2">Your Name</label>
+            <label htmlFor="mp-player-name" className="block text-sm font-medium mb-2">Your Name</label>
             <Input
+              id="mp-player-name"
               value={playerName}
               onChange={(e) => setPlayerName(e.target.value)}
               placeholder="Enter your nickname"
@@ -246,8 +247,9 @@ const Multiplayer = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
           >
-            <label className="block text-sm font-medium mb-2">Room Code</label>
+            <label htmlFor="mp-room-code" className="block text-sm font-medium mb-2">Room Code</label>
             <Input
+              id="mp-room-code"
               value={roomCode}
               onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
               placeholder="ABCD12"
