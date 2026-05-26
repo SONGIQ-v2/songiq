@@ -282,6 +282,7 @@ export default function RoomLobby() {
               value={joinName}
               onChange={(e) => setJoinName(e.target.value)}
               placeholder="Your nickname"
+              aria-label="Your nickname"
               maxLength={20}
               className="text-center text-lg"
               onKeyDown={(e) => e.key === "Enter" && handleJoinWithName()}
@@ -339,6 +340,7 @@ export default function RoomLobby() {
           <Button
             variant="ghost"
             size="icon"
+            aria-label="Open profile and edit nickname"
             onClick={() => {
               setEditName(currentPlayer?.player_name || playerName || "");
               setShowProfileModal(true);
@@ -384,6 +386,7 @@ export default function RoomLobby() {
               <Button
                 variant="ghost"
                 size="icon"
+                aria-label="Copy room invite link"
                 onClick={handleCopyCode}
                 className="text-muted-foreground hover:text-foreground"
               >

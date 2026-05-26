@@ -434,6 +434,7 @@ export default function Game() {
               <Button
                 variant="destructive"
                 size="icon"
+                aria-label="Leave game"
                 className="bg-destructive/90 hover:bg-destructive shadow-md"
               >
                 <X className="w-5 h-5" />
@@ -472,6 +473,7 @@ export default function Game() {
           <Button
             variant="ghost"
             size="icon"
+            aria-label={isMuted ? "Unmute audio" : "Mute audio"}
             onClick={() => setIsMuted(!isMuted)}
             className="text-foreground/60 hover:text-foreground"
           >
