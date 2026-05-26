@@ -3,7 +3,7 @@ import { SeoLanding } from "@/components/SeoLanding";
 const HeardleAlternative = () => (
   <SeoLanding
     path="/heardle-alternative"
-    metaTitle="Heardle Alternative — Unlimited Multiplayer Music Quiz | SongIQ"
+    metaTitle="Heardle Alternative — Unlimited Music Quiz | SongIQ"
     metaDescription="Looking for a Heardle alternative? SongIQ gives you unlimited rounds, multiplayer with friends, and playlists from Afrobeats to Pop. Free, no signup."
     h1="The Heardle Alternative Worth Switching To"
     intro="Unlimited daily play. Real multiplayer. Genres beyond mainstream pop. If Heardle ran out of songs, start here."
