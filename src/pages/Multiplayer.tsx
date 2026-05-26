@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
+import { Helmet } from "react-helmet-async";
 import { Starfield } from "@/components/Starfield";
 import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
@@ -170,6 +171,14 @@ const Multiplayer = () => {
 
   return (
     <div className="min-h-screen relative overflow-hidden">
+      <Helmet>
+        <title>Multiplayer Music Quiz — Play with Friends Live | SongIQ</title>
+        <meta name="description" content="Create or join a SongIQ multiplayer room. Up to 8 players, live scoring, share a link — race friends to guess the song first." />
+        <link rel="canonical" href="https://songiq.xyz/multiplayer" />
+        <meta property="og:title" content="SongIQ Multiplayer — Music Quiz with Friends" />
+        <meta property="og:description" content="Up to 8 players, live scoring. Create a room, share the link, settle the group chat." />
+        <meta property="og:url" content="https://songiq.xyz/multiplayer" />
+      </Helmet>
       <Starfield />
       <Header />
 
@@ -203,8 +212,9 @@ const Multiplayer = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
           >
-            <label className="block text-sm font-medium mb-2">Your Name</label>
+            <label htmlFor="mp-player-name" className="block text-sm font-medium mb-2">Your Name</label>
             <Input
+              id="mp-player-name"
               value={playerName}
               onChange={(e) => setPlayerName(e.target.value)}
               placeholder="Enter your nickname"
@@ -246,8 +256,9 @@ const Multiplayer = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
           >
-            <label className="block text-sm font-medium mb-2">Room Code</label>
+            <label htmlFor="mp-room-code" className="block text-sm font-medium mb-2">Room Code</label>
             <Input
+              id="mp-room-code"
               value={roomCode}
               onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
               placeholder="ABCD12"

@@ -51,9 +51,21 @@
 - Multiplayer: Real-time via WebSockets with polling fallback
 - Round length: 15 seconds of audio + 5-second transition
 
+## Pages
+
+- [Home](/): SongIQ homepage — pick Solo or Multiplayer and start playing.
+- [Solo Play](/solo): Pick a genre and play a 10-round music quiz on your own.
+- [Multiplayer](/multiplayer): Create or join a real-time room to play with friends.
+- [Guess the Song Game](/guess-the-song-game): Hear a 15-second clip and name the track.
+- [Guess the Artist Game](/guess-the-artist-game): Hear a clip and name the artist behind it.
+- [Song Quiz Online](/song-quiz-online): Free browser-based music quiz, no signup.
+- [Music Quiz Multiplayer](/music-quiz-multiplayer): Up to 8 players in a live room.
+- [Heardle Alternative](/heardle-alternative): Unlimited rounds and multiplayer, no daily cap.
+- [Afrobeats Quiz](/afrobeats-quiz): Burna Boy, Wizkid, Tems, Davido, Asake and more.
+- [Amapiano Quiz](/amapiano-quiz): Kabza, Maphorisa, Tyler ICU, Uncle Waffles and more.
+- [African Music Quiz](/african-music-quiz): Afrobeats, Amapiano, Highlife, Bongo Flava.
+
 ## Links
 
 - Homepage: https://songiq.xyz
-- Solo Play: https://songiq.xyz/solo
-- Multiplayer: https://songiq.xyz/multiplayer
 - Sitemap: https://songiq.xyz/sitemap.xml

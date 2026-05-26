@@ -536,6 +536,7 @@ export default function MultiplayerGame() {
   return (
     <div className="min-h-screen bg-background relative overflow-auto">
       <Starfield />
+      <h1 className="sr-only">Multiplayer Music Quiz Gameplay</h1>
 
       <div className="relative z-10 flex flex-col lg:flex-row min-h-screen">
         {/* Main Game Area */}
@@ -548,6 +549,7 @@ export default function MultiplayerGame() {
                   <Button
                     variant="ghost"
                     size="icon"
+                    aria-label="Leave game"
                     className="text-foreground/60 hover:text-destructive hover:bg-destructive/10"
                   >
                     <X className="w-5 h-5" />
@@ -618,6 +620,7 @@ export default function MultiplayerGame() {
               <Button
                 variant="ghost"
                 size="icon"
+                aria-label={isMuted ? "Unmute audio" : "Mute audio"}
                 onClick={() => setIsMuted(!isMuted)}
                 className="text-foreground/60 hover:text-foreground"
               >

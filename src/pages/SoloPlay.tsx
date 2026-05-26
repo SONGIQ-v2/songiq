@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
+import { Helmet } from "react-helmet-async";
 import { Starfield } from "@/components/Starfield";
 import { Header } from "@/components/Header";
 import { PlaylistCard } from "@/components/PlaylistCard";
@@ -70,6 +71,14 @@ const SoloPlay = () => {
 
   return (
     <div className="min-h-screen relative overflow-hidden">
+      <Helmet>
+        <title>Solo Play — Pick a Playlist & Start the Quiz | SongIQ</title>
+        <meta name="description" content="Play SongIQ solo. Pick a genre — Afrobeats, Amapiano, Hip-Hop, Pop and more — and guess the song or artist in 15 seconds." />
+        <link rel="canonical" href="https://songiq.xyz/solo" />
+        <meta property="og:title" content="SongIQ Solo Play — Pick a Playlist & Start the Quiz" />
+        <meta property="og:description" content="Play SongIQ solo. Pick a genre and guess the song or artist in 15 seconds." />
+        <meta property="og:url" content="https://songiq.xyz/solo" />
+      </Helmet>
       <Starfield />
       <Header />
 

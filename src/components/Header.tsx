@@ -53,6 +53,7 @@ export const Header = () => {
             <Button
               variant="ghost"
               size="icon"
+              aria-label="Open profile and edit nickname"
               onClick={() => {
                 setEditName(playerName || localStorage.getItem("songiq_player_name") || "");
                 setShowProfileModal(true);
@@ -76,6 +77,7 @@ export const Header = () => {
           <div className="space-y-4 pt-2">
             <Input
               placeholder="Enter your name"
+              aria-label="Your nickname"
               value={editName}
               onChange={(e) => setEditName(e.target.value)}
               maxLength={20}

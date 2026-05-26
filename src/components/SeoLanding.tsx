@@ -102,11 +102,13 @@ export const SeoLanding = ({
 
           {/* Features */}
           <motion.section
+            aria-labelledby="features-heading"
             className="grid md:grid-cols-3 gap-4 mb-16"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.15 }}
           >
+            <h2 id="features-heading" className="sr-only">Features</h2>
             {features.map((f) => {
               const Icon = iconMap[f.icon];
               return (
