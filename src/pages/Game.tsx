@@ -425,6 +425,8 @@ export default function Game() {
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
       <Starfield />
+      <h1 className="sr-only">Solo Music Quiz Gameplay</h1>
+      
       
       {/* Header */}
       <div className="relative z-10 p-4 flex items-center justify-between safe-area-inset-top">
