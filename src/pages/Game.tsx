@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { Helmet } from "react-helmet-async";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Volume2, VolumeX, Trophy, Music2, X } from "lucide-react";
@@ -424,6 +425,15 @@ export default function Game() {
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
+      <Helmet>
+        <title>Solo Music Quiz — Play Now | SongIQ</title>
+        <meta name="description" content="Solo music quiz round in progress on SongIQ. Listen to 15-second clips and guess the song or artist." />
+        <meta name="robots" content="noindex, follow" />
+        <link rel="canonical" href="https://songiq.xyz/solo/game" />
+        <meta property="og:title" content="Solo Music Quiz — Play Now | SongIQ" />
+        <meta property="og:description" content="Live solo round on SongIQ — guess the song or artist in 15 seconds." />
+        <meta property="og:url" content="https://songiq.xyz/solo/game" />
+      </Helmet>
       <Starfield />
       <h1 className="sr-only">Solo Music Quiz Gameplay</h1>
       

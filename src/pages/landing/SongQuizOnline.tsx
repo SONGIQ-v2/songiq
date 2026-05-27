@@ -3,7 +3,7 @@ import { SeoLanding } from "@/components/SeoLanding";
 const SongQuizOnline = () => (
   <SeoLanding
     path="/song-quiz-online"
-    metaTitle="Song Quiz Online — Free Music Trivia in Your Browser | SongIQ"
+    metaTitle="Song Quiz Online — Free Music Trivia | SongIQ"
     metaDescription="The best song quiz online. Play instantly in your browser, no download, no signup. Afrobeats, Hip-Hop, Pop & more. Solo or multiplayer."
     h1="Song Quiz Online — Play Free in Your Browser"
     intro="No downloads. No accounts. Just open SongIQ, pick a playlist, and start guessing. Built for phones, tablets and desktops."

@@ -3,7 +3,7 @@ import { SeoLanding } from "@/components/SeoLanding";
 const AfricanMusicQuiz = () => (
   <SeoLanding
     path="/african-music-quiz"
-    metaTitle="African Music Quiz — Afrobeats, Amapiano, Highlife & More | SongIQ"
+    metaTitle="African Music Quiz — Afrobeats & Amapiano | SongIQ"
     metaDescription="The African music quiz built for real fans. Afrobeats, Amapiano, Highlife, Bongo Flava — hear a clip, name the song or artist. Free, multiplayer."
     h1="African Music Quiz — The Continent on Shuffle"
     intro="Afrobeats. Amapiano. Highlife. Bongo Flava. One quiz, every sound — and 15 seconds to prove you know it."

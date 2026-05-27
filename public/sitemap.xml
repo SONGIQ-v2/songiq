@@ -13,6 +13,12 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://songiq.xyz/solo/game</loc>
+    <lastmod>2026-05-27</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://songiq.xyz/multiplayer</loc>
     <lastmod>2026-05-17</lastmod>
     <changefreq>weekly</changefreq>
