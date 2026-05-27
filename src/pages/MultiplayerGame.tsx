@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
 import { motion, AnimatePresence } from "framer-motion";
 import { Volume2, VolumeX, Music2, Trophy, X, AlertTriangle, LogOut, UserCircle } from "lucide-react";
 import { toast } from "sonner";
@@ -535,6 +536,15 @@ export default function MultiplayerGame() {
   // Main game screen
   return (
     <div className="min-h-screen bg-background relative overflow-auto">
+      <Helmet>
+        <title>Multiplayer Music Quiz Room | SongIQ</title>
+        <meta name="description" content="Live multiplayer music quiz room on SongIQ. Compete with friends in real time across Afrobeats, Pop and more." />
+        <meta name="robots" content="noindex, follow" />
+        <link rel="canonical" href={`https://songiq.xyz/room/${code}/game`} />
+        <meta property="og:title" content="Multiplayer Music Quiz Room | SongIQ" />
+        <meta property="og:description" content="Join the live multiplayer music quiz on SongIQ." />
+        <meta property="og:url" content={`https://songiq.xyz/room/${code}/game`} />
+      </Helmet>
       <Starfield />
       <h1 className="sr-only">Multiplayer Music Quiz Gameplay</h1>
 

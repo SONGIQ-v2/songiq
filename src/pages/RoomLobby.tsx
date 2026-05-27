@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
 import { motion, AnimatePresence } from "framer-motion";
 import { Copy, Check, Users, Play, Crown, LogOut, Loader2, UserCircle, Music, Clock, Hash, ChevronLeft, ChevronRight, UserX } from "lucide-react";
 import { useRef } from "react";
@@ -268,6 +269,15 @@ export default function RoomLobby() {
 
   return (
     <div className="min-h-screen relative overflow-hidden">
+      <Helmet>
+        <title>{`Join Room ${code ?? ""} — Multiplayer Music Quiz | SongIQ`}</title>
+        <meta name="description" content="Join a private SongIQ multiplayer music quiz room. Pick a nickname and play live with friends across Afrobeats, Pop and more." />
+        <meta name="robots" content="noindex, follow" />
+        <link rel="canonical" href={`https://songiq.xyz/room/${code ?? ""}`} />
+        <meta property="og:title" content={`Join Room ${code ?? ""} — Multiplayer Music Quiz | SongIQ`} />
+        <meta property="og:description" content="A friend invited you to a live multiplayer music quiz on SongIQ. Tap to join." />
+        <meta property="og:url" content={`https://songiq.xyz/room/${code ?? ""}`} />
+      </Helmet>
       {/* Name Modal for joining players */}
       <Dialog open={showNameModal} onOpenChange={() => {}}>
         <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
