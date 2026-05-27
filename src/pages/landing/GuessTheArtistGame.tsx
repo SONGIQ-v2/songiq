@@ -3,7 +3,7 @@ import { SeoLanding } from "@/components/SeoLanding";
 const GuessTheArtistGame = () => (
   <SeoLanding
     path="/guess-the-artist-game"
-    metaTitle="Guess the Artist Game — Name the Musician in Seconds | SongIQ"
+    metaTitle="Guess the Artist Game — Name the Musician | SongIQ"
     metaDescription="Play the guess the artist game free. Hear a clip, name the artist behind the track. Solo and multiplayer modes, Afrobeats to Hip-Hop. No signup."
     h1="Guess the Artist Game — Can You Name the Voice?"
     intro="Forget the lyrics — name the artist. SongIQ plays a 15-second clip and asks who's behind it. Fast, free, and brutally fun with friends."
