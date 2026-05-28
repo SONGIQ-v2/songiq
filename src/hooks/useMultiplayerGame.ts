@@ -312,29 +312,20 @@ export function useMultiplayerGame(roomCode: string) {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "room_players", filter: `room_id=eq.${room.id}` },
-        async () => {
-          console.log("[Realtime] Players update received");
-          // Refetch all players to get correct ordering
-          const { data } = await supabase
-            .from("room_players")
-            .select("*")
-            .eq("room_id", room.id)
-            .order("score", { ascending: false });
-
-          if (data) {
-            setPlayers((prev) => {
-              const prevRanks = new Map(prev.map((p) => [p.player_id, p.currentRank]));
-              return data.map((p, idx) => ({
-                ...p,
-                previousRank: prevRanks.get(p.player_id) || idx + 1,
-                currentRank: idx + 1,
-                roundScore: prev.find((pp) => pp.player_id === p.player_id)?.roundScore || 0,
-                hasAnswered: prev.find((pp) => pp.player_id === p.player_id)?.hasAnswered || false,
-              }));
-            });
+        (payload) => {
+          // Apply delta directly from payload — no refetch
+          if (payload.eventType === "DELETE") {
+            const old = payload.old as Partial<MultiplayerPlayer>;
+            if (old?.player_id) playersMapRef.current.delete(old.player_id);
+          } else if (payload.new) {
+            const row = payload.new as MultiplayerPlayer;
+            const existing = playersMapRef.current.get(row.player_id);
+            playersMapRef.current.set(row.player_id, { ...existing, ...row });
           }
+          scheduleFlushPlayers();
         }
       )
+
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "game_rounds", filter: `room_id=eq.${room.id}` },
