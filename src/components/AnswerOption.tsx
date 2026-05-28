@@ -71,4 +71,6 @@ export const AnswerOption = memo(({
       </div>
     </motion.button>
   );
-};
+});
+AnswerOption.displayName = "AnswerOption";
+
