@@ -124,15 +124,17 @@ export function useMultiplayerGame(roomCode: string) {
     for (const row of rows) map.set(row.player_id, row);
     playersMapRef.current = map;
   }, []);
+      const rankedPlayers = (playersData || []).map((p, idx) => ({
+        ...p,
+        currentRank: idx + 1,
+        previousRank: idx + 1,
+        roundScore: 0,
+        hasAnswered: false,
+      }));
 
-  // Initialize auth on mount
-  useEffect(() => {
-    if (!isInitialized) {
-      initializeAuth();
-    }
-  }, [isInitialized, initializeAuth]);
+      seedPlayersMap(rankedPlayers);
+      setPlayers(rankedPlayers);
 
-  // Fetch initial room data
   const fetchRoom = useCallback(async () => {
     try {
       const { data: roomData, error: roomError } = await supabase
