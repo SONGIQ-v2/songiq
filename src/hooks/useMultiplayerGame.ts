@@ -161,7 +161,9 @@ export function useMultiplayerGame(roomCode: string) {
         hasAnswered: false,
       }));
       
+      seedPlayersMap(rankedPlayers);
       setPlayers(rankedPlayers);
+
       
       // Set game status based on room status
       if (roomData.status === "playing") {
