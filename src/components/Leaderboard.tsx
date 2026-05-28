@@ -1,5 +1,8 @@
+import { memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Crown, TrendingUp, TrendingDown, Minus, Check } from "lucide-react";
+import { cn } from "@/lib/utils";
+
 import { cn } from "@/lib/utils";
 
 interface LeaderboardPlayer {
