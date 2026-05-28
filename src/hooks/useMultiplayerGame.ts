@@ -500,7 +500,7 @@ export function useMultiplayerGame(roomCode: string) {
           }
         }
 
-        // Poll players
+        // Poll players (reconciliation fallback — rebuilds the map then schedules a flush)
         const { data: playersData } = await supabase
           .from("room_players")
           .select("*")
@@ -508,26 +508,33 @@ export function useMultiplayerGame(roomCode: string) {
           .order("score", { ascending: false });
 
         if (playersData) {
-          setPlayers((prev) => {
-            // Only update if something changed
-            const prevScores = prev.map(p => `${p.player_id}:${p.score}:${p.is_ready}`).join(',');
-            const newScores = playersData.map(p => `${p.player_id}:${p.score}:${p.is_ready}`).join(',');
-            if (prevScores === newScores) return prev;
-
-            const prevRanks = new Map(prev.map((p) => [p.player_id, p.currentRank]));
-            return playersData.map((p, idx) => ({
-              ...p,
-              previousRank: prevRanks.get(p.player_id) || idx + 1,
-              currentRank: idx + 1,
-              roundScore: prev.find((pp) => pp.player_id === p.player_id)?.roundScore || 0,
-              hasAnswered: prev.find((pp) => pp.player_id === p.player_id)?.hasAnswered || false,
-            }));
-          });
+          const next = new Map<string, MultiplayerPlayer>();
+          for (const p of playersData as MultiplayerPlayer[]) {
+            const existing = playersMapRef.current.get(p.player_id);
+            next.set(p.player_id, { ...existing, ...p });
+          }
+          // Detect any difference in scores/readiness/membership vs current map
+          const prevMap = playersMapRef.current;
+          let changed = prevMap.size !== next.size;
+          if (!changed) {
+            for (const [id, p] of next) {
+              const prev = prevMap.get(id);
+              if (!prev || prev.score !== p.score || prev.is_ready !== p.is_ready || prev.player_name !== p.player_name) {
+                changed = true;
+                break;
+              }
+            }
+          }
+          if (changed) {
+            playersMapRef.current = next;
+            scheduleFlushPlayers();
+          }
         }
       } catch (err) {
         console.error("[Poll] Error:", err);
       }
-    }, 1500); // Poll every 1.5s
+    }, 3000); // Poll every 3s (realtime handles the fast path)
+
 
     return () => clearInterval(pollInterval);
   }, [room?.id, gameStatus, roundNumber, room?.current_round, room?.status]);
