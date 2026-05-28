@@ -13,7 +13,7 @@ interface AnswerOptionProps {
   onClick: () => void;
 }
 
-export const AnswerOption = ({
+export const AnswerOption = memo(({
   option,
   index,
   isSelected,
@@ -22,6 +22,7 @@ export const AnswerOption = ({
   disabled,
   onClick,
 }: AnswerOptionProps) => {
+
   const letters = ["A", "B", "C", "D"];
 
   return (
