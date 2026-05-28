@@ -88,7 +88,43 @@ export function useMultiplayerGame(roomCode: string) {
   const createRoundRef = useRef<(tracks: AppleMusicTrack[], roundNum: number) => Promise<void>>();
   const endGameRef = useRef<() => Promise<void>>();
   const countdownActiveRef = useRef(false);
-  
+
+  // Player delta state: source-of-truth map + throttled flush to React state
+  const playersMapRef = useRef<Map<string, MultiplayerPlayer>>(new Map());
+  const playersFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const flushPlayers = useCallback(() => {
+    playersFlushTimerRef.current = null;
+    const arr = Array.from(playersMapRef.current.values()).sort((a, b) => b.score - a.score);
+    setPlayers((prev) => {
+      const prevByIdRank = new Map(prev.map((p) => [p.player_id, p.currentRank]));
+      const prevById = new Map(prev.map((p) => [p.player_id, p]));
+      // Skip update if nothing meaningful changed
+      const sig = (list: MultiplayerPlayer[]) =>
+        list.map((p) => `${p.player_id}:${p.score}:${p.is_ready}:${p.player_name}:${p.avatar_index}`).join(",");
+      const next = arr.map((p, idx) => ({
+        ...p,
+        previousRank: prevByIdRank.get(p.player_id) ?? idx + 1,
+        currentRank: idx + 1,
+        roundScore: prevById.get(p.player_id)?.roundScore ?? 0,
+        hasAnswered: prevById.get(p.player_id)?.hasAnswered ?? false,
+      }));
+      if (sig(prev) === sig(next)) return prev;
+      return next;
+    });
+  }, []);
+
+  const scheduleFlushPlayers = useCallback(() => {
+    if (playersFlushTimerRef.current) return;
+    playersFlushTimerRef.current = setTimeout(flushPlayers, 200);
+  }, [flushPlayers]);
+
+  const seedPlayersMap = useCallback((rows: MultiplayerPlayer[]) => {
+    const map = new Map<string, MultiplayerPlayer>();
+    for (const row of rows) map.set(row.player_id, row);
+    playersMapRef.current = map;
+  }, []);
+
   // Initialize auth on mount
   useEffect(() => {
     if (!isInitialized) {
