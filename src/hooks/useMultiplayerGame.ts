@@ -88,15 +88,44 @@ export function useMultiplayerGame(roomCode: string) {
   const createRoundRef = useRef<(tracks: AppleMusicTrack[], roundNum: number) => Promise<void>>();
   const endGameRef = useRef<() => Promise<void>>();
   const countdownActiveRef = useRef(false);
-  
-  // Initialize auth on mount
-  useEffect(() => {
-    if (!isInitialized) {
-      initializeAuth();
-    }
-  }, [isInitialized, initializeAuth]);
 
-  // Fetch initial room data
+  // Player delta state: source-of-truth map + throttled flush to React state
+  const playersMapRef = useRef<Map<string, MultiplayerPlayer>>(new Map());
+  const playersFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const flushPlayers = useCallback(() => {
+    playersFlushTimerRef.current = null;
+    const arr = Array.from(playersMapRef.current.values()).sort((a, b) => b.score - a.score);
+    setPlayers((prev) => {
+      const prevByIdRank = new Map(prev.map((p) => [p.player_id, p.currentRank]));
+      const prevById = new Map(prev.map((p) => [p.player_id, p]));
+      // Skip update if nothing meaningful changed
+      const sig = (list: MultiplayerPlayer[]) =>
+        list.map((p) => `${p.player_id}:${p.score}:${p.is_ready}:${p.player_name}:${p.avatar_index}`).join(",");
+      const next = arr.map((p, idx) => ({
+        ...p,
+        previousRank: prevByIdRank.get(p.player_id) ?? idx + 1,
+        currentRank: idx + 1,
+        roundScore: prevById.get(p.player_id)?.roundScore ?? 0,
+        hasAnswered: prevById.get(p.player_id)?.hasAnswered ?? false,
+      }));
+      if (sig(prev) === sig(next)) return prev;
+      return next;
+    });
+  }, []);
+
+  const scheduleFlushPlayers = useCallback(() => {
+    if (playersFlushTimerRef.current) return;
+    playersFlushTimerRef.current = setTimeout(flushPlayers, 200);
+  }, [flushPlayers]);
+
+  const seedPlayersMap = useCallback((rows: MultiplayerPlayer[]) => {
+    const map = new Map<string, MultiplayerPlayer>();
+    for (const row of rows) map.set(row.player_id, row);
+    playersMapRef.current = map;
+  }, []);
+
+
   const fetchRoom = useCallback(async () => {
     try {
       const { data: roomData, error: roomError } = await supabase
@@ -132,7 +161,9 @@ export function useMultiplayerGame(roomCode: string) {
         hasAnswered: false,
       }));
       
+      seedPlayersMap(rankedPlayers);
       setPlayers(rankedPlayers);
+
       
       // Set game status based on room status
       if (roomData.status === "playing") {
@@ -281,29 +312,20 @@ export function useMultiplayerGame(roomCode: string) {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "room_players", filter: `room_id=eq.${room.id}` },
-        async () => {
-          console.log("[Realtime] Players update received");
-          // Refetch all players to get correct ordering
-          const { data } = await supabase
-            .from("room_players")
-            .select("*")
-            .eq("room_id", room.id)
-            .order("score", { ascending: false });
-
-          if (data) {
-            setPlayers((prev) => {
-              const prevRanks = new Map(prev.map((p) => [p.player_id, p.currentRank]));
-              return data.map((p, idx) => ({
-                ...p,
-                previousRank: prevRanks.get(p.player_id) || idx + 1,
-                currentRank: idx + 1,
-                roundScore: prev.find((pp) => pp.player_id === p.player_id)?.roundScore || 0,
-                hasAnswered: prev.find((pp) => pp.player_id === p.player_id)?.hasAnswered || false,
-              }));
-            });
+        (payload) => {
+          // Apply delta directly from payload — no refetch
+          if (payload.eventType === "DELETE") {
+            const old = payload.old as Partial<MultiplayerPlayer>;
+            if (old?.player_id) playersMapRef.current.delete(old.player_id);
+          } else if (payload.new) {
+            const row = payload.new as MultiplayerPlayer;
+            const existing = playersMapRef.current.get(row.player_id);
+            playersMapRef.current.set(row.player_id, { ...existing, ...row });
           }
+          scheduleFlushPlayers();
         }
       )
+
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "game_rounds", filter: `room_id=eq.${room.id}` },
@@ -478,7 +500,7 @@ export function useMultiplayerGame(roomCode: string) {
           }
         }
 
-        // Poll players
+        // Poll players (reconciliation fallback — rebuilds the map then schedules a flush)
         const { data: playersData } = await supabase
           .from("room_players")
           .select("*")
@@ -486,26 +508,33 @@ export function useMultiplayerGame(roomCode: string) {
           .order("score", { ascending: false });
 
         if (playersData) {
-          setPlayers((prev) => {
-            // Only update if something changed
-            const prevScores = prev.map(p => `${p.player_id}:${p.score}:${p.is_ready}`).join(',');
-            const newScores = playersData.map(p => `${p.player_id}:${p.score}:${p.is_ready}`).join(',');
-            if (prevScores === newScores) return prev;
-
-            const prevRanks = new Map(prev.map((p) => [p.player_id, p.currentRank]));
-            return playersData.map((p, idx) => ({
-              ...p,
-              previousRank: prevRanks.get(p.player_id) || idx + 1,
-              currentRank: idx + 1,
-              roundScore: prev.find((pp) => pp.player_id === p.player_id)?.roundScore || 0,
-              hasAnswered: prev.find((pp) => pp.player_id === p.player_id)?.hasAnswered || false,
-            }));
-          });
+          const next = new Map<string, MultiplayerPlayer>();
+          for (const p of playersData as MultiplayerPlayer[]) {
+            const existing = playersMapRef.current.get(p.player_id);
+            next.set(p.player_id, { ...existing, ...p });
+          }
+          // Detect any difference in scores/readiness/membership vs current map
+          const prevMap = playersMapRef.current;
+          let changed = prevMap.size !== next.size;
+          if (!changed) {
+            for (const [id, p] of next) {
+              const prev = prevMap.get(id);
+              if (!prev || prev.score !== p.score || prev.is_ready !== p.is_ready || prev.player_name !== p.player_name) {
+                changed = true;
+                break;
+              }
+            }
+          }
+          if (changed) {
+            playersMapRef.current = next;
+            scheduleFlushPlayers();
+          }
         }
       } catch (err) {
         console.error("[Poll] Error:", err);
       }
-    }, 1500); // Poll every 1.5s
+    }, 3000); // Poll every 3s (realtime handles the fast path)
+
 
     return () => clearInterval(pollInterval);
   }, [room?.id, gameStatus, roundNumber, room?.current_round, room?.status]);

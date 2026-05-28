@@ -1,5 +1,7 @@
+import { memo } from "react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+
 
 interface AnswerOptionProps {
   option: string;
@@ -11,7 +13,7 @@ interface AnswerOptionProps {
   onClick: () => void;
 }
 
-export const AnswerOption = ({
+export const AnswerOption = memo(({
   option,
   index,
   isSelected,
@@ -20,6 +22,7 @@ export const AnswerOption = ({
   disabled,
   onClick,
 }: AnswerOptionProps) => {
+
   const letters = ["A", "B", "C", "D"];
 
   return (
@@ -68,4 +71,6 @@ export const AnswerOption = ({
       </div>
     </motion.button>
   );
-};
+});
+AnswerOption.displayName = "AnswerOption";
+
