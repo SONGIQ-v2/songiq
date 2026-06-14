@@ -73,6 +73,13 @@ export default function MultiplayerGame() {
     endGameNow,
   } = useMultiplayerGame(code || "");
 
+  // Ensure anonymous auth is initialized for guests landing here from a shared link
+  const initializeAuth = useGameStore((s) => s.initializeAuth);
+  useEffect(() => {
+    initializeAuth();
+  }, [initializeAuth]);
+
+
   // Kicked detection
   const wasInRoomRef = useRef(false);
   useEffect(() => {
