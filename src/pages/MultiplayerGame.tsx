@@ -26,6 +26,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useMultiplayerGame } from "@/hooks/useMultiplayerGame";
+import { useGameStore } from "@/lib/gameStore";
+
 
 
 const INACTIVITY_WARNING_TIME = 30000; // 30 seconds
@@ -70,6 +72,13 @@ export default function MultiplayerGame() {
     isTerminated,
     endGameNow,
   } = useMultiplayerGame(code || "");
+
+  // Ensure anonymous auth is initialized for guests landing here from a shared link
+  const initializeAuth = useGameStore((s) => s.initializeAuth);
+  useEffect(() => {
+    initializeAuth();
+  }, [initializeAuth]);
+
 
   // Kicked detection
   const wasInRoomRef = useRef(false);

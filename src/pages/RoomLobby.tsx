@@ -110,11 +110,17 @@ export default function RoomLobby() {
     if ((room as any)?.time_per_round) setSelectedTime((room as any).time_per_round);
   }, [room?.category, room?.total_rounds, (room as any)?.time_per_round]);
 
+  // Ensure anonymous auth is initialized for guests landing here from a shared link
+  useEffect(() => {
+    initializeAuth();
+  }, [initializeAuth]);
+
   // Pre-fill join name from cookie
   useEffect(() => {
     const saved = getUsernameCookie();
     if (saved) setJoinName(saved);
   }, []);
+
 
   // Fetch playlist images from API
   useEffect(() => {
