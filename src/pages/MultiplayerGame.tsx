@@ -26,6 +26,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useMultiplayerGame } from "@/hooks/useMultiplayerGame";
+import { useGameStore } from "@/lib/gameStore";
+
 
 
 const INACTIVITY_WARNING_TIME = 30000; // 30 seconds
