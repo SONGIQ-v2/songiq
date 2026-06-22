@@ -878,8 +878,9 @@ export function useMultiplayerGame(roomCode: string) {
       setTracks(loadedTracks);
       tracksRef.current = loadedTracks;
 
-      // Start first round
-      await createRound(loadedTracks, 1);
+      // Start first round (started_at is offset so the 5s pre-game countdown
+      // on all clients aligns with when the round audio actually begins)
+      await createRound(loadedTracks, 1, PRE_GAME_SECONDS * 1000);
     } catch (err) {
       console.error("Error starting game:", err);
       toast.error("Failed to start game");
