@@ -1185,6 +1185,7 @@ export function useMultiplayerGame(roomCode: string) {
     selectedAnswer,
     isCorrect,
     betweenRoundsCountdown,
+    preGameCountdown,
     isFinalizingResults,
     nextQuestionType,
     currentQuestionType,
