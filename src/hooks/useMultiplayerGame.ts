@@ -931,6 +931,7 @@ export function useMultiplayerGame(roomCode: string) {
       options: JSON.stringify(options),
       artwork_url: track.artworkUrl100?.replace('100x100', '600x600') || '',
       question_type: isGuessSong ? 'song' : 'artist',
+      started_at: new Date(Date.now() + startDelayMs).toISOString(),
     });
 
     await supabase
