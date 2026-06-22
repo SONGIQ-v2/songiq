@@ -355,11 +355,11 @@ export function useMultiplayerGame(roomCode: string) {
           setRoundNumber(round.round_number);
           setCurrentQuestionType(qType);
           
-          // Only transition to playing if we're NOT in the between-rounds countdown
+          // Only transition to playing if we're NOT in a countdown phase
           setGameStatus((prev) => {
-            if (prev === "between_rounds") {
-              console.log("[Realtime] Round pre-loaded during countdown, staying in between_rounds");
-              return prev; // Stay in between_rounds, countdown will handle transition
+            if (prev === "between_rounds" || prev === "pre_game") {
+              console.log("[Realtime] Round pre-loaded during countdown, staying in", prev);
+              return prev; // Stay in countdown, it will handle transition
             }
             
             // Reset state for new round
