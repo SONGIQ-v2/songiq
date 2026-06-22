@@ -256,9 +256,16 @@ export function useMultiplayerGame(roomCode: string) {
             // Round still active
             setCurrentRound(round);
             setRoundNumber(round.round_number);
-            setRoundStartTime(new Date(round.started_at).getTime());
-            setTimeLeft(remaining);
-            setGameStatus("playing");
+            setRoundStartTime(startedAtMs);
+            if (msUntilStart > 0) {
+              // Round 1 with delayed start — join the pre-game countdown
+              setTimeLeft(ROUND_TIME);
+              setPreGameCountdown(Math.max(1, Math.ceil(msUntilStart / 1000)));
+              setGameStatus("pre_game");
+            } else {
+              setTimeLeft(remaining);
+              setGameStatus("playing");
+            }
           }
         } else {
           // No round found but room is playing - wait for round
