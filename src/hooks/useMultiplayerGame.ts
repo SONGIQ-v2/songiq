@@ -888,7 +888,7 @@ export function useMultiplayerGame(roomCode: string) {
   }, [isHost, room, loadTracks]);
 
   // Create a new round
-  const createRound = useCallback(async (availableTracks: AppleMusicTrack[], roundNum: number) => {
+  const createRound = useCallback(async (availableTracks: AppleMusicTrack[], roundNum: number, startDelayMs: number = 0) => {
     if (!room) return;
 
     const track = availableTracks[roundNum - 1];
