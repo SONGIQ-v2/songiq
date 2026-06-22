@@ -303,7 +303,13 @@ export function useMultiplayerGame(roomCode: string) {
             const newRoom = payload.new as RoomData;
             setRoom(newRoom);
             if (newRoom.status === "playing") {
-              setGameStatus((prev) => prev === "waiting" ? "playing" : prev);
+              setGameStatus((prev) => {
+                if (prev === "waiting") {
+                  setPreGameCountdown(PRE_GAME_SECONDS);
+                  return "pre_game";
+                }
+                return prev;
+              });
             }
             if (newRoom.status === "finished") {
               setGameStatus("results");
