@@ -60,6 +60,7 @@ export default function MultiplayerGame() {
     selectedAnswer,
     isCorrect,
     betweenRoundsCountdown,
+    preGameCountdown,
     isFinalizingResults,
     nextQuestionType,
     currentQuestionType,
@@ -194,7 +195,7 @@ export default function MultiplayerGame() {
 
     const setupAudio = async () => {
       if (!currentRound?.preview_url) return;
-      if (gameStatus !== "playing" && gameStatus !== "between_rounds") return;
+      if (gameStatus !== "playing" && gameStatus !== "between_rounds" && gameStatus !== "pre_game") return;
 
       const desiredVolume = isMuted ? 0 : 0.7;
       const existing = audioRef.current;
@@ -245,7 +246,7 @@ export default function MultiplayerGame() {
     return () => {
       cancelled = true;
       // Don't pause during between_rounds — we want preloaded audio ready to play
-      if (gameStatus !== "between_rounds" && audioRef.current) {
+      if (gameStatus !== "between_rounds" && gameStatus !== "pre_game" && audioRef.current) {
         audioRef.current.pause();
       }
     };
@@ -417,6 +418,63 @@ export default function MultiplayerGame() {
             )}
           </motion.div>
         </div>
+      </div>
+    );
+  }
+
+  // Pre-game countdown (before round 1) — gives everyone a moment to settle in
+  if (gameStatus === "pre_game") {
+    return (
+      <div className="min-h-screen bg-background relative overflow-hidden flex items-center justify-center p-4">
+        <Starfield />
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="flex flex-col items-center justify-center z-10 text-center"
+        >
+          <div className="relative w-32 h-32 mb-8">
+            <svg className="w-32 h-32 -rotate-90" viewBox="0 0 100 100">
+              <circle cx="50" cy="50" r="45" fill="none" stroke="hsl(var(--muted) / 0.3)" strokeWidth="5" />
+              <circle
+                cx="50" cy="50" r="45" fill="none"
+                stroke="hsl(var(--primary))"
+                strokeWidth="5"
+                strokeLinecap="round"
+                strokeDasharray={`${2 * Math.PI * 45}`}
+                strokeDashoffset={`${2 * Math.PI * 45 * (1 - preGameCountdown / 5)}`}
+                className="transition-all duration-1000 ease-linear"
+              />
+            </svg>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-5xl font-bold text-primary">{preGameCountdown}</span>
+            </div>
+          </div>
+
+          <motion.h2
+            initial={{ y: 10, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.2 }}
+            className="text-4xl font-bold text-gold mb-3"
+          >
+            Get Ready
+          </motion.h2>
+          <motion.p
+            initial={{ y: 10, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.4 }}
+            className="text-xl text-foreground/80 font-semibold mb-2"
+          >
+            {nextQuestionType === "Guess the Artist" ? "🎤 Guess the Artist" : "🎵 Guess the Song"}
+          </motion.p>
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.6 }}
+            className="text-foreground/60"
+          >
+            Round 1 starts in a moment…
+          </motion.p>
+        </motion.div>
       </div>
     );
   }

@@ -68,7 +68,9 @@ export function useMultiplayerGame(roomCode: string) {
   const ROUND_TIME = room ? room.time_per_round * 1000 : DEFAULT_ROUND_TIME;
 
   // Game state
-  const [gameStatus, setGameStatus] = useState<"waiting" | "playing" | "between_rounds" | "results">("waiting");
+  const [gameStatus, setGameStatus] = useState<"waiting" | "pre_game" | "playing" | "between_rounds" | "results">("waiting");
+  const [preGameCountdown, setPreGameCountdown] = useState(0);
+  const PRE_GAME_SECONDS = 5;
   const [currentRound, setCurrentRound] = useState<RoundData | null>(null);
   const [roundNumber, setRoundNumber] = useState(0);
   const [timeLeft, setTimeLeft] = useState(DEFAULT_ROUND_TIME);
@@ -189,8 +191,11 @@ export function useMultiplayerGame(roomCode: string) {
           setNextQuestionType(qType);
           
           // Calculate remaining time based on when round started
-          const elapsed = Date.now() - new Date(round.started_at).getTime();
+          const startedAtMs = new Date(round.started_at).getTime();
+          const elapsed = Date.now() - startedAtMs;
           const remaining = Math.max(0, ROUND_TIME - elapsed);
+          // If the round hasn't started yet (started_at is in the future), we're in pre-game
+          const msUntilStart = Math.max(0, startedAtMs - Date.now());
           
           // Check if this player has already answered this round
           if (playerId) {
@@ -251,9 +256,16 @@ export function useMultiplayerGame(roomCode: string) {
             // Round still active
             setCurrentRound(round);
             setRoundNumber(round.round_number);
-            setRoundStartTime(new Date(round.started_at).getTime());
-            setTimeLeft(remaining);
-            setGameStatus("playing");
+            setRoundStartTime(startedAtMs);
+            if (msUntilStart > 0) {
+              // Round 1 with delayed start — join the pre-game countdown
+              setTimeLeft(ROUND_TIME);
+              setPreGameCountdown(Math.max(1, Math.ceil(msUntilStart / 1000)));
+              setGameStatus("pre_game");
+            } else {
+              setTimeLeft(remaining);
+              setGameStatus("playing");
+            }
           }
         } else {
           // No round found but room is playing - wait for round
@@ -301,7 +313,13 @@ export function useMultiplayerGame(roomCode: string) {
             const newRoom = payload.new as RoomData;
             setRoom(newRoom);
             if (newRoom.status === "playing") {
-              setGameStatus((prev) => prev === "waiting" ? "playing" : prev);
+              setGameStatus((prev) => {
+                if (prev === "waiting") {
+                  setPreGameCountdown(PRE_GAME_SECONDS);
+                  return "pre_game";
+                }
+                return prev;
+              });
             }
             if (newRoom.status === "finished") {
               setGameStatus("results");
@@ -347,11 +365,11 @@ export function useMultiplayerGame(roomCode: string) {
           setRoundNumber(round.round_number);
           setCurrentQuestionType(qType);
           
-          // Only transition to playing if we're NOT in the between-rounds countdown
+          // Only transition to playing if we're NOT in a countdown phase
           setGameStatus((prev) => {
-            if (prev === "between_rounds") {
-              console.log("[Realtime] Round pre-loaded during countdown, staying in between_rounds");
-              return prev; // Stay in between_rounds, countdown will handle transition
+            if (prev === "between_rounds" || prev === "pre_game") {
+              console.log("[Realtime] Round pre-loaded during countdown, staying in", prev);
+              return prev; // Stay in countdown, it will handle transition
             }
             
             // Reset state for new round
@@ -424,7 +442,8 @@ export function useMultiplayerGame(roomCode: string) {
         // Check for status changes
         if (roomData.status === "playing" && gameStatus === "waiting") {
           console.log("[Poll] Room status changed to playing");
-          setGameStatus("playing");
+          setPreGameCountdown(PRE_GAME_SECONDS);
+          setGameStatus("pre_game");
         }
         if (roomData.status === "finished" && gameStatus !== "results") {
           console.log("[Poll] Room status changed to finished");
@@ -779,6 +798,47 @@ export function useMultiplayerGame(roomCode: string) {
     };
   }, [gameStatus]);
 
+  // Pre-game countdown — runs once before round 1 so guests have a moment to settle in
+  const preGameActiveRef = useRef(false);
+  useEffect(() => {
+    if (gameStatus !== "pre_game") {
+      preGameActiveRef.current = false;
+      return;
+    }
+    if (preGameActiveRef.current) return;
+    preGameActiveRef.current = true;
+
+    // Honor a pre-set countdown (e.g., late joiners get a shorter window),
+    // otherwise default to the full PRE_GAME_SECONDS
+    let n = preGameCountdown > 0 && preGameCountdown <= PRE_GAME_SECONDS ? preGameCountdown : PRE_GAME_SECONDS;
+    setPreGameCountdown(n);
+
+    const id = setInterval(() => {
+      n -= 1;
+      if (n <= 0) {
+        clearInterval(id);
+        setPreGameCountdown(0);
+        preGameActiveRef.current = false;
+        // Reset round state and start playing
+        timeUpHandledRef.current = null;
+        setHasAnswered(false);
+        setSelectedAnswer(null);
+        setIsCorrect(null);
+        setPlayers((prev) => prev.map((p) => ({ ...p, roundScore: 0, hasAnswered: false })));
+        setRoundStartTime(Date.now());
+        setTimeLeft(ROUND_TIME);
+        setGameStatus("playing");
+        return;
+      }
+      setPreGameCountdown(n);
+    }, 1000);
+
+    return () => {
+      clearInterval(id);
+      preGameActiveRef.current = false;
+    };
+  }, [gameStatus, ROUND_TIME]);
+
   // Submit answer
   const submitAnswer = useCallback(async (answer: string) => {
     if (hasAnswered || !currentRound || !room || !playerId) return;
@@ -869,8 +929,9 @@ export function useMultiplayerGame(roomCode: string) {
       setTracks(loadedTracks);
       tracksRef.current = loadedTracks;
 
-      // Start first round
-      await createRound(loadedTracks, 1);
+      // Start first round (started_at is offset so the 5s pre-game countdown
+      // on all clients aligns with when the round audio actually begins)
+      await createRound(loadedTracks, 1, PRE_GAME_SECONDS * 1000);
     } catch (err) {
       console.error("Error starting game:", err);
       toast.error("Failed to start game");
@@ -878,7 +939,7 @@ export function useMultiplayerGame(roomCode: string) {
   }, [isHost, room, loadTracks]);
 
   // Create a new round
-  const createRound = useCallback(async (availableTracks: AppleMusicTrack[], roundNum: number) => {
+  const createRound = useCallback(async (availableTracks: AppleMusicTrack[], roundNum: number, startDelayMs: number = 0) => {
     if (!room) return;
 
     const track = availableTracks[roundNum - 1];
@@ -921,6 +982,7 @@ export function useMultiplayerGame(roomCode: string) {
       options: JSON.stringify(options),
       artwork_url: track.artworkUrl100?.replace('100x100', '600x600') || '',
       question_type: isGuessSong ? 'song' : 'artist',
+      started_at: new Date(Date.now() + startDelayMs).toISOString(),
     });
 
     await supabase
@@ -1135,6 +1197,7 @@ export function useMultiplayerGame(roomCode: string) {
     selectedAnswer,
     isCorrect,
     betweenRoundsCountdown,
+    preGameCountdown,
     isFinalizingResults,
     nextQuestionType,
     currentQuestionType,
