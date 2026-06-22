@@ -246,7 +246,7 @@ export default function MultiplayerGame() {
     return () => {
       cancelled = true;
       // Don't pause during between_rounds — we want preloaded audio ready to play
-      if (gameStatus !== "between_rounds" && audioRef.current) {
+      if (gameStatus !== "between_rounds" && gameStatus !== "pre_game" && audioRef.current) {
         audioRef.current.pause();
       }
     };
