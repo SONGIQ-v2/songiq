@@ -788,6 +788,45 @@ export function useMultiplayerGame(roomCode: string) {
     };
   }, [gameStatus]);
 
+  // Pre-game countdown — runs once before round 1 so guests have a moment to settle in
+  const preGameActiveRef = useRef(false);
+  useEffect(() => {
+    if (gameStatus !== "pre_game") {
+      preGameActiveRef.current = false;
+      return;
+    }
+    if (preGameActiveRef.current) return;
+    preGameActiveRef.current = true;
+
+    let n = PRE_GAME_SECONDS;
+    setPreGameCountdown(n);
+
+    const id = setInterval(() => {
+      n -= 1;
+      if (n <= 0) {
+        clearInterval(id);
+        setPreGameCountdown(0);
+        preGameActiveRef.current = false;
+        // Reset round state and start playing
+        timeUpHandledRef.current = null;
+        setHasAnswered(false);
+        setSelectedAnswer(null);
+        setIsCorrect(null);
+        setPlayers((prev) => prev.map((p) => ({ ...p, roundScore: 0, hasAnswered: false })));
+        setRoundStartTime(Date.now());
+        setTimeLeft(ROUND_TIME);
+        setGameStatus("playing");
+        return;
+      }
+      setPreGameCountdown(n);
+    }, 1000);
+
+    return () => {
+      clearInterval(id);
+      preGameActiveRef.current = false;
+    };
+  }, [gameStatus, ROUND_TIME]);
+
   // Submit answer
   const submitAnswer = useCallback(async (answer: string) => {
     if (hasAnswered || !currentRound || !room || !playerId) return;
