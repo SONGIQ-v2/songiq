@@ -191,8 +191,11 @@ export function useMultiplayerGame(roomCode: string) {
           setNextQuestionType(qType);
           
           // Calculate remaining time based on when round started
-          const elapsed = Date.now() - new Date(round.started_at).getTime();
+          const startedAtMs = new Date(round.started_at).getTime();
+          const elapsed = Date.now() - startedAtMs;
           const remaining = Math.max(0, ROUND_TIME - elapsed);
+          // If the round hasn't started yet (started_at is in the future), we're in pre-game
+          const msUntilStart = Math.max(0, startedAtMs - Date.now());
           
           // Check if this player has already answered this round
           if (playerId) {
