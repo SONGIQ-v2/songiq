@@ -808,7 +808,9 @@ export function useMultiplayerGame(roomCode: string) {
     if (preGameActiveRef.current) return;
     preGameActiveRef.current = true;
 
-    let n = PRE_GAME_SECONDS;
+    // Honor a pre-set countdown (e.g., late joiners get a shorter window),
+    // otherwise default to the full PRE_GAME_SECONDS
+    let n = preGameCountdown > 0 && preGameCountdown <= PRE_GAME_SECONDS ? preGameCountdown : PRE_GAME_SECONDS;
     setPreGameCountdown(n);
 
     const id = setInterval(() => {
