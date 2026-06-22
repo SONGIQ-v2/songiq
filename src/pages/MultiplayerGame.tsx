@@ -195,7 +195,7 @@ export default function MultiplayerGame() {
 
     const setupAudio = async () => {
       if (!currentRound?.preview_url) return;
-      if (gameStatus !== "playing" && gameStatus !== "between_rounds") return;
+      if (gameStatus !== "playing" && gameStatus !== "between_rounds" && gameStatus !== "pre_game") return;
 
       const desiredVolume = isMuted ? 0 : 0.7;
       const existing = audioRef.current;
