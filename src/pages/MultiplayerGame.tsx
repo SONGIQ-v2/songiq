@@ -60,6 +60,7 @@ export default function MultiplayerGame() {
     selectedAnswer,
     isCorrect,
     betweenRoundsCountdown,
+    preGameCountdown,
     isFinalizingResults,
     nextQuestionType,
     currentQuestionType,
