@@ -68,7 +68,9 @@ export function useMultiplayerGame(roomCode: string) {
   const ROUND_TIME = room ? room.time_per_round * 1000 : DEFAULT_ROUND_TIME;
 
   // Game state
-  const [gameStatus, setGameStatus] = useState<"waiting" | "playing" | "between_rounds" | "results">("waiting");
+  const [gameStatus, setGameStatus] = useState<"waiting" | "pre_game" | "playing" | "between_rounds" | "results">("waiting");
+  const [preGameCountdown, setPreGameCountdown] = useState(0);
+  const PRE_GAME_SECONDS = 5;
   const [currentRound, setCurrentRound] = useState<RoundData | null>(null);
   const [roundNumber, setRoundNumber] = useState(0);
   const [timeLeft, setTimeLeft] = useState(DEFAULT_ROUND_TIME);
