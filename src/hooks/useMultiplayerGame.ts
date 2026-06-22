@@ -432,7 +432,8 @@ export function useMultiplayerGame(roomCode: string) {
         // Check for status changes
         if (roomData.status === "playing" && gameStatus === "waiting") {
           console.log("[Poll] Room status changed to playing");
-          setGameStatus("playing");
+          setPreGameCountdown(PRE_GAME_SECONDS);
+          setGameStatus("pre_game");
         }
         if (roomData.status === "finished" && gameStatus !== "results") {
           console.log("[Poll] Room status changed to finished");
