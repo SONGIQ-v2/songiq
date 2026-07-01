@@ -23,7 +23,7 @@ const Index = () => {
             transition={{ duration: 0.6 }}
           >
             <h1 className="font-display text-4xl md:text-6xl uppercase tracking-wide mb-4">
-              Guess the <span className="text-primary">Song</span> — Test Your Music IQ
+              Guess the <span className="text-primary">Song</span> — Test Your Music IQ.
             </h1>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
               The ultimate music quiz game for Afrobeats, Amapiano, Highlife, Bongo Flava & more. 
