@@ -322,6 +322,32 @@ export type Database = {
           },
         ]
       }
+      room_tracks: {
+        Row: {
+          created_at: string
+          plan: Json
+          room_id: string
+        }
+        Insert: {
+          created_at?: string
+          plan?: Json
+          room_id: string
+        }
+        Update: {
+          created_at?: string
+          plan?: Json
+          room_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_tracks_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: true
+            referencedRelation: "game_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       game_rounds_public: {
@@ -379,6 +405,7 @@ export type Database = {
       }
     }
     Functions: {
+      advance_game_round: { Args: { _room_id: string }; Returns: Json }
       normalize_quiz_answer: { Args: { _value: string }; Returns: string }
       server_time_ms: { Args: never; Returns: number }
     }
