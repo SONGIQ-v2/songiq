@@ -186,9 +186,10 @@ export default function RoomLobby() {
     }
   };
 
-  // Navigate to game when it starts
+  // Navigate to game when it starts (pre_game = synchronized 5s countdown
+  // before round 1, shown on the game screen so audio can preload there)
   useEffect(() => {
-    if (gameStatus === "playing" && room) {
+    if ((gameStatus === "pre_game" || gameStatus === "playing") && room) {
       navigate(`/room/${code}/game`);
     }
   }, [gameStatus, room, code, navigate]);

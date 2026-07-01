@@ -3,7 +3,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useGameStore } from "@/lib/gameStore";
 import { useAppleMusic, type AppleMusicTrack } from "@/hooks/useAppleMusic";
 import { getPlaylistById, PLAYLISTS } from "@/lib/playlists";
-import { calculatePoints } from "@/lib/spotify";
 import { toast } from "sonner";
 import { logError, logWarn, logInfo } from "@/lib/clientLogger";
 
@@ -50,12 +49,22 @@ export interface RoundData {
 }
 
 const DEFAULT_ROUND_TIME = 20000; // fallback 20 seconds per round
-const BETWEEN_ROUNDS_TIME = 5000; // 5 seconds between rounds
+const BETWEEN_ROUNDS_TIME = 5000; // gap before each round; must match advance_game_round()
+const REVEAL_MS = 2000; // after an early all-answered end, keep showing graded feedback
+const PRE_GAME_SECONDS = 5;
 const QUESTION_TYPES = ["Guess the Artist", "Guess the Song"] as const;
 type QuestionType = typeof QUESTION_TYPES[number];
 
+export type MultiplayerGameStatus =
+  | "waiting"
+  | "pre_game"
+  | "playing"
+  | "between_rounds"
+  | "results"
+  | "terminated";
+
 export function useMultiplayerGame(roomCode: string) {
-  const { playerId, isHost, setRoom: setStoreRoom, initializeAuth, isInitialized } = useGameStore();
+  const { playerId, isHost: storeIsHost, setRoom: setStoreRoom, isInitialized } = useGameStore();
   const { getPlaylistTracks } = useAppleMusic();
 
   // Room state
@@ -66,30 +75,32 @@ export function useMultiplayerGame(roomCode: string) {
 
   // Compute ROUND_TIME from room settings (time_per_round is in seconds)
   const ROUND_TIME = room ? room.time_per_round * 1000 : DEFAULT_ROUND_TIME;
+  const isHost = room && playerId ? room.host_id === playerId : storeIsHost;
 
   // Game state
-  const [gameStatus, setGameStatus] = useState<"waiting" | "pre_game" | "playing" | "between_rounds" | "results">("waiting");
+  const [gameStatus, setGameStatus] = useState<MultiplayerGameStatus>("waiting");
   const [preGameCountdown, setPreGameCountdown] = useState(0);
-  const PRE_GAME_SECONDS = 5;
   const [currentRound, setCurrentRound] = useState<RoundData | null>(null);
   const [roundNumber, setRoundNumber] = useState(0);
   const [timeLeft, setTimeLeft] = useState(DEFAULT_ROUND_TIME);
   const [hasAnswered, setHasAnswered] = useState(false);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
-  const [roundStartTime, setRoundStartTime] = useState<number>(0);
-  const [tracks, setTracks] = useState<AppleMusicTrack[]>([]);
   const [betweenRoundsCountdown, setBetweenRoundsCountdown] = useState(0);
   const [isFinalizingResults, setIsFinalizingResults] = useState(false);
   const [nextQuestionType, setNextQuestionType] = useState<QuestionType>("Guess the Artist");
   const [currentQuestionType, setCurrentQuestionType] = useState<QuestionType>("Guess the Artist");
 
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const betweenRoundsRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const tracksRef = useRef<AppleMusicTrack[]>([]);
-  const createRoundRef = useRef<(tracks: AppleMusicTrack[], roundNum: number) => Promise<void>>();
-  const endGameRef = useRef<() => Promise<void>>();
-  const countdownActiveRef = useRef(false);
+  // The round the ticker derives all timing from (ref so the 100ms tick
+  // always sees the latest round without re-creating the interval)
+  const roundRef = useRef<RoundData | null>(null);
+  // Round id whose per-round answer state has been reset (set on the
+  // transition into "playing", or pre-set by fetchRoom for mid-round joins)
+  const lastResetRoundRef = useRef<string | null>(null);
+  // Round id whose end-of-round side effects (empty answer) have run
+  const timeUpHandledRef = useRef<string | null>(null);
+  // Round id for which this client has already requested advancement
+  const advanceRequestedForRef = useRef<string | null>(null);
 
   // Player delta state: source-of-truth map + throttled flush to React state
   const playersMapRef = useRef<Map<string, MultiplayerPlayer>>(new Map());
@@ -127,6 +138,43 @@ export function useMultiplayerGame(roomCode: string) {
     playersMapRef.current = map;
   }, []);
 
+  // Normalize + store an incoming round. Merges updates (ended_at, revealed
+  // track/artist names) into the current round; replaces it for newer rounds.
+  const ingestRound = useCallback((raw: RoundData) => {
+    const round = { ...raw } as RoundData;
+    if (typeof round.options === "string") {
+      try {
+        round.options = JSON.parse(round.options as unknown as string);
+      } catch {
+        round.options = [];
+      }
+    }
+    if (!Array.isArray(round.options)) round.options = [];
+
+    const existing = roundRef.current;
+    if (existing && existing.id === round.id) {
+      // Same round: merge, never clobbering known answer fields with the
+      // masked NULLs the public view returns during an active round.
+      const merged: RoundData = {
+        ...existing,
+        ...round,
+        track_name: round.track_name ?? existing.track_name,
+        artist_name: round.artist_name ?? existing.artist_name,
+        options: round.options.length > 0 ? round.options : existing.options,
+      };
+      roundRef.current = merged;
+      setCurrentRound(merged);
+      return;
+    }
+    if (existing && round.round_number < existing.round_number) return; // stale
+
+    const qType: QuestionType = round.question_type === "song" ? "Guess the Song" : "Guess the Artist";
+    roundRef.current = round;
+    setCurrentRound(round);
+    setRoundNumber(round.round_number);
+    setNextQuestionType(qType);
+    setCurrentQuestionType(qType);
+  }, []);
 
   const fetchRoom = useCallback(async () => {
     try {
@@ -138,12 +186,10 @@ export function useMultiplayerGame(roomCode: string) {
 
       if (roomError) throw roomError;
       setRoom(roomData);
-      
+
       // Sync isHost in the game store based on actual room data
-      if (playerId && roomData.host_id === playerId) {
-        setStoreRoom(roomData.id, roomData.room_code, true);
-      } else if (playerId) {
-        setStoreRoom(roomData.id, roomData.room_code, false);
+      if (playerId) {
+        setStoreRoom(roomData.id, roomData.room_code, roomData.host_id === playerId);
       }
 
       // Fetch players
@@ -154,7 +200,7 @@ export function useMultiplayerGame(roomCode: string) {
         .order("score", { ascending: false });
 
       if (playersError) throw playersError;
-      
+
       const rankedPlayers = (playersData || []).map((p, idx) => ({
         ...p,
         currentRank: idx + 1,
@@ -162,42 +208,29 @@ export function useMultiplayerGame(roomCode: string) {
         roundScore: 0,
         hasAnswered: false,
       }));
-      
+
       seedPlayersMap(rankedPlayers);
       setPlayers(rankedPlayers);
 
-      
-      // Set game status based on room status
       if (roomData.status === "playing") {
-        // Fetch current round if game is in progress.
-        // Use the safe view: hides track_name/artist_name from non-host players during active rounds.
-        const { data: roundData } = await (supabase as any)
+        // Load the latest round via the safe view (masks track/artist name
+        // from non-host players during active rounds). The ticker derives
+        // the actual phase (pre_game/playing/between_rounds) from its timestamps.
+        const { data: latestRound } = await (supabase as any)
           .from("game_rounds_public")
           .select("*")
           .eq("room_id", roomData.id)
-          .eq("round_number", roomData.current_round)
+          .order("round_number", { ascending: false })
+          .limit(1)
           .maybeSingle();
-          
-        if (roundData) {
-          const round = roundData as RoundData;
-          // Parse options if it's a string
-          if (typeof round.options === 'string') {
-            round.options = JSON.parse(round.options);
-          }
 
-          // Sync question type from the loaded round (critical for guests on first round)
-          const qType: QuestionType = round.question_type === 'song' ? "Guess the Song" : "Guess the Artist";
-          setCurrentQuestionType(qType);
-          setNextQuestionType(qType);
-          
-          // Calculate remaining time based on when round started
-          const startedAtMs = new Date(round.started_at).getTime();
-          const elapsed = Date.now() - startedAtMs;
-          const remaining = Math.max(0, ROUND_TIME - elapsed);
-          // If the round hasn't started yet (started_at is in the future), we're in pre-game
-          const msUntilStart = Math.max(0, startedAtMs - Date.now());
-          
-          // Check if this player has already answered this round
+        if (latestRound) {
+          const round = latestRound as RoundData;
+          // Pre-mark this round as reset so the ticker doesn't wipe the
+          // answer state we restore below (mid-round rejoin)
+          lastResetRoundRef.current = round.id;
+          ingestRound(round);
+
           if (playerId) {
             const { data: answerData } = await supabase
               .from("player_answers")
@@ -205,78 +238,25 @@ export function useMultiplayerGame(roomCode: string) {
               .eq("round_id", round.id)
               .eq("player_id", playerId)
               .maybeSingle();
-              
+
             if (answerData) {
               setHasAnswered(true);
               setSelectedAnswer(answerData.answer);
               setIsCorrect(answerData.is_correct);
             }
           }
-          
-          // If round time has expired (more than ROUND_TIME + buffer passed)
-          if (remaining <= 0) {
-            console.log("Round already expired on load, checking for next round...");
-            // Check if there's a newer round (via safe view)
-            const { data: latestRound } = await (supabase as any)
-              .from("game_rounds_public")
-              .select("*")
-              .eq("room_id", roomData.id)
-              .order("round_number", { ascending: false })
-              .limit(1)
-              .maybeSingle();
-              
-            if (latestRound && latestRound.round_number > round.round_number) {
-              // There's a newer round, use that
-              const newRound = latestRound as RoundData;
-              if (typeof newRound.options === 'string') {
-                newRound.options = JSON.parse(newRound.options);
-              }
-              const newElapsed = Date.now() - new Date(newRound.started_at).getTime();
-              const newRemaining = Math.max(0, ROUND_TIME - newElapsed);
-              
-              setCurrentRound(newRound);
-              setRoundNumber(newRound.round_number);
-              setRoundStartTime(new Date(newRound.started_at).getTime());
-              setTimeLeft(newRemaining);
-              const newQType: QuestionType = newRound.question_type === 'song' ? "Guess the Song" : "Guess the Artist";
-              setCurrentQuestionType(newQType);
-              setNextQuestionType(newQType);
-              setGameStatus("playing");
-            } else {
-              // No newer round - host needs to create next round
-              // Set to between_rounds to show waiting state
-              setCurrentRound(round);
-              setRoundNumber(round.round_number);
-              setRoundStartTime(new Date(round.started_at).getTime());
-              setTimeLeft(0);
-              setGameStatus("between_rounds");
-              setBetweenRoundsCountdown(5);
-            }
-          } else {
-            // Round still active
-            setCurrentRound(round);
-            setRoundNumber(round.round_number);
-            setRoundStartTime(startedAtMs);
-            if (msUntilStart > 0) {
-              // Round 1 with delayed start — join the pre-game countdown
-              setTimeLeft(ROUND_TIME);
-              setPreGameCountdown(Math.max(1, Math.ceil(msUntilStart / 1000)));
-              setGameStatus("pre_game");
-            } else {
-              setTimeLeft(remaining);
-              setGameStatus("playing");
-            }
-          }
         } else {
-          // No round found but room is playing - wait for round
-          setGameStatus("playing");
+          // Game just started; round not created yet — show the pre-game
+          // screen until the round arrives via broadcast or the poll.
+          setPreGameCountdown(PRE_GAME_SECONDS);
+          setGameStatus((prev) => (prev === "waiting" ? "pre_game" : prev));
         }
       } else if (roomData.status === "finished") {
         setGameStatus("results");
       } else {
         setGameStatus("waiting");
       }
-      
+
       setLoading(false);
     } catch (err) {
       console.error("Error fetching room:", err);
@@ -287,169 +267,294 @@ export function useMultiplayerGame(roomCode: string) {
         error: (err as Error)?.message,
       }, (err as Error)?.stack);
     }
-  }, [roomCode, playerId]);
+  }, [roomCode, playerId, setStoreRoom, seedPlayersMap, ingestRound]);
 
-  // Subscribe to realtime updates
+  // Handle one broadcast payload from the room channel
+  const handleBroadcast = useCallback((payload: {
+    table?: string;
+    operation?: string;
+    record?: Record<string, unknown>;
+    old_record?: Record<string, unknown>;
+  }) => {
+    const { table, operation, record, old_record } = payload || {};
+
+    if (table === "game_rooms") {
+      if (operation === "DELETE") {
+        // Room was deleted (host left) — signal termination
+        setRoom(null);
+        setGameStatus("terminated");
+        return;
+      }
+      if (record) {
+        const newRoom = record as unknown as RoomData;
+        setRoom(newRoom);
+        if (newRoom.status === "playing") {
+          setPreGameCountdown((prev) => (prev > 0 ? prev : PRE_GAME_SECONDS));
+          setGameStatus((prev) => (prev === "waiting" ? "pre_game" : prev));
+        }
+        if (newRoom.status === "finished") {
+          setGameStatus("results");
+        }
+      }
+      return;
+    }
+
+    if (table === "room_players") {
+      // Apply delta directly from payload — no refetch
+      if (operation === "DELETE") {
+        const old = old_record as Partial<MultiplayerPlayer> | undefined;
+        if (old?.player_id) playersMapRef.current.delete(old.player_id);
+      } else if (record) {
+        const row = record as unknown as MultiplayerPlayer;
+        const existing = playersMapRef.current.get(row.player_id);
+        playersMapRef.current.set(row.player_id, { ...existing, ...row });
+      }
+      scheduleFlushPlayers();
+      return;
+    }
+
+    if (table === "game_rounds") {
+      if ((operation === "INSERT" || operation === "UPDATE") && record) {
+        ingestRound(record as unknown as RoundData);
+      }
+      return;
+    }
+
+    if (table === "player_answers") {
+      if (operation === "INSERT" && record) {
+        const answer = record as unknown as {
+          player_id: string;
+          round_id: string;
+          points_earned: number;
+          is_correct: boolean;
+        };
+        if (answer.round_id !== roundRef.current?.id) return; // stale round
+        setPlayers((prev) =>
+          prev.map((p) =>
+            p.player_id === answer.player_id
+              ? { ...p, hasAnswered: true, roundScore: answer.points_earned }
+              : p
+          )
+        );
+        // If this is our own answer, use the server-graded result as the source of truth
+        if (answer.player_id === playerId) {
+          setIsCorrect(answer.is_correct);
+        }
+      }
+    }
+  }, [playerId, scheduleFlushPlayers, ingestRound]);
+
+  // Subscribe to the room's private Broadcast channel. Database triggers
+  // broadcast every relevant table change to topic room:<id>. This replaces
+  // postgres_changes, whose per-event-per-subscriber RLS checks scale
+  // quadratically with player count and silently drop events under load.
   useEffect(() => {
     if (!room?.id) return;
 
-    console.log("[Realtime] Setting up subscriptions for room:", room.id);
+    let cancelled = false;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
 
-    // Subscribe to room changes
-    const roomChannel = supabase
-      .channel(`room-${room.id}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "game_rooms", filter: `id=eq.${room.id}` },
-        (payload) => {
-          console.log("[Realtime] Room update received:", payload.new);
-        if (payload.eventType === "DELETE") {
-            // Room was deleted (host left) — signal termination
-            setRoom(null);
-            setGameStatus("terminated" as any);
-            return;
-          }
-          if (payload.new) {
-            const newRoom = payload.new as RoomData;
-            setRoom(newRoom);
-            if (newRoom.status === "playing") {
-              setGameStatus((prev) => {
-                if (prev === "waiting") {
-                  setPreGameCountdown(PRE_GAME_SECONDS);
-                  return "pre_game";
-                }
-                return prev;
-              });
-            }
-            if (newRoom.status === "finished") {
-              setGameStatus("results");
-            }
-          }
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "room_players", filter: `room_id=eq.${room.id}` },
-        (payload) => {
-          // Apply delta directly from payload — no refetch
-          if (payload.eventType === "DELETE") {
-            const old = payload.old as Partial<MultiplayerPlayer>;
-            if (old?.player_id) playersMapRef.current.delete(old.player_id);
-          } else if (payload.new) {
-            const row = payload.new as MultiplayerPlayer;
-            const existing = playersMapRef.current.get(row.player_id);
-            playersMapRef.current.set(row.player_id, { ...existing, ...row });
-          }
-          scheduleFlushPlayers();
-        }
-      )
+    (async () => {
+      try {
+        await supabase.realtime.setAuth();
+      } catch {
+        // private channel auth will be retried by the client; poll covers gaps
+      }
+      if (cancelled) return;
 
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "game_rounds", filter: `room_id=eq.${room.id}` },
-        (payload) => {
-          console.log("[Realtime] New round received:", payload.new);
-          const round = payload.new as RoundData;
-          if (typeof round.options === 'string') {
-            round.options = JSON.parse(round.options);
+      channel = supabase
+        .channel(`room:${room.id}`, { config: { private: true } })
+        .on("broadcast", { event: "INSERT" }, (msg) => handleBroadcast(msg.payload))
+        .on("broadcast", { event: "UPDATE" }, (msg) => handleBroadcast(msg.payload))
+        .on("broadcast", { event: "DELETE" }, (msg) => handleBroadcast(msg.payload))
+        .subscribe((status) => {
+          if (status === "SUBSCRIBED") {
+            logInfo("realtime.subscribed", "Room broadcast channel subscribed", { roomId: room.id, roomCode: room.room_code });
+          } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+            logWarn("realtime.disconnected", `Room broadcast channel ${status}`, { roomId: room.id, roomCode: room.room_code, status });
           }
-          
-          const qType: QuestionType = round.question_type === 'song' ? "Guess the Song" : "Guess the Artist";
-          
-          // Always update the hint for the overlay
-          setNextQuestionType(qType);
-          
-          // If we're in between_rounds, just store the round data but don't start playing yet
-          // The countdown will handle the transition
-          setCurrentRound(round);
-          setRoundNumber(round.round_number);
-          setCurrentQuestionType(qType);
-          
-          // Only transition to playing if we're NOT in a countdown phase
-          setGameStatus((prev) => {
-            if (prev === "between_rounds" || prev === "pre_game") {
-              console.log("[Realtime] Round pre-loaded during countdown, staying in", prev);
-              return prev; // Stay in countdown, it will handle transition
-            }
-            
-            // Reset state for new round
-            timeUpHandledRef.current = null;
-            setHasAnswered(false);
-            setSelectedAnswer(null);
-            setIsCorrect(null);
-            setPlayers((prevPlayers) => prevPlayers.map((p) => ({ ...p, roundScore: 0, hasAnswered: false })));
-            setTimeLeft(ROUND_TIME);
-            setRoundStartTime(Date.now());
-            
-            return "playing";
-          });
-          
-          console.log("[Realtime] Round state updated, question_type:", round.question_type, "preview_url:", round.preview_url);
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "player_answers", filter: `room_id=eq.${room.id}` },
-        (payload) => {
-          const answer = payload.new as { player_id: string; points_earned: number; is_correct: boolean };
-          setPlayers((prev) =>
-            prev.map((p) =>
-              p.player_id === answer.player_id
-                ? { ...p, hasAnswered: true, roundScore: answer.points_earned }
-                : p
-            )
-          );
-          // If this is our own answer, use the realtime-graded result as the source of truth
-          if (answer.player_id === playerId) {
-            setIsCorrect(answer.is_correct);
-          }
-        }
-      )
-      .subscribe((status) => {
-        console.log("[Realtime] Channel status:", status);
-        if (status === "SUBSCRIBED") {
-          logInfo("realtime.subscribed", "Realtime channel subscribed", { roomId: room.id, roomCode: room.room_code });
-        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
-          logWarn("realtime.disconnected", `Realtime channel ${status}`, { roomId: room.id, roomCode: room.room_code, status });
-        }
-      });
+        });
+    })();
 
     return () => {
-      supabase.removeChannel(roomChannel);
+      cancelled = true;
+      if (channel) supabase.removeChannel(channel);
     };
-  }, [room?.id]); // Don't re-subscribe on gameStatus change
+  }, [room?.id, handleBroadcast]);
 
-  // Polling fallback - ensures state syncs even if realtime fails
+  // ---- Wall-clock phase ticker ----
+  // Derives the game phase, round timer and countdowns from the round's
+  // server timestamps every 100ms. All clients follow the same timeline, so
+  // audio starts simultaneously, missed events self-heal, and background-tab
+  // timer drift disappears (each tick recomputes from Date.now()).
+  useEffect(() => {
+    if (!room || room.status !== "playing") return;
+
+    const tick = () => {
+      const round = roundRef.current;
+      if (!round) return; // waiting for the first round to arrive
+
+      const now = Date.now();
+      const start = new Date(round.started_at).getTime();
+      const naturalEnd = start + ROUND_TIME;
+      const endedAtMs = round.ended_at ? new Date(round.ended_at).getTime() : null;
+      // If the round ended early (everyone answered), keep the graded reveal
+      // on screen briefly before moving on.
+      const effectiveEnd = endedAtMs !== null ? Math.min(naturalEnd, endedAtMs + REVEAL_MS) : naturalEnd;
+
+      if (now < start) {
+        // Counting down to this round's start
+        const secs = Math.max(1, Math.ceil((start - now) / 1000));
+        setTimeLeft(ROUND_TIME);
+        if (round.round_number === 1) {
+          setPreGameCountdown(secs);
+          setGameStatus("pre_game");
+        } else {
+          setBetweenRoundsCountdown(secs);
+          setGameStatus("between_rounds");
+        }
+      } else if (now < effectiveEnd) {
+        // Round is live
+        if (lastResetRoundRef.current !== round.id) {
+          lastResetRoundRef.current = round.id;
+          setHasAnswered(false);
+          setSelectedAnswer(null);
+          setIsCorrect(null);
+          setPlayers((prev) => prev.map((p) => ({ ...p, roundScore: 0, hasAnswered: false })));
+        }
+        setTimeLeft(Math.max(0, naturalEnd - now));
+        setPreGameCountdown(0);
+        setBetweenRoundsCountdown(0);
+        setGameStatus("playing");
+      } else {
+        // Round over; waiting for the next round (or the finish)
+        setTimeLeft(0);
+        const overMs = now - effectiveEnd;
+        setBetweenRoundsCountdown(Math.max(0, Math.ceil((BETWEEN_ROUNDS_TIME - overMs) / 1000)));
+        setGameStatus((prev) => (prev === "results" || prev === "terminated" ? prev : "between_rounds"));
+      }
+    };
+
+    tick();
+    const id = setInterval(tick, 100);
+    return () => clearInterval(id);
+  }, [room?.status, room?.id, ROUND_TIME]);
+
+  // When a round ends without this player answering, record an empty answer
+  // (kept for stats/history; round advancement no longer depends on it)
+  useEffect(() => {
+    if (gameStatus !== "between_rounds" || !currentRound || !room || !playerId) return;
+    const start = new Date(currentRound.started_at).getTime();
+    if (Date.now() < start) return; // counting down to a round that hasn't started
+    if (timeUpHandledRef.current === currentRound.id) return;
+    timeUpHandledRef.current = currentRound.id;
+    if (hasAnswered) return;
+
+    (async () => {
+      try {
+        const { data: existing } = await supabase
+          .from("player_answers")
+          .select("id")
+          .eq("round_id", currentRound.id)
+          .eq("player_id", playerId)
+          .maybeSingle();
+
+        if (existing) {
+          setHasAnswered(true);
+          return;
+        }
+
+        await supabase.from("player_answers").insert({
+          room_id: room.id,
+          round_id: currentRound.id,
+          player_id: playerId,
+          answer: "",
+          is_correct: false,
+          points_earned: 0,
+        });
+        setHasAnswered(true);
+        logWarn("multiplayer.answer_timeout", "Multiplayer round timed out before player answered", {
+          roomId: room.id,
+          roomCode: room.room_code,
+          roundId: currentRound.id,
+          roundNumber,
+        });
+      } catch (err) {
+        console.error("Error submitting empty answer:", err);
+        logError("multiplayer.empty_answer_failed", "Failed to submit empty answer on timeout", {
+          roomId: room.id,
+          roomCode: room.room_code,
+          roundId: currentRound.id,
+          error: (err as Error)?.message,
+        }, (err as Error)?.stack);
+      }
+    })();
+  }, [gameStatus, currentRound?.id, room?.id, hasAnswered, playerId, roundNumber]);
+
+  // ---- Server-side round advancement ----
+  // When the current round is over, ask the server for the next round (or the
+  // finish). advance_game_round() is idempotent and any room member may call
+  // it: the host asks immediately, everyone else is a delayed fallback — so
+  // the game keeps moving even if the host's tab is throttled or gone.
+  useEffect(() => {
+    if (gameStatus !== "between_rounds" || !room || !currentRound || !playerId) return;
+    const start = new Date(currentRound.started_at).getTime();
+    if (Date.now() < start) return; // already counting down to the next round
+    if (advanceRequestedForRef.current === currentRound.id) return;
+
+    const isFinal = currentRound.round_number >= (room.total_rounds || 10);
+    // Final round: let the 5s "Loading Results" countdown play out first.
+    const delay = isFinal
+      ? (isHost ? BETWEEN_ROUNDS_TIME : BETWEEN_ROUNDS_TIME + 3000)
+      : (isHost ? 0 : 2500);
+
+    const t = setTimeout(async () => {
+      advanceRequestedForRef.current = currentRound.id;
+      if (isFinal) setIsFinalizingResults(true);
+      try {
+        const { error: rpcError } = await (supabase as any).rpc("advance_game_round", {
+          _room_id: room.id,
+        });
+        if (rpcError) throw rpcError;
+      } catch (err) {
+        console.error("Error advancing round:", err);
+        logError("multiplayer.advance_failed", "advance_game_round RPC failed", {
+          roomId: room.id,
+          roomCode: room.room_code,
+          roundNumber: currentRound.round_number,
+          error: (err as Error)?.message,
+        }, (err as Error)?.stack);
+      }
+    }, delay);
+
+    return () => clearTimeout(t);
+  }, [gameStatus, currentRound?.id, currentRound?.started_at, room?.id, room?.total_rounds, isHost, playerId]);
+
+  // Polling fallback — reconciles room, latest round and players every 3s in
+  // case broadcast events were missed. This is the safety net; broadcast is
+  // the fast path.
   useEffect(() => {
     if (!room?.id) return;
 
     const pollInterval = setInterval(async () => {
       try {
-        // Poll room status
-        const { data: roomData } = await supabase
+        const { data: roomData, error: roomErr } = await supabase
           .from("game_rooms")
           .select("*")
           .eq("id", room.id)
-          .single();
+          .maybeSingle();
 
+        if (roomErr) return; // transient error — don't treat as room-deleted
         if (!roomData) {
           // Room was deleted (host left)
           setRoom(null);
-          setGameStatus("terminated" as any);
+          setGameStatus("terminated");
           return;
         }
 
-        // Check for status changes
-        if (roomData.status === "playing" && gameStatus === "waiting") {
-          console.log("[Poll] Room status changed to playing");
-          setPreGameCountdown(PRE_GAME_SECONDS);
-          setGameStatus("pre_game");
-        }
-        if (roomData.status === "finished" && gameStatus !== "results") {
-          console.log("[Poll] Room status changed to finished");
+        if (roomData.status === "finished") {
           setGameStatus("results");
         }
-        // Always keep local room object fresh
         if (
           roomData.status !== room.status ||
           roomData.current_round !== room.current_round
@@ -457,17 +562,7 @@ export function useMultiplayerGame(roomCode: string) {
           setRoom(roomData as RoomData);
         }
 
-        // ---- Unified round-sync rescue ----
-        // Whenever the room is actively playing, make sure our local round matches
-        // the server's authoritative `current_round`. This is the catch-all that
-        // rescues clients which missed the realtime INSERT for a new round.
-        const serverRoundNum = roomData.current_round || 0;
-        const isBehind =
-          roomData.status === "playing" &&
-          serverRoundNum > 0 &&
-          serverRoundNum > roundNumber;
-
-        if (isBehind || gameStatus === "between_rounds") {
+        if (roomData.status === "playing") {
           const { data: latestRound } = await (supabase as any)
             .from("game_rounds_public")
             .select("*")
@@ -476,50 +571,32 @@ export function useMultiplayerGame(roomCode: string) {
             .limit(1)
             .maybeSingle();
 
-          if (latestRound && latestRound.round_number > roundNumber) {
-            console.log(
-              "[Poll] Catching up to round",
-              latestRound.round_number,
-              "(was on",
-              roundNumber,
-              ")"
-            );
-            logWarn("realtime.missed_round_insert", "Polling fallback caught a missed round", {
-              roomId: room.id,
-              roomCode: room.room_code,
-              previousRound: roundNumber,
-              caughtUpTo: latestRound.round_number,
-            });
-            const round = latestRound as RoundData;
-            if (typeof round.options === "string") {
-              round.options = JSON.parse(round.options);
+          if (latestRound) {
+            const lr = latestRound as RoundData;
+            const cur = roundRef.current;
+            if (!cur || lr.round_number > cur.round_number) {
+              if (cur) {
+                logWarn("realtime.missed_round_insert", "Polling fallback caught a missed round", {
+                  roomId: room.id,
+                  roomCode: room.room_code,
+                  previousRound: cur.round_number,
+                  caughtUpTo: lr.round_number,
+                });
+              }
+              ingestRound(lr);
+            } else if (
+              lr.id === cur.id &&
+              (lr.ended_at !== cur.ended_at ||
+                lr.started_at !== cur.started_at ||
+                (!cur.track_name && !!lr.track_name))
+            ) {
+              // Same round: sync ended_at / revealed answer fields
+              ingestRound(lr);
             }
-
-            timeUpHandledRef.current = null;
-            setHasAnswered(false);
-            setSelectedAnswer(null);
-            setIsCorrect(null);
-            setPlayers((prev) =>
-              prev.map((p) => ({ ...p, roundScore: 0, hasAnswered: false }))
-            );
-
-            setRoundNumber(round.round_number);
-            const elapsed =
-              Date.now() - new Date(round.started_at).getTime();
-            const remaining = Math.max(0, ROUND_TIME - elapsed);
-            setTimeLeft(remaining);
-            setRoundStartTime(new Date(round.started_at).getTime());
-            setCurrentRound(round);
-            setCurrentQuestionType(
-              round.question_type === "song"
-                ? "Guess the Song"
-                : "Guess the Artist"
-            );
-            setGameStatus("playing");
           }
         }
 
-        // Poll players (reconciliation fallback — rebuilds the map then schedules a flush)
+        // Players reconciliation — rebuilds the map then schedules a flush
         const { data: playersData } = await supabase
           .from("room_players")
           .select("*")
@@ -532,7 +609,6 @@ export function useMultiplayerGame(roomCode: string) {
             const existing = playersMapRef.current.get(p.player_id);
             next.set(p.player_id, { ...existing, ...p });
           }
-          // Detect any difference in scores/readiness/membership vs current map
           const prevMap = playersMapRef.current;
           let changed = prevMap.size !== next.size;
           if (!changed) {
@@ -552,292 +628,10 @@ export function useMultiplayerGame(roomCode: string) {
       } catch (err) {
         console.error("[Poll] Error:", err);
       }
-    }, 3000); // Poll every 3s (realtime handles the fast path)
-
+    }, 3000);
 
     return () => clearInterval(pollInterval);
-  }, [room?.id, gameStatus, roundNumber, room?.current_round, room?.status]);
-
-  // Track if time up has been handled for current round
-  const timeUpHandledRef = useRef<string | null>(null);
-  
-  // Timer effect
-  useEffect(() => {
-    if (gameStatus !== "playing" || !currentRound) return;
-    
-    // Reset time up handled when round changes
-    if (timeUpHandledRef.current !== currentRound.id) {
-      timeUpHandledRef.current = null;
-    }
-
-    timerRef.current = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 100) {
-          if (timerRef.current) clearInterval(timerRef.current);
-          return 0;
-        }
-        return prev - 100;
-      });
-    }, 100);
-
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [gameStatus, currentRound?.id]);
-
-  // Handle time up as separate effect
-  useEffect(() => {
-    if (timeLeft > 0 || !currentRound || !room || gameStatus !== "playing") return;
-    if (timeUpHandledRef.current === currentRound.id) return; // Already handled
-    
-    timeUpHandledRef.current = currentRound.id;
-    console.log("Time up! Round:", roundNumber, "isHost:", isHost);
-    
-    // Submit empty answer if not answered (check DB first to avoid duplicates)
-    const submitEmptyAnswer = async () => {
-      if (!hasAnswered && playerId) {
-        try {
-          // Check if answer already exists
-          const { data: existing } = await supabase
-            .from("player_answers")
-            .select("id")
-            .eq("round_id", currentRound.id)
-            .eq("player_id", playerId)
-            .maybeSingle();
-          
-          if (existing) {
-            setHasAnswered(true);
-            return;
-          }
-          
-          await supabase.from("player_answers").insert({
-            room_id: room.id,
-            round_id: currentRound.id,
-            player_id: playerId,
-            answer: "",
-            is_correct: false,
-            points_earned: 0,
-          });
-          setHasAnswered(true);
-          logWarn("multiplayer.answer_timeout", "Multiplayer round timed out before player answered", {
-            roomId: room.id,
-            roomCode: room.room_code,
-            roundId: currentRound.id,
-            roundNumber,
-          });
-        } catch (err) {
-          console.error("Error submitting empty answer:", err);
-          logError("multiplayer.empty_answer_failed", "Failed to submit empty answer on timeout", {
-            roomId: room.id,
-            roomCode: room.room_code,
-            roundId: currentRound.id,
-            error: (err as Error)?.message,
-          }, (err as Error)?.stack);
-        }
-      }
-    };
-    
-    submitEmptyAnswer();
-    
-    // All players go to between_rounds
-      setGameStatus("between_rounds");
-      setBetweenRoundsCountdown(5);
-  }, [timeLeft, currentRound?.id, room?.id, hasAnswered, playerId, isHost, roundNumber, gameStatus]);
-
-  // Shared delay timer ref so player updates during the 2s window don't cancel the transition
-  const allAnsweredDelayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Cancel pending delay when round changes
-  useEffect(() => {
-    return () => {
-      if (allAnsweredDelayRef.current) {
-        clearTimeout(allAnsweredDelayRef.current);
-        allAnsweredDelayRef.current = null;
-      }
-    };
-  }, [currentRound?.id]);
-
-  // Check if all players have answered → skip to next round early (with 2s delay)
-  useEffect(() => {
-    if (gameStatus !== "playing" || !currentRound || !room || players.length < 2) return;
-    if (timeUpHandledRef.current === currentRound.id) return; // Already transitioning
-
-    const allAnswered = players.every((p) => p.hasAnswered);
-    if (!allAnswered) return;
-
-    console.log("All players answered! Waiting 2s before next round...");
-    timeUpHandledRef.current = currentRound.id;
-
-    if (allAnsweredDelayRef.current) clearTimeout(allAnsweredDelayRef.current);
-    allAnsweredDelayRef.current = setTimeout(() => {
-      if (timerRef.current) clearInterval(timerRef.current);
-      setTimeLeft(1);
-      setGameStatus("between_rounds");
-      setBetweenRoundsCountdown(5);
-      allAnsweredDelayRef.current = null;
-    }, 2000);
-  }, [players, gameStatus, currentRound?.id, room?.id]);
-
-  // Poll for all-answered as fallback (in case realtime misses an event)
-  useEffect(() => {
-    if (gameStatus !== "playing" || !currentRound || !room || players.length < 2) return;
-    if (timeUpHandledRef.current === currentRound.id) return;
-
-    const pollAnswers = setInterval(async () => {
-      if (timeUpHandledRef.current === currentRound.id) {
-        clearInterval(pollAnswers);
-        return;
-      }
-
-      const { data: answers } = await supabase
-        .from("player_answers")
-        .select("player_id")
-        .eq("round_id", currentRound.id);
-
-      if (answers && answers.length >= players.length) {
-        console.log("[Poll] All players answered! Waiting 2s before next round...");
-        timeUpHandledRef.current = currentRound.id;
-        clearInterval(pollAnswers);
-
-        setPlayers((prev) =>
-          prev.map((p) => ({
-            ...p,
-            hasAnswered: answers.some((a) => a.player_id === p.player_id) || p.hasAnswered,
-          }))
-        );
-
-        if (allAnsweredDelayRef.current) clearTimeout(allAnsweredDelayRef.current);
-        allAnsweredDelayRef.current = setTimeout(() => {
-          if (timerRef.current) clearInterval(timerRef.current);
-          setTimeLeft(1);
-          setGameStatus("between_rounds");
-          setBetweenRoundsCountdown(5);
-          allAnsweredDelayRef.current = null;
-        }, 2000);
-      }
-    }, 1500);
-
-    return () => {
-      clearInterval(pollAnswers);
-    };
-  }, [gameStatus, currentRound?.id, room?.id, players.length]);
-
-  // All players: unified 5s countdown, host pre-creates next round immediately
-  useEffect(() => {
-    if (gameStatus !== "between_rounds") {
-      countdownActiveRef.current = false;
-      return;
-    }
-    if (countdownActiveRef.current) return;
-    countdownActiveRef.current = true;
-
-    console.log("Starting 5s between-rounds countdown for all players, isHost:", isHost);
-
-    // Host pre-creates the next round immediately so question type is known for overlay
-    if (isHost && room) {
-      const currentTracks = tracksRef.current;
-      const totalRounds = room.total_rounds || 10;
-
-      if (roundNumber >= totalRounds) {
-        console.log("Last round complete, game will end after countdown");
-      } else if (currentTracks.length > 0) {
-        console.log("Pre-creating next round:", roundNumber + 1);
-        createRoundRef.current?.(currentTracks, roundNumber + 1);
-      } else {
-        console.error("No tracks available for next round!");
-        toast.error("Failed to load next round - no tracks");
-      }
-    }
-
-    if (betweenRoundsRef.current) clearInterval(betweenRoundsRef.current);
-
-    let countdown = 5;
-    const totalRounds = room?.total_rounds || 10;
-    const isFinalRound = !!room && roundNumber >= totalRounds;
-
-    setIsFinalizingResults(false);
-    setBetweenRoundsCountdown(5);
-
-    betweenRoundsRef.current = setInterval(async () => {
-      countdown -= 1;
-
-      if (countdown <= 0) {
-        if (betweenRoundsRef.current) clearInterval(betweenRoundsRef.current);
-        countdownActiveRef.current = false;
-        setBetweenRoundsCountdown(0);
-
-        if (isFinalRound) {
-          setIsFinalizingResults(true);
-
-          if (isHost) {
-            console.log("Game ending");
-            endGameRef.current?.();
-          }
-
-          return;
-        }
-
-        // Transition to playing - reset round state
-        timeUpHandledRef.current = null;
-        setHasAnswered(false);
-        setSelectedAnswer(null);
-        setIsCorrect(null);
-        setPlayers((prev) => prev.map((p) => ({ ...p, roundScore: 0, hasAnswered: false })));
-        setTimeLeft(ROUND_TIME);
-        setRoundStartTime(Date.now());
-        setGameStatus("playing");
-        return;
-      }
-
-      setBetweenRoundsCountdown(countdown);
-    }, 1000);
-
-    return () => {
-      if (betweenRoundsRef.current) clearInterval(betweenRoundsRef.current);
-      countdownActiveRef.current = false;
-    };
-  }, [gameStatus]);
-
-  // Pre-game countdown — runs once before round 1 so guests have a moment to settle in
-  const preGameActiveRef = useRef(false);
-  useEffect(() => {
-    if (gameStatus !== "pre_game") {
-      preGameActiveRef.current = false;
-      return;
-    }
-    if (preGameActiveRef.current) return;
-    preGameActiveRef.current = true;
-
-    // Honor a pre-set countdown (e.g., late joiners get a shorter window),
-    // otherwise default to the full PRE_GAME_SECONDS
-    let n = preGameCountdown > 0 && preGameCountdown <= PRE_GAME_SECONDS ? preGameCountdown : PRE_GAME_SECONDS;
-    setPreGameCountdown(n);
-
-    const id = setInterval(() => {
-      n -= 1;
-      if (n <= 0) {
-        clearInterval(id);
-        setPreGameCountdown(0);
-        preGameActiveRef.current = false;
-        // Reset round state and start playing
-        timeUpHandledRef.current = null;
-        setHasAnswered(false);
-        setSelectedAnswer(null);
-        setIsCorrect(null);
-        setPlayers((prev) => prev.map((p) => ({ ...p, roundScore: 0, hasAnswered: false })));
-        setRoundStartTime(Date.now());
-        setTimeLeft(ROUND_TIME);
-        setGameStatus("playing");
-        return;
-      }
-      setPreGameCountdown(n);
-    }, 1000);
-
-    return () => {
-      clearInterval(id);
-      preGameActiveRef.current = false;
-    };
-  }, [gameStatus, ROUND_TIME]);
+  }, [room?.id, room?.status, room?.current_round, ingestRound, scheduleFlushPlayers]);
 
   // Submit answer
   const submitAnswer = useCallback(async (answer: string) => {
@@ -846,10 +640,9 @@ export function useMultiplayerGame(roomCode: string) {
     setSelectedAnswer(answer);
     setHasAnswered(true);
 
-    const currentPlayerScore = players.find((p) => p.player_id === playerId)?.score || 0;
-
     try {
-      // Insert answer — server-side trigger grades it and sets is_correct + points_earned
+      // Insert answer — server-side triggers grade it, update the player's
+      // score atomically, and end the round early when everyone has answered.
       const { data: inserted, error: insertErr } = await supabase
         .from("player_answers")
         .insert({
@@ -863,16 +656,7 @@ export function useMultiplayerGame(roomCode: string) {
 
       if (insertErr) throw insertErr;
 
-      const correct = inserted?.is_correct;
-      const points = inserted?.points_earned ?? 0;
-      if (typeof correct === "boolean") setIsCorrect(correct);
-
-      // Update player score with server-graded points
-      await supabase
-        .from("room_players")
-        .update({ score: currentPlayerScore + points })
-        .eq("room_id", room.id)
-        .eq("player_id", playerId);
+      if (typeof inserted?.is_correct === "boolean") setIsCorrect(inserted.is_correct);
     } catch (err) {
       console.error("Error submitting answer:", err);
       logError("multiplayer.submit_answer_failed", "Failed to submit multiplayer answer", {
@@ -884,7 +668,7 @@ export function useMultiplayerGame(roomCode: string) {
         error: (err as Error)?.message,
       }, (err as Error)?.stack);
     }
-  }, [hasAnswered, currentRound, room, playerId, players]);
+  }, [hasAnswered, currentRound, room, playerId, roundNumber]);
 
   // Shuffle array helper
   const shuffleArray = <T,>(arr: T[]): T[] => {
@@ -902,14 +686,54 @@ export function useMultiplayerGame(roomCode: string) {
     const result = await getPlaylistTracks(playlist.searchTerms, playlist.name, 50);
     if (result?.tracks) {
       // Shuffle tracks to ensure unique, non-repeating order each game
-      const shuffled = shuffleArray(result.tracks);
-      setTracks(shuffled);
-      return shuffled;
+      return shuffleArray(result.tracks);
     }
     return [];
   }, [getPlaylistTracks]);
 
-  // Start the game (host only)
+  // Build the full round plan (track + question type + options per round).
+  // Stored server-side so advance_game_round() can create rounds without
+  // depending on the host's browser being awake.
+  const buildRoundPlan = useCallback((tracks: AppleMusicTrack[]) => {
+    const maxRounds = Math.min(tracks.length, 20); // 20 = largest rounds setting
+    return tracks.slice(0, maxRounds).map((track) => {
+      const questionType = QUESTION_TYPES[Math.floor(Math.random() * QUESTION_TYPES.length)];
+      const isGuessSong = questionType === "Guess the Song";
+
+      let options: string[];
+      if (isGuessSong) {
+        const otherSongs = tracks
+          .filter((t) => t.trackId !== track.trackId && t.trackName !== track.trackName)
+          .map((t) => t.trackName)
+          .filter((s, i, arr) => arr.indexOf(s) === i)
+          .sort(() => Math.random() - 0.5)
+          .slice(0, 3);
+        options = [track.trackName, ...otherSongs].sort(() => Math.random() - 0.5);
+      } else {
+        const otherArtists = tracks
+          .filter((t) => t.trackId !== track.trackId && t.artistName !== track.artistName)
+          .map((t) => t.artistName)
+          .filter((a, i, arr) => arr.indexOf(a) === i)
+          .sort(() => Math.random() - 0.5)
+          .slice(0, 3);
+        options = [track.artistName, ...otherArtists].sort(() => Math.random() - 0.5);
+      }
+
+      return {
+        track_id: track.trackId.toString(),
+        track_name: track.trackName,
+        artist_name: track.artistName,
+        preview_url: track.previewUrl,
+        artwork_url: track.artworkUrl100?.replace("100x100", "600x600") || "",
+        question_type: isGuessSong ? "song" : "artist",
+        options,
+      };
+    });
+  }, []);
+
+  // Start the game (host only): store the round plan server-side, flip the
+  // room to playing, then let the server create round 1 (with a 5s pre-game
+  // gap on the database clock).
   const startGame = useCallback(async (category: string) => {
     if (!isHost || !room) return;
 
@@ -920,84 +744,35 @@ export function useMultiplayerGame(roomCode: string) {
         return;
       }
 
-      // Update room status
-      await supabase
+      const plan = buildRoundPlan(loadedTracks);
+      const { error: planErr } = await (supabase as any)
+        .from("room_tracks")
+        .upsert({ room_id: room.id, plan }, { onConflict: "room_id" });
+      if (planErr) throw planErr;
+
+      const { error: roomErr } = await supabase
         .from("game_rooms")
         .update({ status: "playing", category, started_at: new Date().toISOString() })
         .eq("id", room.id);
+      if (roomErr) throw roomErr;
 
-      setTracks(loadedTracks);
-      tracksRef.current = loadedTracks;
-
-      // Start first round (started_at is offset so the 5s pre-game countdown
-      // on all clients aligns with when the round audio actually begins)
-      await createRound(loadedTracks, 1, PRE_GAME_SECONDS * 1000);
+      const { error: advErr } = await (supabase as any).rpc("advance_game_round", {
+        _room_id: room.id,
+      });
+      if (advErr) throw advErr;
     } catch (err) {
       console.error("Error starting game:", err);
       toast.error("Failed to start game");
+      logError("multiplayer.start_game_failed", "Failed to start multiplayer game", {
+        roomId: room.id,
+        roomCode: room.room_code,
+        category,
+        error: (err as Error)?.message,
+      }, (err as Error)?.stack);
     }
-  }, [isHost, room, loadTracks]);
+  }, [isHost, room, loadTracks, buildRoundPlan]);
 
-  // Create a new round
-  const createRound = useCallback(async (availableTracks: AppleMusicTrack[], roundNum: number, startDelayMs: number = 0) => {
-    if (!room) return;
-
-    const track = availableTracks[roundNum - 1];
-    if (!track) {
-      await endGame();
-      return;
-    }
-
-    // Randomly pick question type for this round
-    const questionType = QUESTION_TYPES[Math.floor(Math.random() * QUESTION_TYPES.length)];
-    const isGuessSong = questionType === "Guess the Song";
-
-    // Generate options based on question type
-    let options: string[];
-    if (isGuessSong) {
-      const otherSongs = availableTracks
-        .filter((t) => t.trackId !== track.trackId && t.trackName !== track.trackName)
-        .map((t) => t.trackName)
-        .filter((s, i, arr) => arr.indexOf(s) === i)
-        .sort(() => Math.random() - 0.5)
-        .slice(0, 3);
-      options = [track.trackName, ...otherSongs].sort(() => Math.random() - 0.5);
-    } else {
-      const otherArtists = availableTracks
-        .filter((t) => t.trackId !== track.trackId && t.artistName !== track.artistName)
-        .map((t) => t.artistName)
-        .filter((a, i, arr) => arr.indexOf(a) === i)
-        .sort(() => Math.random() - 0.5)
-        .slice(0, 3);
-      options = [track.artistName, ...otherArtists].sort(() => Math.random() - 0.5);
-    }
-
-    await supabase.from("game_rounds").insert({
-      room_id: room.id,
-      round_number: roundNum,
-      track_id: track.trackId.toString(),
-      track_name: track.trackName,
-      artist_name: track.artistName,
-      preview_url: track.previewUrl,
-      options: JSON.stringify(options),
-      artwork_url: track.artworkUrl100?.replace('100x100', '600x600') || '',
-      question_type: isGuessSong ? 'song' : 'artist',
-      started_at: new Date(Date.now() + startDelayMs).toISOString(),
-    });
-
-    await supabase
-      .from("game_rooms")
-      .update({ current_round: roundNum })
-      .eq("id", room.id);
-  }, [room]);
-
-  // Start next round
-  const startNextRound = useCallback(async () => {
-    if (!isHost || !room || tracks.length === 0) return;
-    await createRound(tracks, roundNumber + 1);
-  }, [isHost, room, tracks, roundNumber, createRound]);
-
-  // End game
+  // End game (host ends early via endGameNow, or fallback)
   const endGame = useCallback(async () => {
     if (!room) return;
     await supabase
@@ -1006,19 +781,6 @@ export function useMultiplayerGame(roomCode: string) {
       .eq("id", room.id);
     setGameStatus("results");
   }, [room]);
-
-  // Keep refs in sync for use in interval callbacks
-  useEffect(() => {
-    createRoundRef.current = createRound;
-  }, [createRound]);
-
-  useEffect(() => {
-    endGameRef.current = endGame;
-  }, [endGame]);
-
-  useEffect(() => {
-    tracksRef.current = tracks;
-  }, [tracks]);
 
   useEffect(() => {
     if (gameStatus === "playing" || gameStatus === "results" || gameStatus === "waiting") {
@@ -1048,9 +810,14 @@ export function useMultiplayerGame(roomCode: string) {
         .delete()
         .eq("room_id", room.id);
 
-      // Delete old rounds
+      // Delete old rounds and the stored round plan
       await supabase
         .from("game_rounds")
+        .delete()
+        .eq("room_id", room.id);
+
+      await (supabase as any)
+        .from("room_tracks")
         .delete()
         .eq("room_id", room.id);
 
@@ -1060,7 +827,7 @@ export function useMultiplayerGame(roomCode: string) {
         .update({ score: 0, is_ready: false })
         .eq("room_id", room.id);
 
-      // Reset room status last (triggers realtime for other players)
+      // Reset room status last (broadcasts to other players)
       await supabase
         .from("game_rooms")
         .update({ status: "waiting", current_round: 0, started_at: null, finished_at: null })
@@ -1070,15 +837,18 @@ export function useMultiplayerGame(roomCode: string) {
     // Reset local game state
     setGameStatus("waiting");
     setCurrentRound(null);
+    roundRef.current = null;
     setRoundNumber(0);
     setTimeLeft(DEFAULT_ROUND_TIME);
     setHasAnswered(false);
     setSelectedAnswer(null);
     setIsCorrect(null);
-    setTracks([]);
-    tracksRef.current = [];
+    setBetweenRoundsCountdown(0);
+    setPreGameCountdown(0);
+    setIsFinalizingResults(false);
+    lastResetRoundRef.current = null;
     timeUpHandledRef.current = null;
-    countdownActiveRef.current = false;
+    advanceRequestedForRef.current = null;
   }, [room, playerId, isHost]);
 
   // Leave room
@@ -1115,7 +885,6 @@ export function useMultiplayerGame(roomCode: string) {
     await endGame();
   }, [room, isHost, endGame]);
 
-  // Initialize
   // Initialize - wait for auth before fetching
   useEffect(() => {
     if (isInitialized && playerId) {
@@ -1123,65 +892,22 @@ export function useMultiplayerGame(roomCode: string) {
     }
   }, [fetchRoom, isInitialized, playerId]);
 
-  // Reload tracks if host navigated to game page without them (e.g. lobby → game page transition)
+  // Re-sync when the tab becomes visible again (background tabs throttle
+  // timers and can miss broadcasts; the ticker self-corrects timing, this
+  // refreshes the data)
   useEffect(() => {
-    if (!isHost || !room || tracks.length > 0) return;
-    if (gameStatus !== "playing" && gameStatus !== "between_rounds") return;
-
-    console.log("Host has no tracks loaded, reloading for category:", room.category);
-    loadTracks(room.category).then((loaded) => {
-      if (loaded.length > 0) {
-        console.log("Tracks reloaded:", loaded.length);
-        setTracks(loaded);
-        tracksRef.current = loaded;
-      } else {
-        console.error("Failed to reload tracks");
-        toast.error("Failed to reload tracks for next round");
-      }
-    });
-  }, [isHost, room?.id, room?.category, gameStatus, tracks.length, loadTracks]);
-
-  // Re-sync timer + round when tab becomes visible (handles background tab pause)
-  useEffect(() => {
-    const handleVisibilityChange = async () => {
-      if (document.visibilityState !== 'visible') return;
-
-      // 1) Resync timer for the current round
-      if (gameStatus === 'playing' && currentRound) {
-        const elapsed = Date.now() - new Date(currentRound.started_at).getTime();
-        const remaining = Math.max(0, ROUND_TIME - elapsed);
-        console.log("Tab visible, syncing timer. Remaining:", remaining);
-        setTimeLeft(remaining);
-      }
-
-      // 2) If we're behind the server's current_round, force a refetch immediately
-      if (room?.id) {
-        const { data: roomData } = await supabase
-          .from("game_rooms")
-          .select("*")
-          .eq("id", room.id)
-          .single();
-        if (roomData && roomData.status === "playing" && (roomData.current_round || 0) > roundNumber) {
-          console.log("[Visibility] Behind server round, forcing resync");
-          setRoom(roomData as RoomData);
-        }
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== "visible") return;
+      if (isInitialized && playerId) {
+        fetchRoom();
       }
     };
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [gameStatus, currentRound, room?.id, roundNumber, ROUND_TIME]);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [fetchRoom, isInitialized, playerId]);
 
-  // Cleanup
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-      if (betweenRoundsRef.current) clearInterval(betweenRoundsRef.current);
-    };
-  }, []);
-
-  // Expose terminated status
-  const isTerminated = gameStatus === ("terminated" as any);
+  const isTerminated = gameStatus === "terminated";
 
   return {
     room,
@@ -1208,7 +934,7 @@ export function useMultiplayerGame(roomCode: string) {
     playAgain,
     kickPlayer,
     endGameNow,
-    isHost: room ? room.host_id === playerId : isHost,
+    isHost,
     playerId,
     ROUND_TIME,
   };
