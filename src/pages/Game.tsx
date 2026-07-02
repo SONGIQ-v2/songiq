@@ -29,7 +29,16 @@ import { logError, logWarn, logInfo } from "@/lib/clientLogger";
 import { warmAudioUrl, preloadAudio, playWithUnmute } from "@/lib/audioPreload";
 import { buildShareText, shareResult } from "@/lib/shareCard";
 import { shareResultImage } from "@/lib/shareImage";
-import { createChallenge, challengeUrl, getSavedUsername, type Challenge, type ChallengeRound } from "@/lib/challenges";
+import {
+  createChallenge,
+  challengeUrl,
+  getSavedUsername,
+  submitChallengeAttempt,
+  fetchChallengeAttempts,
+  type Challenge,
+  type ChallengeRound,
+  type ChallengeAttempt,
+} from "@/lib/challenges";
 
 const DEFAULT_ROUND_TIME = 15000; // 15 seconds per round
 const DEFAULT_TOTAL_ROUNDS = 10;
@@ -70,7 +79,7 @@ export default function Game() {
   const ROUND_TIME = (challenge ? challenge.time_per_round : DEFAULT_ROUND_TIME / 1000) * 1000;
   const TOTAL_ROUNDS = challenge ? challenge.plan.length : DEFAULT_TOTAL_ROUNDS;
 
-  const { category: playlistId, playerName } = useGameStore();
+  const { category: playlistId, playerName, playerId, initializeAuth } = useGameStore();
 
   const { getPlaylistTracks, loading: loadingTracks, error: musicError } = useAppleMusic();
   const { soloScore, addSoloPoints, resetSoloGame } = useGameStore();
@@ -91,6 +100,7 @@ export default function Game() {
   const [questionType, setQuestionType] = useState<QuestionType>("artist");
   const [nextQuestionType, setNextQuestionType] = useState<QuestionType>("song");
   const [roundResults, setRoundResults] = useState<boolean[]>([]);
+  const [challengeAttempts, setChallengeAttempts] = useState<ChallengeAttempt[] | null>(null);
 
   // Rounds captured as played, so a normal game can be shared as a challenge
   const planRef = useRef<ChallengeRound[]>([]);
@@ -353,6 +363,26 @@ export default function Game() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameState]);
 
+  // Challenge replay finished: record this player's (single) attempt, then
+  // load the leaderboard. The DB unique constraint makes retries no-ops.
+  useEffect(() => {
+    if (gameState !== "results" || !challenge) return;
+    (async () => {
+      const pid = playerId ?? (await initializeAuth());
+      if (pid) {
+        await submitChallengeAttempt(
+          challenge.code,
+          pid,
+          playerName || getSavedUsername() || "A music fan",
+          soloScore,
+          roundResults.filter(Boolean).length
+        );
+      }
+      setChallengeAttempts(await fetchChallengeAttempts(challenge.code));
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameState]);
+
   // Preload the next round's audio during the countdown so it can start instantly.
   useEffect(() => {
     if (gameState !== "countdown") return;
@@ -513,21 +543,54 @@ export default function Game() {
 
           {challenge && (
             <div className="bg-background/50 rounded-xl p-4 mb-6">
-              <p className="text-muted-foreground mb-2">Head-to-Head</p>
-              <div className="flex items-center justify-center gap-3 text-lg font-bold">
-                <span className="text-gold">You · {soloScore}</span>
-                <span className="text-muted-foreground text-sm">vs</span>
-                <span className="text-foreground/80">
-                  {challenge.creator_name} · {challenge.creator_score}
-                </span>
-              </div>
-              <p className="mt-2 font-semibold text-foreground">
+              <p className="mb-3 font-semibold text-foreground">
                 {soloScore > challenge.creator_score
-                  ? "🏆 You beat the challenge!"
+                  ? `🏆 You beat ${challenge.creator_name}'s ${challenge.creator_score}!`
                   : soloScore === challenge.creator_score
-                  ? "🤝 It's a tie!"
-                  : `👑 ${challenge.creator_name} keeps the crown`}
+                  ? `🤝 You tied ${challenge.creator_name}'s ${challenge.creator_score}!`
+                  : `👑 ${challenge.creator_name} keeps the crown (${challenge.creator_score})`}
               </p>
+              {(() => {
+                const board = [
+                  {
+                    name: challenge.creator_name,
+                    score: challenge.creator_score,
+                    isMe: false,
+                    isCreator: true,
+                  },
+                  ...(challengeAttempts ?? []).map((a) => ({
+                    name: a.player_name,
+                    score: a.score,
+                    isMe: a.player_id === playerId,
+                    isCreator: false,
+                  })),
+                ].sort((a, b) => b.score - a.score);
+                const myRank = board.findIndex((e) => e.isMe) + 1;
+                return (
+                  <div className="text-left">
+                    <p className="text-muted-foreground text-sm text-center mb-2">
+                      {myRank > 0
+                        ? `You're #${myRank} of ${board.length} on this challenge`
+                        : "Challenge leaderboard"}
+                    </p>
+                    <div className="space-y-1.5">
+                      {board.slice(0, 5).map((e, i) => (
+                        <div
+                          key={`${e.name}-${i}`}
+                          className={`flex items-center justify-between px-3 py-1.5 rounded-lg text-sm ${
+                            e.isMe ? "bg-primary/15 border border-primary/40" : "bg-card/50"
+                          }`}
+                        >
+                          <span className="font-semibold text-foreground">
+                            #{i + 1} {e.name} {e.isCreator && "👑"} {e.isMe && <span className="text-primary text-xs">(you)</span>}
+                          </span>
+                          <span className="font-bold text-gold">{e.score}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
 
@@ -536,22 +599,32 @@ export default function Game() {
             Share Result
           </Button>
 
-          <div className="flex gap-4">
+          {challenge ? (
             <Button
               variant="outline"
-              className="flex-1"
+              className="w-full"
               onClick={() => navigate("/solo")}
             >
-              Categories
+              Play More Music Quizzes
             </Button>
-            <Button
-              variant="gold"
-              className="flex-1"
-              onClick={handlePlayAgain}
-            >
-              Play Again
-            </Button>
-          </div>
+          ) : (
+            <div className="flex gap-4">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => navigate("/solo")}
+              >
+                Categories
+              </Button>
+              <Button
+                variant="gold"
+                className="flex-1"
+                onClick={handlePlayAgain}
+              >
+                Play Again
+              </Button>
+            </div>
+          )}
         </motion.div>
       </div>
     );
