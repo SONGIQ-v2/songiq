@@ -11,9 +11,11 @@ export interface ShareCardOptions {
   /** Multiplayer only */
   rank?: number;
   playerCount?: number;
+  /** Link that replays the exact same songs (challenge mode) */
+  challengeUrl?: string;
 }
 
-export function buildShareText({ categoryName, score, results, rank, playerCount }: ShareCardOptions): string {
+export function buildShareText({ categoryName, score, results, rank, playerCount, challengeUrl }: ShareCardOptions): string {
   const grid = results.map((r) => (r ? "🟩" : "🟥")).join("");
   const correct = results.filter(Boolean).length;
 
@@ -27,7 +29,12 @@ export function buildShareText({ categoryName, score, results, rank, playerCount
     lines.push(`${medal} #${rank} of ${playerCount} players`);
   }
 
-  lines.push("", `Think you know music? Beat me 👉 ${SHARE_URL}`);
+  lines.push(
+    "",
+    challengeUrl
+      ? `Same songs — beat my score 👉 ${challengeUrl}`
+      : `Think you know music? Beat me 👉 ${SHARE_URL}`
+  );
   return lines.join("\n");
 }
 

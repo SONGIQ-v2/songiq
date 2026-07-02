@@ -35,6 +35,14 @@ Deno.serve(async (req) => {
       .delete({ count: "exact" })
       .lt("created_at", historyCutoff);
 
+    // Purge challenge links older than 30 days
+    const challengeCutoff = new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const { count: purgedChallenges } = await supabase
+      .from("challenges")
+      .delete({ count: "exact" })
+      .lt("created_at", challengeCutoff);
+    console.log(`Purged ${purgedChallenges ?? 0} expired challenges`);
+
     // 1) waiting rooms older than 2h (never started) — not archived (no gameplay data)
     const { data: waitingRooms } = await supabase
       .from("game_rooms")

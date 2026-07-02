@@ -31,6 +31,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PLAYLISTS } from "@/lib/playlists";
 import { buildShareText, shareResult } from "@/lib/shareCard";
 import { shareResultImage } from "@/lib/shareImage";
+import { createChallenge, challengeUrl } from "@/lib/challenges";
 
 
 
@@ -47,6 +48,7 @@ export default function MultiplayerGame() {
   
   // Per-round correctness for the share card, fetched once the game ends
   const [myResults, setMyResults] = useState<boolean[]>([]);
+  const challengeCodeRef = useRef<string | null>(null);
 
   // Inactivity state
   const [showInactivityWarning, setShowInactivityWarning] = useState(false);
@@ -301,7 +303,38 @@ export default function MultiplayerGame() {
         );
         setMyResults(ordered.map((r) => !!r.is_correct));
       }
+
+      // Snapshot the rounds as a challenge link (before Play Again deletes
+      // them), so sharing can hand out a replay of the exact same songs.
+      if (!challengeCodeRef.current) {
+        const { data: rounds } = await (supabase as any)
+          .from("game_rounds")
+          .select("*")
+          .eq("room_id", room.id)
+          .order("round_number", { ascending: true });
+
+        if (rounds && rounds.length > 0) {
+          const plan = rounds.map((r: any) => ({
+            track_id: String(r.track_id),
+            track_name: r.track_name,
+            artist_name: r.artist_name,
+            preview_url: r.preview_url,
+            artwork_url: r.artwork_url || "",
+            question_type: (r.question_type === "song" ? "song" : "artist") as "song" | "artist",
+            options: typeof r.options === "string" ? JSON.parse(r.options) : r.options ?? [],
+          }));
+          const me = players.find((p) => p.player_id === playerId);
+          challengeCodeRef.current = await createChallenge({
+            creator_name: me?.player_name || "A music fan",
+            creator_score: me?.score || 0,
+            category_name: PLAYLISTS.find((p) => p.id === room.category)?.name || "Music Quiz",
+            time_per_round: room.time_per_round || 15,
+            plan,
+          });
+        }
+      }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameStatus, room?.id, playerId]);
 
   // Redirect to lobby when room resets to waiting (Play Again)
@@ -366,6 +399,7 @@ export default function MultiplayerGame() {
         results: myResults,
         rank: currentPlayerRank || undefined,
         playerCount: players.length,
+        challengeUrl: challengeCodeRef.current ? challengeUrl(challengeCodeRef.current) : undefined,
       };
       const text = buildShareText(cardOpts);
 

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Helmet } from "react-helmet-async";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Volume2, VolumeX, Trophy, Music2, X, Share2 } from "lucide-react";
 import { toast } from "sonner";
@@ -29,9 +29,10 @@ import { logError, logWarn, logInfo } from "@/lib/clientLogger";
 import { warmAudioUrl, preloadAudio, playWithUnmute } from "@/lib/audioPreload";
 import { buildShareText, shareResult } from "@/lib/shareCard";
 import { shareResultImage } from "@/lib/shareImage";
+import { createChallenge, challengeUrl, getSavedUsername, type Challenge, type ChallengeRound } from "@/lib/challenges";
 
-const ROUND_TIME = 15000; // 15 seconds per round
-const TOTAL_ROUNDS = 10;
+const DEFAULT_ROUND_TIME = 15000; // 15 seconds per round
+const DEFAULT_TOTAL_ROUNDS = 10;
 const COUNTDOWN_TIME = 3; // 3 seconds countdown between rounds
 
 type QuestionType = "artist" | "song";
@@ -61,7 +62,15 @@ function generateOptionsFromTracks(
 
 export default function Game() {
   const navigate = useNavigate();
-  const { category: playlistId } = useGameStore();
+  const location = useLocation();
+
+  // Challenge replay: /c/:code navigates here with the original game's plan,
+  // so this game uses those exact tracks, question types and options.
+  const challenge = (location.state as { challenge?: Challenge } | null)?.challenge ?? null;
+  const ROUND_TIME = (challenge ? challenge.time_per_round : DEFAULT_ROUND_TIME / 1000) * 1000;
+  const TOTAL_ROUNDS = challenge ? challenge.plan.length : DEFAULT_TOTAL_ROUNDS;
+
+  const { category: playlistId, playerName } = useGameStore();
 
   const { getPlaylistTracks, loading: loadingTracks, error: musicError } = useAppleMusic();
   const { soloScore, addSoloPoints, resetSoloGame } = useGameStore();
@@ -82,6 +91,10 @@ export default function Game() {
   const [questionType, setQuestionType] = useState<QuestionType>("artist");
   const [nextQuestionType, setNextQuestionType] = useState<QuestionType>("song");
   const [roundResults, setRoundResults] = useState<boolean[]>([]);
+
+  // Rounds captured as played, so a normal game can be shared as a challenge
+  const planRef = useRef<ChallengeRound[]>([]);
+  const createdChallengeRef = useRef<string | null>(null);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const preloadedAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -120,6 +133,27 @@ export default function Game() {
   }, [playlistId]);
 
   const loadTracks = async () => {
+    if (challenge) {
+      // Challenge replay: rounds come from the stored plan, not iTunes
+      const planTracks: AppleMusicTrack[] = challenge.plan.map((r, i) => ({
+        trackId: Number(r.track_id) || i + 1,
+        trackName: r.track_name,
+        artistName: r.artist_name,
+        collectionName: "",
+        artworkUrl100: r.artwork_url || "",
+        previewUrl: r.preview_url,
+        trackTimeMillis: 0,
+        primaryGenreName: "",
+      }));
+      setRoundResults([]);
+      setTracks(planTracks);
+      setPlaylistName(challenge.category_name);
+      warmAudioUrl(planTracks[0]?.previewUrl);
+      warmAudioUrl(planTracks[1]?.previewUrl);
+      startRound(planTracks, 1);
+      return;
+    }
+
     if (!playlist) {
       console.error("No playlist found");
       return;
@@ -137,6 +171,8 @@ export default function Game() {
       // Shuffle tracks once and use this order for all rounds
       const shuffledTracks = [...result.tracks].sort(() => Math.random() - 0.5);
       setRoundResults([]);
+      planRef.current = [];
+      createdChallengeRef.current = null;
       setTracks(shuffledTracks);
       setPlaylistName(result.playlistName);
       // Warm CDN for the first track so round 1 starts faster.
@@ -165,18 +201,38 @@ export default function Game() {
       return;
     }
 
-    // Randomly choose question type for this round
-    const roundQuestionType: QuestionType = Math.random() > 0.5 ? "artist" : "song";
+    // Question type and options come from the challenge plan when replaying;
+    // otherwise they're generated fresh
+    const planRound = challenge?.plan[round - 1];
+    const roundQuestionType: QuestionType =
+      planRound?.question_type ?? (Math.random() > 0.5 ? "artist" : "song");
     setQuestionType(roundQuestionType);
-    
+
     // Pre-determine next round's question type for the hint
-    const nextRoundQuestionType: QuestionType = Math.random() > 0.5 ? "artist" : "song";
+    const nextRoundQuestionType: QuestionType =
+      challenge?.plan[round]?.question_type ?? (Math.random() > 0.5 ? "artist" : "song");
     setNextQuestionType(nextRoundQuestionType);
 
     console.log(`Round ${round}: Playing "${track.trackName}" by ${track.artistName} - Question: ${roundQuestionType}`);
 
+    const roundOptions =
+      planRound?.options ?? generateOptionsFromTracks(track, availableTracks, roundQuestionType);
+
+    // Record the round so this game can be shared as a challenge link
+    if (!challenge) {
+      planRef.current[round - 1] = {
+        track_id: String(track.trackId),
+        track_name: track.trackName,
+        artist_name: track.artistName,
+        preview_url: track.previewUrl,
+        artwork_url: track.artworkUrl100?.replace("100x100", "600x600") || "",
+        question_type: roundQuestionType,
+        options: roundOptions,
+      };
+    }
+
     setCurrentTrack(track);
-    setOptions(generateOptionsFromTracks(track, availableTracks, roundQuestionType));
+    setOptions(roundOptions);
     setSelectedAnswer(null);
     setIsCorrect(null);
     setTimeLeft(ROUND_TIME);
@@ -279,6 +335,23 @@ export default function Game() {
     setCurrentRound(1);
     loadTracks();
   };
+
+  // Pre-create the challenge link when results appear, so tapping Share stays
+  // within the browser's user-gesture window (navigator.share requires it).
+  useEffect(() => {
+    if (gameState !== "results") return;
+    if (challenge || createdChallengeRef.current || planRef.current.length === 0) return;
+    createChallenge({
+      creator_name: playerName || getSavedUsername() || "A music fan",
+      creator_score: soloScore,
+      category_name: playlistName || playlist?.name || "Music Quiz",
+      time_per_round: ROUND_TIME / 1000,
+      plan: planRef.current,
+    }).then((code) => {
+      createdChallengeRef.current = code;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameState]);
 
   // Preload the next round's audio during the countdown so it can start instantly.
   useEffect(() => {
@@ -384,10 +457,13 @@ export default function Game() {
     const percentage = Math.round((soloScore / maxScore) * 100);
 
     const handleShare = async () => {
+      // Reuse the incoming challenge's link, or the one created for this game
+      const code = challenge?.code ?? createdChallengeRef.current;
       const cardOpts = {
         categoryName: playlistName || playlist?.name || "Music Quiz",
         score: soloScore,
         results: roundResults,
+        challengeUrl: code ? challengeUrl(code) : undefined,
       };
       const text = buildShareText(cardOpts);
 
@@ -434,6 +510,26 @@ export default function Game() {
               </p>
             )}
           </div>
+
+          {challenge && (
+            <div className="bg-background/50 rounded-xl p-4 mb-6">
+              <p className="text-muted-foreground mb-2">Head-to-Head</p>
+              <div className="flex items-center justify-center gap-3 text-lg font-bold">
+                <span className="text-gold">You · {soloScore}</span>
+                <span className="text-muted-foreground text-sm">vs</span>
+                <span className="text-foreground/80">
+                  {challenge.creator_name} · {challenge.creator_score}
+                </span>
+              </div>
+              <p className="mt-2 font-semibold text-foreground">
+                {soloScore > challenge.creator_score
+                  ? "🏆 You beat the challenge!"
+                  : soloScore === challenge.creator_score
+                  ? "🤝 It's a tie!"
+                  : `👑 ${challenge.creator_name} keeps the crown`}
+              </p>
+            </div>
+          )}
 
           <Button variant="gold" size="lg" className="w-full mb-4" onClick={handleShare}>
             <Share2 className="w-5 h-5 mr-2" />

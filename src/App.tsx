@@ -10,6 +10,7 @@ import Multiplayer from "./pages/Multiplayer";
 import RoomLobby from "./pages/RoomLobby";
 import MultiplayerGame from "./pages/MultiplayerGame";
 import NotFound from "./pages/NotFound";
+import ChallengePage from "./pages/Challenge";
 import GuessTheSongGame from "./pages/landing/GuessTheSongGame";
 import GuessTheArtistGame from "./pages/landing/GuessTheArtistGame";
 import SongQuizOnline from "./pages/landing/SongQuizOnline";
@@ -35,6 +36,7 @@ const App = () => (
           <Route path="/multiplayer" element={<Multiplayer />} />
           <Route path="/room/:code" element={<RoomLobby />} />
           <Route path="/room/:code/game" element={<MultiplayerGame />} />
+          <Route path="/c/:code" element={<ChallengePage />} />
           <Route path="/guess-the-song-game" element={<GuessTheSongGame />} />
           <Route path="/guess-the-artist-game" element={<GuessTheArtistGame />} />
           <Route path="/song-quiz-online" element={<SongQuizOnline />} />
