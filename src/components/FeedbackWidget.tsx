@@ -43,7 +43,9 @@ export const FeedbackWidget = () => {
     setSubmitting(true);
     const { data: { user } } = await supabase.auth.getUser();
     const { error } = await supabase.from("user_feedback").insert([{
-      ...parsed.data,
+      name: parsed.data.name,
+      email: parsed.data.email,
+      message: parsed.data.message,
       user_id: user?.id ?? undefined,
     }]);
     setSubmitting(false);
