@@ -17,6 +17,7 @@ export interface ChallengeRound {
 
 export interface Challenge {
   code: string;
+  creator_id?: string | null;
   creator_name: string;
   creator_score: number;
   category_name: string;
@@ -39,11 +40,22 @@ export function saveUsername(name: string): void {
   document.cookie = `songiq_username=${encodeURIComponent(name)}; path=/; max-age=${maxAge}; SameSite=Lax`;
 }
 
-export async function createChallenge(input: Omit<Challenge, "code">): Promise<string | null> {
+/** Get the current user id, signing in anonymously if needed (RLS requires it). */
+async function ensureUserId(): Promise<string | null> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session?.user) return session.user.id;
+  const { data } = await supabase.auth.signInAnonymously();
+  return data.user?.id ?? null;
+}
+
+export async function createChallenge(input: Omit<Challenge, "code" | "creator_id">): Promise<string | null> {
+  const creatorId = await ensureUserId();
   // Retry on the (unlikely) code collision
   for (let attempt = 0; attempt < 3; attempt++) {
     const code = generateRoomCode();
-    const { error } = await (supabase as any).from("challenges").insert({ code, ...input });
+    const { error } = await (supabase as any)
+      .from("challenges")
+      .insert({ code, creator_id: creatorId, ...input });
     if (!error) return code;
     if (!/duplicate|unique/i.test(error.message || "")) {
       logError("challenge.create_failed", "Failed to create challenge", {
@@ -105,7 +117,7 @@ export async function fetchChallengeAttempts(code: string): Promise<ChallengeAtt
 export async function fetchChallenge(code: string): Promise<Challenge | null> {
   const { data, error } = await (supabase as any)
     .from("challenges")
-    .select("code, creator_name, creator_score, category_name, time_per_round, plan")
+    .select("code, creator_id, creator_name, creator_score, category_name, time_per_round, plan")
     .eq("code", code.toUpperCase())
     .maybeSingle();
 

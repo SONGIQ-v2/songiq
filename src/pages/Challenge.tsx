@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { motion } from "framer-motion";
-import { Music2, Play, Swords, Clock, Hash, Crown } from "lucide-react";
+import { Music2, Play, Swords, Clock, Hash, Crown, Copy } from "lucide-react";
+import { toast } from "sonner";
 import { Starfield } from "@/components/Starfield";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +14,7 @@ import {
   fetchChallengeAttempts,
   getSavedUsername,
   saveUsername,
+  challengeUrl,
   type Challenge,
   type ChallengeAttempt,
 } from "@/lib/challenges";
@@ -76,6 +78,7 @@ export default function ChallengePage() {
   }, [code, initializeAuth]);
 
   const myAttempt = attempts.find((a) => a.player_id === playerId);
+  const isCreator = !!challenge?.creator_id && challenge.creator_id === playerId;
 
   const board: BoardEntry[] = challenge
     ? [
@@ -143,11 +146,15 @@ export default function ChallengePage() {
 
           <Swords className="w-14 h-14 text-gold mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-foreground mb-1">
-            {myAttempt ? "You played this challenge" : "You've been challenged!"}
+            {isCreator
+              ? "Your challenge"
+              : myAttempt
+              ? "You played this challenge"
+              : "You've been challenged!"}
           </h1>
           <p className="text-muted-foreground mb-6">{challenge.category_name}</p>
 
-          {!myAttempt && (
+          {!myAttempt && !isCreator && (
             <div className="bg-background/50 rounded-xl p-6 mb-6">
               <p className="text-muted-foreground mb-1">{challenge.creator_name} scored</p>
               <p className="text-5xl font-bold text-gold mb-2">{challenge.creator_score}</p>
@@ -155,7 +162,7 @@ export default function ChallengePage() {
             </div>
           )}
 
-          {board.length > 1 || myAttempt ? <Leaderboard entries={board} /> : null}
+          {board.length > 1 || myAttempt || isCreator ? <Leaderboard entries={board} /> : null}
 
           <div className="flex justify-center gap-6 mb-6 text-sm text-muted-foreground">
             <span className="flex items-center gap-1.5">
@@ -168,7 +175,25 @@ export default function ChallengePage() {
             </span>
           </div>
 
-          {myAttempt ? (
+          {isCreator ? (
+            <>
+              <p className="text-foreground/80 font-semibold mb-4">
+                This is your challenge — share the link and watch the leaderboard fill up.
+              </p>
+              <Button
+                variant="gold"
+                size="lg"
+                className="w-full"
+                onClick={async () => {
+                  await navigator.clipboard.writeText(challengeUrl(challenge.code));
+                  toast.success("Challenge link copied!");
+                }}
+              >
+                <Copy className="w-5 h-5 mr-2" />
+                Copy Challenge Link
+              </Button>
+            </>
+          ) : myAttempt ? (
             <>
               <p className="text-foreground/80 font-semibold mb-4">
                 First attempt counts — your {myAttempt.score} points are locked in.
