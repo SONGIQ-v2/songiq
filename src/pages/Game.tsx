@@ -28,6 +28,7 @@ import { calculatePoints } from "@/lib/spotify";
 import { logError, logWarn, logInfo } from "@/lib/clientLogger";
 import { warmAudioUrl, preloadAudio, playWithUnmute } from "@/lib/audioPreload";
 import { buildShareText, shareResult } from "@/lib/shareCard";
+import { shareResultImage } from "@/lib/shareImage";
 
 const ROUND_TIME = 15000; // 15 seconds per round
 const TOTAL_ROUNDS = 10;
@@ -383,13 +384,22 @@ export default function Game() {
     const percentage = Math.round((soloScore / maxScore) * 100);
 
     const handleShare = async () => {
-      const outcome = await shareResult(
-        buildShareText({
-          categoryName: playlistName || playlist?.name || "Music Quiz",
-          score: soloScore,
-          results: roundResults,
-        })
-      );
+      const cardOpts = {
+        categoryName: playlistName || playlist?.name || "Music Quiz",
+        score: soloScore,
+        results: roundResults,
+      };
+      const text = buildShareText(cardOpts);
+
+      const imageOutcome = await shareResultImage(cardOpts, text);
+      if (imageOutcome === "shared" || imageOutcome === "canceled") return;
+      if (imageOutcome === "downloaded") {
+        toast.success("Image saved — result text copied too!");
+        return;
+      }
+
+      // Image path failed — fall back to text-only share
+      const outcome = await shareResult(text);
       if (outcome === "copied") toast.success("Result copied — paste it anywhere!");
       if (outcome === "failed") toast.error("Couldn't share your result");
     };

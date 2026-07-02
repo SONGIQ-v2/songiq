@@ -30,6 +30,7 @@ import { useGameStore } from "@/lib/gameStore";
 import { supabase } from "@/integrations/supabase/client";
 import { PLAYLISTS } from "@/lib/playlists";
 import { buildShareText, shareResult } from "@/lib/shareCard";
+import { shareResultImage } from "@/lib/shareImage";
 
 
 
@@ -359,16 +360,24 @@ export default function MultiplayerGame() {
     const myScore = players.find((p) => p.player_id === playerId)?.score || 0;
 
     const handleShare = async () => {
-      const categoryName = PLAYLISTS.find((p) => p.id === room.category)?.name || "Music Quiz";
-      const outcome = await shareResult(
-        buildShareText({
-          categoryName,
-          score: myScore,
-          results: myResults,
-          rank: currentPlayerRank || undefined,
-          playerCount: players.length,
-        })
-      );
+      const cardOpts = {
+        categoryName: PLAYLISTS.find((p) => p.id === room.category)?.name || "Music Quiz",
+        score: myScore,
+        results: myResults,
+        rank: currentPlayerRank || undefined,
+        playerCount: players.length,
+      };
+      const text = buildShareText(cardOpts);
+
+      const imageOutcome = await shareResultImage(cardOpts, text);
+      if (imageOutcome === "shared" || imageOutcome === "canceled") return;
+      if (imageOutcome === "downloaded") {
+        toast.success("Image saved — result text copied too!");
+        return;
+      }
+
+      // Image path failed — fall back to text-only share
+      const outcome = await shareResult(text);
       if (outcome === "copied") toast.success("Result copied — paste it anywhere!");
       if (outcome === "failed") toast.error("Couldn't share your result");
     };
