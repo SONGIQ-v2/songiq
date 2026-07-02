@@ -45,6 +45,7 @@ const App = () => (
           <Route path="/african-music-quiz" element={<AfricanMusicQuiz />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
+        <FeedbackWidget />
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
