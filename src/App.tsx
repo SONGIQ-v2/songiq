@@ -18,6 +18,7 @@ import HeardleAlternative from "./pages/landing/HeardleAlternative";
 import AfrobeatsQuiz from "./pages/landing/AfrobeatsQuiz";
 import AmapianoQuiz from "./pages/landing/AmapianoQuiz";
 import AfricanMusicQuiz from "./pages/landing/AfricanMusicQuiz";
+import { FeedbackWidget } from "./components/FeedbackWidget";
 
 const queryClient = new QueryClient();
 
