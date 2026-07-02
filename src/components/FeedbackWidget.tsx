@@ -42,10 +42,10 @@ export const FeedbackWidget = () => {
     }
     setSubmitting(true);
     const { data: { user } } = await supabase.auth.getUser();
-    const { error } = await supabase.from("user_feedback").insert({
+    const { error } = await supabase.from("user_feedback").insert([{
       ...parsed.data,
-      user_id: user?.id ?? null,
-    });
+      user_id: user?.id ?? undefined,
+    }]);
     setSubmitting(false);
     if (error) {
       toast({ title: "Couldn't send feedback", description: error.message, variant: "destructive" });
