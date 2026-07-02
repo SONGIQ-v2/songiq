@@ -2,7 +2,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Helmet } from "react-helmet-async";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Volume2, VolumeX, Trophy, Music2, X } from "lucide-react";
+import { Volume2, VolumeX, Trophy, Music2, X, Share2 } from "lucide-react";
+import { toast } from "sonner";
 import { Starfield } from "@/components/Starfield";
 import { RoundIndicator } from "@/components/RoundIndicator";
 import { AudioVisualizer } from "@/components/AudioVisualizer";
@@ -26,6 +27,7 @@ import { PLAYLISTS, getPlaylistById } from "@/lib/playlists";
 import { calculatePoints } from "@/lib/spotify";
 import { logError, logWarn, logInfo } from "@/lib/clientLogger";
 import { warmAudioUrl, preloadAudio, playWithUnmute } from "@/lib/audioPreload";
+import { buildShareText, shareResult } from "@/lib/shareCard";
 
 const ROUND_TIME = 15000; // 15 seconds per round
 const TOTAL_ROUNDS = 10;
@@ -78,6 +80,7 @@ export default function Game() {
   const [countdown, setCountdown] = useState(COUNTDOWN_TIME);
   const [questionType, setQuestionType] = useState<QuestionType>("artist");
   const [nextQuestionType, setNextQuestionType] = useState<QuestionType>("song");
+  const [roundResults, setRoundResults] = useState<boolean[]>([]);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const preloadedAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -132,6 +135,7 @@ export default function Game() {
       console.log(`Loaded ${result.tracks.length} tracks`);
       // Shuffle tracks once and use this order for all rounds
       const shuffledTracks = [...result.tracks].sort(() => Math.random() - 0.5);
+      setRoundResults([]);
       setTracks(shuffledTracks);
       setPlaylistName(result.playlistName);
       // Warm CDN for the first track so round 1 starts faster.
@@ -195,6 +199,7 @@ export default function Game() {
   const handleTimeout = () => {
     if (timerRef.current) clearInterval(timerRef.current);
     setIsCorrect(false);
+    setRoundResults((prev) => [...prev, false]);
     setGameState("answered");
     setIsPlaying(false);
     logWarn("solo.answer_timeout", "Solo player did not answer in time", {
@@ -218,6 +223,7 @@ export default function Game() {
 
     setSelectedAnswer(answer);
     setIsCorrect(correct);
+    setRoundResults((prev) => [...prev, correct]);
     addSoloPoints(points);
     setGameState("answered");
     setIsPlaying(false);
@@ -375,7 +381,19 @@ export default function Game() {
   if (gameState === "results") {
     const maxScore = TOTAL_ROUNDS * 200;
     const percentage = Math.round((soloScore / maxScore) * 100);
-    
+
+    const handleShare = async () => {
+      const outcome = await shareResult(
+        buildShareText({
+          categoryName: playlistName || playlist?.name || "Music Quiz",
+          score: soloScore,
+          results: roundResults,
+        })
+      );
+      if (outcome === "copied") toast.success("Result copied — paste it anywhere!");
+      if (outcome === "failed") toast.error("Couldn't share your result");
+    };
+
     return (
       <div className="min-h-screen bg-background relative overflow-hidden flex items-center justify-center p-4">
         <Starfield />
@@ -400,7 +418,17 @@ export default function Game() {
               />
             </div>
             <p className="text-sm text-foreground/60 mt-2">{percentage}% accuracy</p>
+            {roundResults.length > 0 && (
+              <p className="text-lg mt-3 tracking-wider" aria-hidden="true">
+                {roundResults.map((r) => (r ? "🟩" : "🟥")).join("")}
+              </p>
+            )}
           </div>
+
+          <Button variant="gold" size="lg" className="w-full mb-4" onClick={handleShare}>
+            <Share2 className="w-5 h-5 mr-2" />
+            Share Result
+          </Button>
 
           <div className="flex gap-4">
             <Button
