@@ -64,7 +64,7 @@ export const FeedbackWidget = () => {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Send feedback"
-        className="fixed bottom-4 left-4 z-40 flex items-center gap-2 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl hover:scale-105 transition-all px-4 py-2.5 text-sm font-semibold"
+        className="fixed bottom-4 right-4 z-40 flex items-center gap-2 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl hover:scale-105 transition-all px-4 py-2.5 text-sm font-semibold"
       >
         <MessageSquare className="w-4 h-4" />
         <span className="hidden sm:inline">Feedback</span>
