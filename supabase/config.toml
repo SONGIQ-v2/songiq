@@ -2,5 +2,3 @@ project_id = "ycsjbxpdihyrsjwcssqc"
 
 [functions.apple-music]
 verify_jwt = false
-[functions.refresh-playlists]
-verify_jwt = false
