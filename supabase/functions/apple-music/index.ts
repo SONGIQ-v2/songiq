@@ -1,45 +1,14 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { searchTracks, fetchPlaylistPool, type iTunesTrack } from "../_shared/itunes.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-interface iTunesTrack {
-  trackId: number;
-  trackName: string;
-  artistName: string;
-  collectionName: string;
-  artworkUrl100: string;
-  previewUrl: string;
-  trackTimeMillis: number;
-  primaryGenreName: string;
-}
-
-interface iTunesSearchResponse {
-  resultCount: number;
-  results: iTunesTrack[];
-}
-
-// Search iTunes for tracks
-async function searchTracks(query: string, limit: number = 50): Promise<iTunesTrack[]> {
-  const url = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=song&limit=${limit}`;
-  
-  console.log(`[Apple Music] Searching for: ${query}`);
-  
-  const response = await fetch(url);
-  const data: iTunesSearchResponse = await response.json();
-  
-  console.log(`[Apple Music] Found ${data.resultCount} results`);
-  
-  // Filter for tracks with preview URLs
-  const tracksWithPreviews = data.results.filter(track => track.previewUrl);
-  console.log(`[Apple Music] ${tracksWithPreviews.length} tracks have preview URLs`);
-  
-  return tracksWithPreviews;
-}
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // refresh a playlist's pool daily
 
 // Get tracks by genre/category
 async function getTracksByGenre(genre: string, limit: number = 50): Promise<iTunesTrack[]> {
@@ -67,61 +36,67 @@ async function getTracksByGenre(genre: string, limit: number = 50): Promise<iTun
   );
 
   console.log(`[Apple Music] Genre "${genre}": ${uniqueTracks.length} unique tracks with previews`);
-  
+
   return uniqueTracks.slice(0, limit);
 }
 
-// Get curated playlist-like results
-async function getPlaylistTracks(
-  searchTerms: string[], 
+// Serve a playlist from the cache, refreshing from iTunes when stale.
+async function getPlaylistTracksCached(
+  searchTerms: string[],
   playlistName: string,
-  limit: number = 50
-): Promise<{
-  playlistName: string;
-  playlistImage: string;
-  tracks: iTunesTrack[];
-}> {
-  console.log(`[Apple Music] Fetching playlist tracks for: ${playlistName} (${searchTerms.length} terms)`);
-
-  // Cap how many terms we actually search to keep latency bounded.
-  // With many terms we'd otherwise do 50+ sequential iTunes calls and time out the client invoke.
-  const MAX_TERMS = 25;
-  const usedTerms = searchTerms.length > MAX_TERMS
-    ? [...searchTerms].sort(() => Math.random() - 0.5).slice(0, MAX_TERMS)
-    : searchTerms;
-
-  // Ensure each term returns enough candidates so post-preview-filter + dedup leaves us with `limit` tracks.
-  const tracksPerTerm = Math.max(3, Math.ceil((limit * 2) / usedTerms.length));
-
-  // Run all iTunes searches in PARALLEL — sequential was the source of the 30s+ start-game timeouts.
-  const results = await Promise.allSettled(
-    usedTerms.map((term) => searchTracks(term, tracksPerTerm))
+  limit: number
+): Promise<{ playlistName: string; playlistImage: string; tracks: iTunesTrack[] }> {
+  const admin = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   );
 
-  const allTracks: iTunesTrack[] = [];
-  for (const r of results) {
-    if (r.status === 'fulfilled') {
-      allTracks.push(...r.value);
-    } else {
-      console.error(`[Apple Music] Search failed:`, r.reason);
+  const { data: cached } = await admin
+    .from('playlist_cache')
+    .select('tracks, image_url, updated_at')
+    .eq('playlist_name', playlistName)
+    .maybeSingle();
+
+  const isFresh = cached &&
+    Date.now() - new Date(cached.updated_at).getTime() < CACHE_TTL_MS;
+
+  let pool: iTunesTrack[];
+  let image: string;
+
+  if (cached && isFresh && Array.isArray(cached.tracks) && cached.tracks.length > 0) {
+    pool = cached.tracks as iTunesTrack[];
+    image = cached.image_url;
+    console.log(`[Apple Music] Cache hit for "${playlistName}" (${pool.length} tracks)`);
+  } else {
+    try {
+      const fetched = await fetchPlaylistPool(searchTerms, 50);
+      if (fetched.pool.length === 0) throw new Error('iTunes returned no tracks');
+      pool = fetched.pool;
+      image = fetched.image;
+      await admin.from('playlist_cache').upsert({
+        playlist_name: playlistName,
+        search_terms: searchTerms,
+        tracks: pool,
+        image_url: image,
+        updated_at: new Date().toISOString(),
+      });
+      console.log(`[Apple Music] Cache refreshed for "${playlistName}" (${pool.length} tracks)`);
+    } catch (e) {
+      // iTunes trouble: serve the stale pool rather than failing the game
+      if (cached && Array.isArray(cached.tracks) && cached.tracks.length > 0) {
+        console.error(`[Apple Music] Refresh failed for "${playlistName}", serving stale cache:`, e);
+        pool = cached.tracks as iTunesTrack[];
+        image = cached.image_url;
+      } else {
+        throw e;
+      }
     }
   }
 
-  const uniqueTracks = allTracks.filter((track, index, self) =>
-    index === self.findIndex(t => t.trackId === track.trackId)
-  );
+  // Shuffle server-side so each game draws a different hand from the pool
+  const shuffled = [...pool].sort(() => Math.random() - 0.5).slice(0, limit);
 
-  const shuffledTracks = uniqueTracks.sort(() => Math.random() - 0.5).slice(0, limit);
-
-  const playlistImage = shuffledTracks.length > 0 
-    ? shuffledTracks[0].artworkUrl100.replace('100x100', '600x600')
-    : '';
-
-  return {
-    playlistName,
-    playlistImage,
-    tracks: shuffledTracks,
-  };
+  return { playlistName, playlistImage: image, tracks: shuffled };
 }
 
 serve(async (req) => {
@@ -147,7 +122,7 @@ serve(async (req) => {
 
     const jwt = authHeader.replace('Bearer ', '');
     const { data, error: authError } = await supabaseClient.auth.getClaims(jwt);
-    
+
     if (authError || !data?.claims) {
       console.error("Auth error:", authError);
       return new Response(
@@ -156,10 +131,8 @@ serve(async (req) => {
       );
     }
 
-    console.log("Authenticated user:", data.claims.sub);
-
     const { action, query, genre, searchTerms, playlistName, limit } = await req.json();
-    
+
     console.log(`[Apple Music] Action: ${action}`);
 
     let result;
@@ -179,10 +152,10 @@ serve(async (req) => {
         if (!searchTerms || !Array.isArray(searchTerms) || searchTerms.length === 0) {
           throw new Error('searchTerms array parameter required for playlist action');
         }
-        result = await getPlaylistTracks(searchTerms, playlistName || 'Playlist', limit || 50);
+        result = await getPlaylistTracksCached(searchTerms, playlistName || 'Playlist', limit || 50);
         break;
 
-      case 'test':
+      case 'test': {
         const testTracks = await searchTracks('afrobeats', 5);
         result = {
           success: true,
@@ -195,6 +168,7 @@ serve(async (req) => {
           })),
         };
         break;
+      }
 
       default:
         throw new Error(`Unknown action: ${action}`);
@@ -209,9 +183,9 @@ serve(async (req) => {
     console.error('[Apple Music] Error:', errorMessage);
     return new Response(
       JSON.stringify({ error: errorMessage }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
   }
