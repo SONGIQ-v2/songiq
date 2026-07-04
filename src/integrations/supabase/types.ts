@@ -14,6 +14,80 @@ export type Database = {
   }
   public: {
     Tables: {
+      challenge_attempts: {
+        Row: {
+          challenge_code: string
+          correct_count: number
+          created_at: string
+          id: string
+          player_id: string
+          player_name: string
+          score: number
+        }
+        Insert: {
+          challenge_code: string
+          correct_count?: number
+          created_at?: string
+          id?: string
+          player_id: string
+          player_name?: string
+          score?: number
+        }
+        Update: {
+          challenge_code?: string
+          correct_count?: number
+          created_at?: string
+          id?: string
+          player_id?: string
+          player_name?: string
+          score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "challenge_attempts_challenge_code_fkey"
+            columns: ["challenge_code"]
+            isOneToOne: false
+            referencedRelation: "challenges"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      challenges: {
+        Row: {
+          category_name: string
+          code: string
+          created_at: string
+          creator_id: string | null
+          creator_name: string
+          creator_score: number
+          id: string
+          plan: Json
+          time_per_round: number
+        }
+        Insert: {
+          category_name?: string
+          code: string
+          created_at?: string
+          creator_id?: string | null
+          creator_name?: string
+          creator_score?: number
+          id?: string
+          plan: Json
+          time_per_round?: number
+        }
+        Update: {
+          category_name?: string
+          code?: string
+          created_at?: string
+          creator_id?: string | null
+          creator_name?: string
+          creator_score?: number
+          id?: string
+          plan?: Json
+          time_per_round?: number
+        }
+        Relationships: []
+      }
       client_logs: {
         Row: {
           context: Json
@@ -277,6 +351,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      playlist_cache: {
+        Row: {
+          image_url: string
+          playlist_name: string
+          search_terms: Json
+          tracks: Json
+          updated_at: string
+        }
+        Insert: {
+          image_url?: string
+          playlist_name: string
+          search_terms?: Json
+          tracks?: Json
+          updated_at?: string
+        }
+        Update: {
+          image_url?: string
+          playlist_name?: string
+          search_terms?: Json
+          tracks?: Json
+          updated_at?: string
+        }
+        Relationships: []
       }
       room_players: {
         Row: {
