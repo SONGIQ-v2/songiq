@@ -2,6 +2,7 @@
 // Archives games to `game_history` (kept 14 days) before deletion.
 // Triggered every 10 minutes via pg_cron.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { fetchPlaylistPool } from "../_shared/itunes.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -42,6 +43,41 @@ Deno.serve(async (req) => {
       .delete({ count: "exact" })
       .lt("created_at", challengeCutoff);
     console.log(`Purged ${purgedChallenges ?? 0} expired challenges`);
+
+    // Refresh stale playlist pools (>24h) so new releases show up daily.
+    // Runs here because this function is already on a 10-minute cron with the
+    // service role — no separate scheduler or key handling needed. Capped per
+    // run to keep invocations fast; a full refresh completes across a few runs.
+    const playlistCutoff = new Date(now - 24 * 60 * 60 * 1000).toISOString();
+    const { data: stalePlaylists } = await supabase
+      .from("playlist_cache")
+      .select("playlist_name, search_terms")
+      .lt("updated_at", playlistCutoff)
+      .order("updated_at", { ascending: true })
+      .limit(6);
+
+    let refreshedPlaylists = 0;
+    for (const row of stalePlaylists ?? []) {
+      try {
+        const terms = Array.isArray(row.search_terms) ? row.search_terms : [];
+        if (terms.length === 0) continue;
+        const { pool, image } = await fetchPlaylistPool(terms, 50);
+        if (pool.length === 0) continue; // keep serving the old pool
+        await supabase.from("playlist_cache").upsert({
+          playlist_name: row.playlist_name,
+          search_terms: terms,
+          tracks: pool,
+          image_url: image,
+          updated_at: new Date().toISOString(),
+        });
+        refreshedPlaylists++;
+      } catch (e) {
+        console.error(`[cleanup-stale-rooms] Playlist refresh failed for ${row.playlist_name}:`, e);
+      }
+    }
+    if (refreshedPlaylists > 0) {
+      console.log(`[cleanup-stale-rooms] Refreshed ${refreshedPlaylists} playlist pools`);
+    }
 
     // 1) waiting rooms older than 2h (never started) — not archived (no gameplay data)
     const { data: waitingRooms } = await supabase
