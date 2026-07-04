@@ -93,10 +93,12 @@ async function getPlaylistTracksCached(
     }
   }
 
-  // Shuffle server-side so each game draws a different hand from the pool
+  // Shuffle server-side so each game draws a different hand from the pool,
+  // and rotate the cover art with it (first track of this request's shuffle)
   const shuffled = [...pool].sort(() => Math.random() - 0.5).slice(0, limit);
+  const rotatingImage = shuffled[0]?.artworkUrl100?.replace('100x100', '600x600') || image;
 
-  return { playlistName, playlistImage: image, tracks: shuffled };
+  return { playlistName, playlistImage: rotatingImage, tracks: shuffled };
 }
 
 serve(async (req) => {
