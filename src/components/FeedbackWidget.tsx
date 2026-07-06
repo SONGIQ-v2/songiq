@@ -42,12 +42,14 @@ export const FeedbackWidget = () => {
     }
     setSubmitting(true);
     const { data: { user } } = await supabase.auth.getUser();
-    const { data: inserted, error } = await supabase.from("user_feedback").insert([{
+    const submittedAt = new Date().toISOString();
+    const feedbackNotificationId = crypto.randomUUID();
+    const { error } = await supabase.from("user_feedback").insert([{
       name: parsed.data.name,
       email: parsed.data.email,
       message: parsed.data.message,
       user_id: user?.id ?? undefined,
-    }]).select("id, created_at").maybeSingle();
+    }]);
     if (error) {
       setSubmitting(false);
       toast({ title: "Couldn't send feedback", description: error.message, variant: "destructive" });
@@ -57,12 +59,12 @@ export const FeedbackWidget = () => {
     supabase.functions.invoke("send-transactional-email", {
       body: {
         templateName: "feedback-notification",
-        idempotencyKey: `feedback-${inserted?.id ?? crypto.randomUUID()}`,
+        idempotencyKey: `feedback-${feedbackNotificationId}`,
         templateData: {
           name: parsed.data.name,
           email: parsed.data.email,
           message: parsed.data.message,
-          submittedAt: inserted?.created_at ?? new Date().toISOString(),
+          submittedAt,
         },
       },
     }).catch(() => { /* non-blocking */ });
