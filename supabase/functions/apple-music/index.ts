@@ -51,21 +51,24 @@ async function getPlaylistTracksCached(
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   );
 
-  const { data: cached } = await admin
+  const { data: cached, error: readErr } = await admin
     .from('playlist_cache')
     .select('tracks, image_url, updated_at')
     .eq('playlist_name', playlistName)
     .maybeSingle();
+  if (readErr) console.error(`[Apple Music] Cache read failed for "${playlistName}":`, readErr.message);
 
   const isFresh = cached &&
     Date.now() - new Date(cached.updated_at).getTime() < CACHE_TTL_MS;
 
   let pool: iTunesTrack[];
   let image: string;
+  let servedFromCache = false;
 
   if (cached && isFresh && Array.isArray(cached.tracks) && cached.tracks.length > 0) {
     pool = cached.tracks as iTunesTrack[];
     image = cached.image_url;
+    servedFromCache = true;
     console.log(`[Apple Music] Cache hit for "${playlistName}" (${pool.length} tracks)`);
   } else {
     try {
@@ -73,14 +76,18 @@ async function getPlaylistTracksCached(
       if (fetched.pool.length === 0) throw new Error('iTunes returned no tracks');
       pool = fetched.pool;
       image = fetched.image;
-      await admin.from('playlist_cache').upsert({
+      const { error: writeErr } = await admin.from('playlist_cache').upsert({
         playlist_name: playlistName,
         search_terms: searchTerms,
         tracks: pool,
         image_url: image,
         updated_at: new Date().toISOString(),
       });
-      console.log(`[Apple Music] Cache refreshed for "${playlistName}" (${pool.length} tracks)`);
+      if (writeErr) {
+        console.error(`[Apple Music] Cache write failed for "${playlistName}":`, writeErr.message);
+      } else {
+        console.log(`[Apple Music] Cache refreshed for "${playlistName}" (${pool.length} tracks)`);
+      }
     } catch (e) {
       // iTunes trouble: serve the stale pool rather than failing the game
       if (cached && Array.isArray(cached.tracks) && cached.tracks.length > 0) {
@@ -98,7 +105,7 @@ async function getPlaylistTracksCached(
   const shuffled = [...pool].sort(() => Math.random() - 0.5).slice(0, limit);
   const rotatingImage = shuffled[0]?.artworkUrl100?.replace('100x100', '600x600') || image;
 
-  return { playlistName, playlistImage: rotatingImage, tracks: shuffled };
+  return { playlistName, playlistImage: rotatingImage, tracks: shuffled, cached: servedFromCache };
 }
 
 serve(async (req) => {
