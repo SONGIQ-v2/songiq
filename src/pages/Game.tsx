@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Helmet } from "react-helmet-async";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Volume2, VolumeX, Trophy, Music2, X, Share2 } from "lucide-react";
+import { Volume2, VolumeX, Trophy, Music2, X, Share2, Play } from "lucide-react";
 import { toast } from "sonner";
 import { Starfield } from "@/components/Starfield";
 import { RoundIndicator } from "@/components/RoundIndicator";
@@ -84,7 +84,7 @@ export default function Game() {
   const { getPlaylistTracks, loading: loadingTracks, error: musicError } = useAppleMusic();
   const { soloScore, addSoloPoints, resetSoloGame } = useGameStore();
 
-  const [gameState, setGameState] = useState<"loading" | "playing" | "answered" | "countdown" | "results">("loading");
+  const [gameState, setGameState] = useState<"loading" | "ready" | "playing" | "answered" | "countdown" | "results">("loading");
   const [tracks, setTracks] = useState<AppleMusicTrack[]>([]);
   const [currentRound, setCurrentRound] = useState(1);
   const [currentTrack, setCurrentTrack] = useState<AppleMusicTrack | null>(null);
@@ -143,6 +143,23 @@ export default function Game() {
   // Get playlist info
   const playlist = getPlaylistById(playlistId) || PLAYLISTS[0];
 
+  // Fully download round 1's clip (bounded wait) while the loading screen is
+  // up, then show the tap-to-play screen. The player's tap is the user
+  // gesture browsers require for audio, so playback starts instantly AND
+  // reliably on every device.
+  const ensureFirstClip = async (track: AppleMusicTrack | undefined) => {
+    if (!track?.previewUrl) return;
+    if (audioUrlCacheRef.current.has(track.previewUrl)) return;
+    const download = fetchAudioObjectUrl(track.previewUrl).then((objUrl) => {
+      if (objUrl) audioUrlCacheRef.current.set(track.previewUrl, objUrl);
+      return objUrl;
+    });
+    await Promise.race([
+      download,
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000)),
+    ]);
+  };
+
   // Load tracks on mount
   useEffect(() => {
     resetSoloGame();
@@ -165,9 +182,9 @@ export default function Game() {
       setRoundResults([]);
       setTracks(planTracks);
       setPlaylistName(challenge.category_name);
-      warmAudioUrl(planTracks[0]?.previewUrl);
       warmAudioUrl(planTracks[1]?.previewUrl);
-      startRound(planTracks, 1);
+      await ensureFirstClip(planTracks[0]);
+      setGameState("ready");
       return;
     }
 
@@ -192,11 +209,11 @@ export default function Game() {
       createdChallengeRef.current = null;
       setTracks(shuffledTracks);
       setPlaylistName(result.playlistName);
-      // Warm CDN for the first track so round 1 starts faster.
-      warmAudioUrl(shuffledTracks[0]?.previewUrl);
-      // Also warm round 2 so the first countdown preload is instant.
+      // Warm round 2 so the background queue's first download is instant.
       warmAudioUrl(shuffledTracks[1]?.previewUrl);
-      startRound(shuffledTracks, 1);
+      // Fully download round 1, then wait for the player's tap.
+      await ensureFirstClip(shuffledTracks[0]);
+      setGameState("ready");
     } else {
       console.error("Not enough tracks loaded:", result?.tracks.length || 0);
       logError("solo.tracks_load_failed", "Solo game failed to load enough tracks", {
@@ -521,6 +538,38 @@ export default function Game() {
             <p className="text-red-400 mt-4">{musicError}</p>
           )}
         </div>
+      </div>
+    );
+  }
+
+  // Ready screen: round 1's clip is downloaded; the tap doubles as the
+  // user gesture browsers require before audio may play.
+  if (gameState === "ready") {
+    return (
+      <div className="min-h-screen bg-background relative overflow-hidden flex items-center justify-center p-4">
+        <Starfield />
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="card-african p-8 max-w-md w-full text-center z-10"
+        >
+          <Music2 className="w-16 h-16 text-gold mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-foreground mb-1">
+            {playlistName || playlist?.name || "Music Quiz"}
+          </h1>
+          <p className="text-muted-foreground mb-6">
+            {TOTAL_ROUNDS} songs · {ROUND_TIME / 1000}s each
+          </p>
+          <Button
+            variant="gold"
+            size="lg"
+            className="w-full"
+            onClick={() => startRound(tracks, 1)}
+          >
+            <Play className="w-5 h-5 mr-2" />
+            Tap to Play
+          </Button>
+        </motion.div>
       </div>
     );
   }
