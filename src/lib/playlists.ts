@@ -236,6 +236,10 @@ export const PLAYLISTS: Playlist[] = [
       "sound sultan",
       "faze",
       "lord of ajasa",
+      "don jazzy",
+      "ycee",
+      "omawumi",
+      "lagbaja",
     ],
   },
   {
