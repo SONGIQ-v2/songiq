@@ -17,12 +17,20 @@ interface iTunesSearchResponse {
   results: iTunesTrack[];
 }
 
-// Search iTunes for tracks (only those with playable previews)
+// Karaoke/tribute/cover junk that pollutes iTunes text search results
+const JUNK_PATTERN = /karaoke|tribute|made famous|originally performed|cover version|in the style of/i;
+
+// Search iTunes for tracks (only those with playable previews, no karaoke junk)
 export async function searchTracks(query: string, limit: number = 50): Promise<iTunesTrack[]> {
   const url = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=song&limit=${limit}`;
   const response = await fetch(url);
   const data: iTunesSearchResponse = await response.json();
-  return data.results.filter((track) => track.previewUrl);
+  return data.results.filter(
+    (track) =>
+      track.previewUrl &&
+      !JUNK_PATTERN.test(track.artistName) &&
+      !JUNK_PATTERN.test(track.collectionName || "")
+  );
 }
 
 // Cap how many terms we search to keep latency and API load bounded.
