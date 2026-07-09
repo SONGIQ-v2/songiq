@@ -59,6 +59,21 @@ export function preloadAudio(
 }
 
 /**
+ * Fully download an audio file and return an object URL for instant playback.
+ * Returns null on failure — callers fall back to streaming from the network.
+ */
+export async function fetchAudioObjectUrl(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url, { mode: "cors", cache: "force-cache" });
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return URL.createObjectURL(blob);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Play an audio element with the muted-then-unmute trick to bypass autoplay
  * stalls on some mobile browsers. Restores the desired volume after play()
  * resolves.

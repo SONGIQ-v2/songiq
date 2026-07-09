@@ -26,7 +26,7 @@ import { useGameStore } from "@/lib/gameStore";
 import { PLAYLISTS, getPlaylistById } from "@/lib/playlists";
 import { calculatePoints } from "@/lib/spotify";
 import { logError, logWarn, logInfo } from "@/lib/clientLogger";
-import { warmAudioUrl, preloadAudio, playWithUnmute } from "@/lib/audioPreload";
+import { warmAudioUrl, preloadAudio, playWithUnmute, fetchAudioObjectUrl } from "@/lib/audioPreload";
 import { buildShareText, shareResult } from "@/lib/shareCard";
 import { shareResultImage } from "@/lib/shareImage";
 import {
@@ -108,6 +108,10 @@ export default function Game() {
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const preloadedAudioRef = useRef<HTMLAudioElement | null>(null);
+  const preloadedForUrlRef = useRef<string | null>(null);
+  // Background-downloaded clips: previewUrl -> in-memory object URL
+  const audioUrlCacheRef = useRef<Map<string, string>>(new Map());
+  const bgPreloadCancelRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const countdownRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -131,6 +135,9 @@ export default function Game() {
       preloadedAudioRef.current.src = '';
       preloadedAudioRef.current = null;
     }
+    bgPreloadCancelRef.current = true;
+    for (const url of audioUrlCacheRef.current.values()) URL.revokeObjectURL(url);
+    audioUrlCacheRef.current.clear();
   }, []);
 
   // Get playlist info
@@ -383,6 +390,34 @@ export default function Game() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameState]);
 
+  // Background queue: while the game plays, download the remaining rounds'
+  // clips one at a time into in-memory object URLs, so every later round
+  // starts instantly regardless of connection speed. Solo-only — the device
+  // already knows all tracks, so there's nothing to keep secret.
+  useEffect(() => {
+    if (tracks.length === 0) return;
+    bgPreloadCancelRef.current = false;
+
+    (async () => {
+      // Round 1 streams normally; queue rounds 2..N
+      for (const track of tracks.slice(1, TOTAL_ROUNDS)) {
+        if (bgPreloadCancelRef.current) return;
+        if (!track.previewUrl || audioUrlCacheRef.current.has(track.previewUrl)) continue;
+        const objUrl = await fetchAudioObjectUrl(track.previewUrl);
+        if (bgPreloadCancelRef.current) {
+          if (objUrl) URL.revokeObjectURL(objUrl);
+          return;
+        }
+        if (objUrl) audioUrlCacheRef.current.set(track.previewUrl, objUrl);
+      }
+    })();
+
+    return () => {
+      bgPreloadCancelRef.current = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tracks]);
+
   // Preload the next round's audio during the countdown so it can start instantly.
   useEffect(() => {
     if (gameState !== "countdown") return;
@@ -390,8 +425,9 @@ export default function Game() {
     const nextTrack = tracks[currentRound]; // currentRound is 1-indexed; next = tracks[currentRound]
     if (!nextTrack?.previewUrl) return;
 
-    warmAudioUrl(nextTrack.previewUrl);
-    const { audio } = preloadAudio(nextTrack.previewUrl, {
+    const cachedSrc = audioUrlCacheRef.current.get(nextTrack.previewUrl);
+    if (!cachedSrc) warmAudioUrl(nextTrack.previewUrl);
+    const { audio } = preloadAudio(cachedSrc ?? nextTrack.previewUrl, {
       timeoutMs: 2500,
       volume: isMuted ? 0 : 0.7,
     });
@@ -401,6 +437,7 @@ export default function Game() {
       preloadedAudioRef.current.src = "";
     }
     preloadedAudioRef.current = audio;
+    preloadedForUrlRef.current = nextTrack.previewUrl;
   }, [gameState, currentRound, tracks, isMuted]);
 
   // Audio handling
@@ -417,12 +454,15 @@ export default function Game() {
       // Reuse the preloaded element if it matches the current track.
       let audio: HTMLAudioElement;
       const preloaded = preloadedAudioRef.current;
-      if (preloaded && preloaded.src === currentTrack.previewUrl) {
+      if (preloaded && preloadedForUrlRef.current === currentTrack.previewUrl) {
         audio = preloaded;
         audio.volume = desiredVolume;
         preloadedAudioRef.current = null;
+        preloadedForUrlRef.current = null;
       } else {
-        audio = new Audio(currentTrack.previewUrl);
+        // Fall back to the background-downloaded blob, then the network
+        const src = audioUrlCacheRef.current.get(currentTrack.previewUrl) ?? currentTrack.previewUrl;
+        audio = new Audio(src);
         audio.preload = "auto";
         audio.volume = desiredVolume;
       }
