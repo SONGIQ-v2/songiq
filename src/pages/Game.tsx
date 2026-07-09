@@ -399,6 +399,9 @@ export default function Game() {
     bgPreloadCancelRef.current = false;
 
     (async () => {
+      // Give round 1's stream a head start before using bandwidth
+      await new Promise((r) => setTimeout(r, 3000));
+      if (bgPreloadCancelRef.current) return;
       // Round 1 streams normally; queue rounds 2..N
       for (const track of tracks.slice(1, TOTAL_ROUNDS)) {
         if (bgPreloadCancelRef.current) return;
