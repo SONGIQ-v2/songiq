@@ -143,6 +143,23 @@ export default function Game() {
   // Get playlist info
   const playlist = getPlaylistById(playlistId) || PLAYLISTS[0];
 
+  // Fully download round 1's clip (bounded wait) before the game starts, so
+  // the round timer never runs while the first audio is still buffering.
+  // On timeout the round starts anyway and streams like before.
+  const ensureFirstClip = async (track: AppleMusicTrack | undefined) => {
+    if (!track?.previewUrl) return;
+    if (audioUrlCacheRef.current.has(track.previewUrl)) return;
+    const download = fetchAudioObjectUrl(track.previewUrl).then((objUrl) => {
+      // Cache even if it finishes after the timeout — later rounds replay it
+      if (objUrl) audioUrlCacheRef.current.set(track.previewUrl, objUrl);
+      return objUrl;
+    });
+    await Promise.race([
+      download,
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000)),
+    ]);
+  };
+
   // Load tracks on mount
   useEffect(() => {
     resetSoloGame();
@@ -165,8 +182,8 @@ export default function Game() {
       setRoundResults([]);
       setTracks(planTracks);
       setPlaylistName(challenge.category_name);
-      warmAudioUrl(planTracks[0]?.previewUrl);
       warmAudioUrl(planTracks[1]?.previewUrl);
+      await ensureFirstClip(planTracks[0]);
       startRound(planTracks, 1);
       return;
     }
@@ -192,10 +209,10 @@ export default function Game() {
       createdChallengeRef.current = null;
       setTracks(shuffledTracks);
       setPlaylistName(result.playlistName);
-      // Warm CDN for the first track so round 1 starts faster.
-      warmAudioUrl(shuffledTracks[0]?.previewUrl);
-      // Also warm round 2 so the first countdown preload is instant.
+      // Warm round 2 so the background queue's first download is instant.
       warmAudioUrl(shuffledTracks[1]?.previewUrl);
+      // Fully download round 1 before starting (loading screen stays up).
+      await ensureFirstClip(shuffledTracks[0]);
       startRound(shuffledTracks, 1);
     } else {
       console.error("Not enough tracks loaded:", result?.tracks.length || 0);
