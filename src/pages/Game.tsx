@@ -26,7 +26,7 @@ import { useGameStore } from "@/lib/gameStore";
 import { PLAYLISTS, getPlaylistById } from "@/lib/playlists";
 import { calculatePoints } from "@/lib/spotify";
 import { logError, logWarn, logInfo } from "@/lib/clientLogger";
-import { warmAudioUrl, preloadAudio, playWithUnmute, fetchAudioObjectUrl } from "@/lib/audioPreload";
+import { warmAudioUrl, preloadAudio, playWithUnmute, prefetchAudio } from "@/lib/audioPreload";
 import { buildShareText, shareResult } from "@/lib/shareCard";
 import { shareResultImage } from "@/lib/shareImage";
 import {
@@ -109,8 +109,8 @@ export default function Game() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const preloadedAudioRef = useRef<HTMLAudioElement | null>(null);
   const preloadedForUrlRef = useRef<string | null>(null);
-  // Background-downloaded clips: previewUrl -> in-memory object URL
-  const audioUrlCacheRef = useRef<Map<string, string>>(new Map());
+  // Clips already downloaded into the browser's HTTP cache
+  const prefetchedUrlsRef = useRef<Set<string>>(new Set());
   const bgPreloadCancelRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const countdownRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -136,8 +136,6 @@ export default function Game() {
       preloadedAudioRef.current = null;
     }
     bgPreloadCancelRef.current = true;
-    for (const url of audioUrlCacheRef.current.values()) URL.revokeObjectURL(url);
-    audioUrlCacheRef.current.clear();
   }, []);
 
   // Get playlist info
@@ -149,10 +147,10 @@ export default function Game() {
   // reliably on every device.
   const ensureFirstClip = async (track: AppleMusicTrack | undefined) => {
     if (!track?.previewUrl) return;
-    if (audioUrlCacheRef.current.has(track.previewUrl)) return;
-    const download = fetchAudioObjectUrl(track.previewUrl).then((objUrl) => {
-      if (objUrl) audioUrlCacheRef.current.set(track.previewUrl, objUrl);
-      return objUrl;
+    if (prefetchedUrlsRef.current.has(track.previewUrl)) return;
+    const download = prefetchAudio(track.previewUrl).then((ok) => {
+      if (ok) prefetchedUrlsRef.current.add(track.previewUrl);
+      return ok;
     });
     await Promise.race([
       download,
@@ -419,16 +417,12 @@ export default function Game() {
       // Give round 1's stream a head start before using bandwidth
       await new Promise((r) => setTimeout(r, 3000));
       if (bgPreloadCancelRef.current) return;
-      // Round 1 streams normally; queue rounds 2..N
+      // Round 1 streams normally; queue rounds 2..N into the HTTP cache
       for (const track of tracks.slice(1, TOTAL_ROUNDS)) {
         if (bgPreloadCancelRef.current) return;
-        if (!track.previewUrl || audioUrlCacheRef.current.has(track.previewUrl)) continue;
-        const objUrl = await fetchAudioObjectUrl(track.previewUrl);
-        if (bgPreloadCancelRef.current) {
-          if (objUrl) URL.revokeObjectURL(objUrl);
-          return;
-        }
-        if (objUrl) audioUrlCacheRef.current.set(track.previewUrl, objUrl);
+        if (!track.previewUrl || prefetchedUrlsRef.current.has(track.previewUrl)) continue;
+        const ok = await prefetchAudio(track.previewUrl);
+        if (ok) prefetchedUrlsRef.current.add(track.previewUrl);
       }
     })();
 
@@ -445,9 +439,10 @@ export default function Game() {
     const nextTrack = tracks[currentRound]; // currentRound is 1-indexed; next = tracks[currentRound]
     if (!nextTrack?.previewUrl) return;
 
-    const cachedSrc = audioUrlCacheRef.current.get(nextTrack.previewUrl);
-    if (!cachedSrc) warmAudioUrl(nextTrack.previewUrl);
-    const { audio } = preloadAudio(cachedSrc ?? nextTrack.previewUrl, {
+    // The clip is usually already in the HTTP cache from the background
+    // queue, so this element buffers instantly from disk.
+    warmAudioUrl(nextTrack.previewUrl);
+    const { audio } = preloadAudio(nextTrack.previewUrl, {
       timeoutMs: 2500,
       volume: isMuted ? 0 : 0.7,
     });
@@ -480,9 +475,8 @@ export default function Game() {
         preloadedAudioRef.current = null;
         preloadedForUrlRef.current = null;
       } else {
-        // Fall back to the background-downloaded blob, then the network
-        const src = audioUrlCacheRef.current.get(currentTrack.previewUrl) ?? currentTrack.previewUrl;
-        audio = new Audio(src);
+        // Served from the browser's HTTP cache when prefetched, else streams
+        audio = new Audio(currentTrack.previewUrl);
         audio.preload = "auto";
         audio.volume = desiredVolume;
       }

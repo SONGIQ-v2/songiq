@@ -59,17 +59,20 @@ export function preloadAudio(
 }
 
 /**
- * Fully download an audio file and return an object URL for instant playback.
- * Returns null on failure — callers fall back to streaming from the network.
+ * Fully download an audio file into the browser's HTTP cache (Apple previews
+ * are served with a ~1 year max-age). Playing the normal URL afterwards loads
+ * instantly from disk cache — no blob URLs, which iOS refuses to play for
+ * Apple's audio/x-m4p content type. Returns false on failure; playback then
+ * falls back to streaming.
  */
-export async function fetchAudioObjectUrl(url: string): Promise<string | null> {
+export async function prefetchAudio(url: string): Promise<boolean> {
   try {
     const res = await fetch(url, { mode: "cors", cache: "force-cache" });
-    if (!res.ok) return null;
-    const blob = await res.blob();
-    return URL.createObjectURL(blob);
+    if (!res.ok) return false;
+    await res.arrayBuffer(); // consume fully so the cache entry is complete
+    return true;
   } catch {
-    return null;
+    return false;
   }
 }
 
