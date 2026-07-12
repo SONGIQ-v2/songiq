@@ -18,9 +18,13 @@ interface Props {
   email?: string
   message?: string
   submittedAt?: string
+  ip?: string
+  country?: string
+  region?: string
+  city?: string
 }
 
-const Email = ({ name, email, message, submittedAt }: Props) => (
+const Email = ({ name, email, message, submittedAt, ip, country, region, city }: Props) => (
   <Html lang="en" dir="ltr">
     <Head />
     <Preview>{`New feedback from ${name ?? 'a SongIQ user'}`}</Preview>
