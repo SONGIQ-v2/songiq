@@ -28,6 +28,23 @@ export interface Playlist {
 // African music playlists with curated search terms
 export const PLAYLISTS: Playlist[] = [
   {
+    id: "trending-nigeria",
+    category: "africa",
+    name: "Trending Nigeria",
+    description: "Nigeria's Top 100 right now",
+    image: "",
+    // Chart-driven: Apple's Most Played feed for the Nigerian storefront
+    searchTerms: ["__chart:ng"],
+  },
+  {
+    id: "global-top-100",
+    category: "pop",
+    name: "Global Top 100",
+    description: "The world's biggest hits right now",
+    image: "",
+    searchTerms: ["__chart:us"],
+  },
+  {
     id: "afrobeats-chill",
     category: "africa",
     name: "Afrobeats & Chill",
