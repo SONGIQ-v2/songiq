@@ -47,6 +47,19 @@ const Email = ({ name, email, message, submittedAt, ip, country, region, city }:
           <Text style={label}>Message</Text>
           <Text style={{ ...value, whiteSpace: 'pre-wrap' }}>{message || '—'}</Text>
 
+          {(ip || country || region || city) && (
+            <>
+              <Hr style={hr} />
+              <Text style={label}>IP address</Text>
+              <Text style={value}>{ip || '—'}</Text>
+              <Hr style={hr} />
+              <Text style={label}>Location</Text>
+              <Text style={value}>
+                {[city, region, country].filter(Boolean).join(', ') || '—'}
+              </Text>
+            </>
+          )}
+
           {submittedAt && (
             <>
               <Hr style={hr} />
@@ -72,6 +85,10 @@ export const template = {
     email: 'jane@example.com',
     message: 'Love the game! Would be great to have a Highlife playlist.',
     submittedAt: new Date().toISOString(),
+    ip: '203.0.113.42',
+    country: 'Nigeria',
+    region: 'Lagos',
+    city: 'Lagos',
   },
 } satisfies TemplateEntry
 
