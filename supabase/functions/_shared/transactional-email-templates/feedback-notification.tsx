@@ -18,9 +18,13 @@ interface Props {
   email?: string
   message?: string
   submittedAt?: string
+  ip?: string
+  country?: string
+  region?: string
+  city?: string
 }
 
-const Email = ({ name, email, message, submittedAt }: Props) => (
+const Email = ({ name, email, message, submittedAt, ip, country, region, city }: Props) => (
   <Html lang="en" dir="ltr">
     <Head />
     <Preview>{`New feedback from ${name ?? 'a SongIQ user'}`}</Preview>
@@ -42,6 +46,19 @@ const Email = ({ name, email, message, submittedAt }: Props) => (
 
           <Text style={label}>Message</Text>
           <Text style={{ ...value, whiteSpace: 'pre-wrap' }}>{message || '—'}</Text>
+
+          {(ip || country || region || city) && (
+            <>
+              <Hr style={hr} />
+              <Text style={label}>IP address</Text>
+              <Text style={value}>{ip || '—'}</Text>
+              <Hr style={hr} />
+              <Text style={label}>Location</Text>
+              <Text style={value}>
+                {[city, region, country].filter(Boolean).join(', ') || '—'}
+              </Text>
+            </>
+          )}
 
           {submittedAt && (
             <>
@@ -68,6 +85,10 @@ export const template = {
     email: 'jane@example.com',
     message: 'Love the game! Would be great to have a Highlife playlist.',
     submittedAt: new Date().toISOString(),
+    ip: '203.0.113.42',
+    country: 'Nigeria',
+    region: 'Lagos',
+    city: 'Lagos',
   },
 } satisfies TemplateEntry
 

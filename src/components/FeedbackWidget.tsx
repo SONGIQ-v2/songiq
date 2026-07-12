@@ -55,17 +55,14 @@ export const FeedbackWidget = () => {
       toast({ title: "Couldn't send feedback", description: error.message, variant: "destructive" });
       return;
     }
-    // Fire-and-forget email notification to the team
-    supabase.functions.invoke("send-transactional-email", {
+    // Fire-and-forget email notification (captures IP + country server-side)
+    supabase.functions.invoke("feedback-notify", {
       body: {
-        templateName: "feedback-notification",
-        idempotencyKey: `feedback-${feedbackNotificationId}`,
-        templateData: {
-          name: parsed.data.name,
-          email: parsed.data.email,
-          message: parsed.data.message,
-          submittedAt,
-        },
+        feedbackId: feedbackNotificationId,
+        name: parsed.data.name,
+        email: parsed.data.email,
+        message: parsed.data.message,
+        submittedAt,
       },
     }).catch(() => { /* non-blocking */ });
     setSubmitting(false);
