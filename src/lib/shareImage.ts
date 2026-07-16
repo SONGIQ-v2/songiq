@@ -172,8 +172,9 @@ export async function renderShareCard(opts: ShareCardOptions): Promise<Blob | nu
 
 export type ImageShareOutcome =
   | "shared"
-  | "downloaded" // PNG saved AND text on the clipboard
-  | "downloaded_copy_failed" // PNG saved, clipboard refused
+  | "copied_image" // desktop: PNG (+text flavor) on the clipboard, no download
+  | "downloaded" // fallback: PNG saved AND text on the clipboard
+  | "downloaded_copy_failed" // fallback: PNG saved, clipboard refused
   | "canceled"
   | "failed";
 
@@ -182,6 +183,31 @@ export type ImageShareOutcome =
  * file sharing) download the PNG and copy the text so it can be pasted.
  */
 export async function shareResultImage(opts: ShareCardOptions, text: string): Promise<ImageShareOutcome> {
+  // Desktop: copy the card image itself to the clipboard (with a text flavor
+  // so plain-text fields paste the result text). No downloads. The
+  // ClipboardItem is created with a promise so Safari accepts the write as
+  // part of the original click.
+  if (
+    !isMobileDevice() &&
+    typeof ClipboardItem !== "undefined" &&
+    navigator.clipboard?.write
+  ) {
+    try {
+      const blobPromise = renderShareCard(opts).then((b) => {
+        if (!b) throw new Error("render failed");
+        return b;
+      });
+      const item = new ClipboardItem({
+        "image/png": blobPromise,
+        "text/plain": new Blob([text], { type: "text/plain" }),
+      });
+      await navigator.clipboard.write([item]);
+      return "copied_image";
+    } catch {
+      // fall through to the render + download fallback below
+    }
+  }
+
   let blob: Blob | null = null;
   try {
     blob = await renderShareCard(opts);
