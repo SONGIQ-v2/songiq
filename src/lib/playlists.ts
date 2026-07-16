@@ -234,6 +234,8 @@ export const PLAYLISTS: Playlist[] = [
       "neon adejo",
       "mike abdul",
       "elijah oyelade",
+      "adeyinka alaseyori",
+      "anendlessocean",
       // Old school / classics
       "tope alabi",
       "bola are",
