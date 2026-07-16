@@ -133,6 +133,101 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_attempts: {
+        Row: {
+          challenge_date: string
+          correct_count: number
+          created_at: string
+          id: string
+          player_id: string
+          player_name: string
+          score: number
+        }
+        Insert: {
+          challenge_date: string
+          correct_count?: number
+          created_at?: string
+          id?: string
+          player_id: string
+          player_name?: string
+          score?: number
+        }
+        Update: {
+          challenge_date?: string
+          correct_count?: number
+          created_at?: string
+          id?: string
+          player_id?: string
+          player_name?: string
+          score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_attempts_challenge_date_fkey"
+            columns: ["challenge_date"]
+            isOneToOne: false
+            referencedRelation: "daily_challenges"
+            referencedColumns: ["challenge_date"]
+          },
+        ]
+      }
+      daily_challenges: {
+        Row: {
+          category_name: string
+          challenge_date: string
+          created_at: string
+          number: number
+          plan: Json
+          time_per_round: number
+        }
+        Insert: {
+          category_name: string
+          challenge_date: string
+          created_at?: string
+          number: number
+          plan: Json
+          time_per_round?: number
+        }
+        Update: {
+          category_name?: string
+          challenge_date?: string
+          created_at?: string
+          number?: number
+          plan?: Json
+          time_per_round?: number
+        }
+        Relationships: []
+      }
+      daily_stats: {
+        Row: {
+          best_streak: number
+          current_streak: number
+          last_played: string | null
+          player_id: string
+          player_name: string
+          plays: number
+          total_score: number
+        }
+        Insert: {
+          best_streak?: number
+          current_streak?: number
+          last_played?: string | null
+          player_id: string
+          player_name?: string
+          plays?: number
+          total_score?: number
+        }
+        Update: {
+          best_streak?: number
+          current_streak?: number
+          last_played?: string | null
+          player_id?: string
+          player_name?: string
+          plays?: number
+          total_score?: number
+        }
+        Relationships: []
+      }
       email_send_log: {
         Row: {
           created_at: string
