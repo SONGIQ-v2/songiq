@@ -558,6 +558,57 @@ export type Database = {
         }
         Relationships: []
       }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          id: string
+          last_notified: string | null
+          p256dh: string
+          player_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          last_notified?: string | null
+          p256dh: string
+          player_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          last_notified?: string | null
+          p256dh?: string
+          player_id?: string
+        }
+        Relationships: []
+      }
+      push_vapid: {
+        Row: {
+          created_at: string
+          id: number
+          private_key: string
+          public_key: string
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          private_key: string
+          public_key: string
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          private_key?: string
+          public_key?: string
+        }
+        Relationships: []
+      }
       room_players: {
         Row: {
           avatar_index: number
@@ -746,6 +797,7 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      get_vapid_public_key: { Args: never; Returns: string }
       move_to_dlq: {
         Args: {
           dlq_name: string
