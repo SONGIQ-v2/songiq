@@ -10,6 +10,7 @@ import { AudioVisualizer } from "@/components/AudioVisualizer";
 import { AnswerOption } from "@/components/AnswerOption";
 import { TimerBar } from "@/components/TimerBar";
 import { Button } from "@/components/ui/button";
+import { DailyReminderButton } from "@/components/DailyReminderButton";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -701,6 +702,7 @@ export default function Game() {
                     <p className="font-semibold text-gold">🔥 {dailyResult.streak}-day streak</p>
                   )}
                   <p className="text-muted-foreground text-xs mt-2">Come back tomorrow to keep it alive!</p>
+                  <DailyReminderButton className="mt-3" />
                 </>
               ) : (
                 <p className="text-muted-foreground text-sm">Saving your result…</p>

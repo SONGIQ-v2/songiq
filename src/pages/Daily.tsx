@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Music2, Play, CalendarDays, Flame, Trophy, Hash, Clock } from "lucide-react";
 import { Starfield } from "@/components/Starfield";
 import { Button } from "@/components/ui/button";
+import { DailyReminderButton } from "@/components/DailyReminderButton";
 import { Input } from "@/components/ui/input";
 import songiqLogo from "@/assets/songiq-logo.png";
 import { useGameStore } from "@/lib/gameStore";
@@ -162,6 +163,7 @@ export default function Daily() {
                 #{myRank} of {totalPlayers} · {myAttempt.correct_count}/{daily.plan.length} correct
               </p>
               <p className="text-muted-foreground text-xs mt-2">Next challenge at midnight (Lagos time)</p>
+              <DailyReminderButton className="mt-3" />
             </div>
           ) : (
             <div className="mb-5">

@@ -2,6 +2,7 @@
 // Archives games to `game_history` (kept 14 days) before deletion.
 // Triggered every 10 minutes via pg_cron.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import webpush from "npm:web-push@3.6.7";
 import { fetchPlaylistPool, buildRoundPlanFromPool } from "../_shared/itunes.ts";
 
 // Playlists never used for the daily challenge
@@ -124,6 +125,111 @@ Deno.serve(async (req) => {
         }
       } else {
         console.log("[cleanup-stale-rooms] No eligible playlist pools for daily challenge yet");
+      }
+    }
+
+    // ---- Daily reminder push (from 18:00 Lagos; once per subscription/day) ----
+    const lagosHour = new Date(now + 60 * 60 * 1000).getUTCHours();
+    if (lagosHour >= 18) {
+      // Ensure a VAPID keypair exists (generated once, kept service-role only)
+      let { data: vapid } = await supabase
+        .from("push_vapid")
+        .select("public_key, private_key")
+        .eq("id", 1)
+        .maybeSingle();
+      if (!vapid) {
+        const keys = webpush.generateVAPIDKeys();
+        const { data: inserted, error: vapidErr } = await supabase
+          .from("push_vapid")
+          .insert({ id: 1, public_key: keys.publicKey, private_key: keys.privateKey })
+          .select("public_key, private_key")
+          .single();
+        if (!vapidErr) vapid = inserted;
+        else console.error("[cleanup-stale-rooms] VAPID insert failed:", vapidErr.message);
+      }
+
+      const { data: subs } = vapid
+        ? await supabase
+            .from("push_subscriptions")
+            .select("*")
+            .or(`last_notified.is.null,last_notified.lt.${lagosToday}`)
+            .limit(200)
+        : { data: null };
+
+      if (vapid && subs && subs.length > 0) {
+        webpush.setVapidDetails("mailto:hello@songiq.xyz", vapid.public_key, vapid.private_key);
+
+        const { data: todayChallenge } = await supabase
+          .from("daily_challenges")
+          .select("number, category_name")
+          .eq("challenge_date", lagosToday)
+          .maybeSingle();
+
+        const { data: playedRows } = await supabase
+          .from("daily_attempts")
+          .select("player_id")
+          .eq("challenge_date", lagosToday);
+        const played = new Set((playedRows ?? []).map((r) => r.player_id));
+
+        const playerIds = [...new Set(subs.map((s) => s.player_id))];
+        const { data: statsRows } = await supabase
+          .from("daily_stats")
+          .select("player_id, current_streak, last_played")
+          .in("player_id", playerIds);
+        const statsById = new Map((statsRows ?? []).map((s) => [s.player_id, s]));
+        const lagosYesterday = new Date(now + 60 * 60 * 1000 - 24 * 60 * 60 * 1000)
+          .toISOString()
+          .slice(0, 10);
+
+        let sent = 0;
+        let pruned = 0;
+        for (const sub of subs) {
+          // Mark first so failures never retry-spam the same person
+          await supabase
+            .from("push_subscriptions")
+            .update({ last_notified: lagosToday })
+            .eq("id", sub.id);
+
+          if (!todayChallenge || played.has(sub.player_id)) continue;
+
+          const stats = statsById.get(sub.player_id);
+          const streakAtRisk =
+            stats && stats.last_played === lagosYesterday ? stats.current_streak : 0;
+
+          const payload = JSON.stringify(
+            streakAtRisk > 1
+              ? {
+                  title: `🔥 Your ${streakAtRisk}-day streak ends at midnight!`,
+                  body: `Play Daily #${todayChallenge.number} (${todayChallenge.category_name}) to keep it alive.`,
+                  url: "/daily",
+                }
+              : {
+                  title: `🎵 Daily Challenge #${todayChallenge.number} is live`,
+                  body: `${todayChallenge.category_name} — same 10 songs for everyone. One attempt!`,
+                  url: "/daily",
+                }
+          );
+
+          try {
+            await webpush.sendNotification(
+              { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+              payload
+            );
+            sent++;
+          } catch (e) {
+            const status = (e as { statusCode?: number })?.statusCode;
+            if (status === 404 || status === 410) {
+              // Subscription expired/revoked — prune it
+              await supabase.from("push_subscriptions").delete().eq("id", sub.id);
+              pruned++;
+            } else {
+              console.error("[cleanup-stale-rooms] Push send failed:", status);
+            }
+          }
+        }
+        if (sent > 0 || pruned > 0) {
+          console.log(`[cleanup-stale-rooms] Push reminders: sent ${sent}, pruned ${pruned}`);
+        }
       }
     }
 
