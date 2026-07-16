@@ -5,14 +5,27 @@ import { Starfield } from "@/components/Starfield";
 import { Header } from "@/components/Header";
 import { GameModeCard } from "@/components/GameModeCard";
 import { Music, Users, Headphones, Mic2, Trophy, Zap, CalendarDays, ChevronRight } from "lucide-react";
-import { fetchTodayChallenge, type DailyChallenge } from "@/lib/daily";
+import { fetchTodayChallenge, fetchDailyAttempts, type DailyChallenge, type DailyAttempt } from "@/lib/daily";
+
+const MEDALS = ["🥇", "🥈", "🥉"];
 
 const Index = () => {
   const navigate = useNavigate();
   const [daily, setDaily] = useState<DailyChallenge | null>(null);
+  const [topThree, setTopThree] = useState<DailyAttempt[]>([]);
 
   useEffect(() => {
-    fetchTodayChallenge().then(setDaily).catch(() => {});
+    (async () => {
+      try {
+        const challenge = await fetchTodayChallenge();
+        if (!challenge) return;
+        setDaily(challenge);
+        const { attempts } = await fetchDailyAttempts(challenge.challenge_date);
+        setTopThree(attempts.slice(0, 3));
+      } catch {
+        // homepage works fine without the daily banner
+      }
+    })();
   }, []);
 
   return (
@@ -49,15 +62,25 @@ const Index = () => {
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.99 }}
             >
-              <span className="flex items-center gap-3">
+              <span className="flex items-center gap-3 min-w-0">
                 <CalendarDays className="w-8 h-8 text-gold shrink-0" />
-                <span>
+                <span className="min-w-0">
                   <span className="block font-display uppercase tracking-wide text-foreground">
                     Daily Challenge #{daily.number}
                   </span>
                   <span className="block text-sm text-muted-foreground">
                     {daily.category_name} · same 10 songs for everyone · one attempt
                   </span>
+                  {topThree.length > 0 && (
+                    <span className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1.5 text-xs text-foreground/80">
+                      {topThree.map((a, i) => (
+                        <span key={a.player_id} className="flex items-center gap-1 truncate">
+                          {MEDALS[i]} <span className="font-semibold truncate max-w-[90px]">{a.player_name}</span>
+                          <span className="text-gold font-bold">{a.score}</span>
+                        </span>
+                      ))}
+                    </span>
+                  )}
                 </span>
               </span>
               <ChevronRight className="w-6 h-6 text-gold shrink-0" />
