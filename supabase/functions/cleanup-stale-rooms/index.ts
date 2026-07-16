@@ -146,14 +146,19 @@ Deno.serve(async (req) => {
       else console.error("[cleanup-stale-rooms] VAPID insert failed:", vapidErr.message);
     }
 
-    // ---- Daily reminder push (from 18:00 Lagos; once per subscription/day) ----
+    // ---- Daily reminder push: two slots per day (Lagos time) ----
+    //   am: from 10:00 — "today's challenge is live"
+    //   pm: from 22:00 — "2 hours left" urgency (streak-aware)
     const lagosHour = new Date(now + 60 * 60 * 1000).getUTCHours();
-    if (lagosHour >= 18) {
+    const slot = lagosHour >= 22 ? "pm" : lagosHour >= 10 ? "am" : null;
+    const slotKey = slot ? `${lagosToday}:${slot}` : null;
+
+    if (slotKey) {
       const { data: subs } = vapid
         ? await supabase
             .from("push_subscriptions")
             .select("*")
-            .or(`last_notified.is.null,last_notified.lt.${lagosToday}`)
+            .or(`last_notified_slot.is.null,last_notified_slot.neq.${slotKey}`)
             .limit(200)
         : { data: null };
 
@@ -188,7 +193,7 @@ Deno.serve(async (req) => {
           // Mark first so failures never retry-spam the same person
           await supabase
             .from("push_subscriptions")
-            .update({ last_notified: lagosToday })
+            .update({ last_notified_slot: slotKey })
             .eq("id", sub.id);
 
           if (!todayChallenge || played.has(sub.player_id)) continue;
@@ -198,12 +203,18 @@ Deno.serve(async (req) => {
             stats && stats.last_played === lagosYesterday ? stats.current_streak : 0;
 
           const payload = JSON.stringify(
-            streakAtRisk > 1
-              ? {
-                  title: `🔥 Your ${streakAtRisk}-day streak ends at midnight!`,
-                  body: `Play Daily #${todayChallenge.number} (${todayChallenge.category_name}) to keep it alive.`,
-                  url: "/daily",
-                }
+            slot === "pm"
+              ? streakAtRisk > 1
+                ? {
+                    title: `🔥 ${streakAtRisk}-day streak — 2 hours left!`,
+                    body: `Daily #${todayChallenge.number} (${todayChallenge.category_name}) ends at midnight. Keep it alive!`,
+                    url: "/daily",
+                  }
+                : {
+                    title: `⏰ 2 hours left for Daily #${todayChallenge.number}`,
+                    body: `${todayChallenge.category_name} — ends at midnight. One attempt!`,
+                    url: "/daily",
+                  }
               : {
                   title: `🎵 Daily Challenge #${todayChallenge.number} is live`,
                   body: `${todayChallenge.category_name} — same 10 songs for everyone. One attempt!`,
