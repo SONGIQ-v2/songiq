@@ -39,6 +39,13 @@ import {
   type ChallengeRound,
   type ChallengeAttempt,
 } from "@/lib/challenges";
+import {
+  submitDailyAttempt,
+  fetchMyDailyRank,
+  fetchMyDailyStats,
+  isStreakActive,
+  buildDailyShareText,
+} from "@/lib/daily";
 
 const DEFAULT_ROUND_TIME = 15000; // 15 seconds per round
 const DEFAULT_TOTAL_ROUNDS = 10;
@@ -75,7 +82,10 @@ export default function Game() {
 
   // Challenge replay: /c/:code navigates here with the original game's plan,
   // so this game uses those exact tracks, question types and options.
-  const challenge = (location.state as { challenge?: Challenge } | null)?.challenge ?? null;
+  // Daily mode rides the same mechanism with an extra marker.
+  const navState = location.state as { challenge?: Challenge; daily?: { date: string; number: number } } | null;
+  const challenge = navState?.challenge ?? null;
+  const daily = navState?.daily ?? null;
   const ROUND_TIME = (challenge ? challenge.time_per_round : DEFAULT_ROUND_TIME / 1000) * 1000;
   const TOTAL_ROUNDS = challenge ? challenge.plan.length : DEFAULT_TOTAL_ROUNDS;
 
@@ -101,6 +111,7 @@ export default function Game() {
   const [nextQuestionType, setNextQuestionType] = useState<QuestionType>("song");
   const [roundResults, setRoundResults] = useState<boolean[]>([]);
   const [challengeAttempts, setChallengeAttempts] = useState<ChallengeAttempt[] | null>(null);
+  const [dailyResult, setDailyResult] = useState<{ rank: number; total: number; streak: number } | null>(null);
 
   // Rounds captured as played, so a normal game can be shared as a challenge
   const planRef = useRef<ChallengeRound[]>([]);
@@ -388,7 +399,7 @@ export default function Game() {
   // Challenge replay finished: record this player's (single) attempt, then
   // load the leaderboard. The DB unique constraint makes retries no-ops.
   useEffect(() => {
-    if (gameState !== "results" || !challenge) return;
+    if (gameState !== "results" || !challenge || daily) return;
     (async () => {
       const pid = playerId ?? (await initializeAuth());
       if (pid) {
@@ -401,6 +412,34 @@ export default function Game() {
         );
       }
       setChallengeAttempts(await fetchChallengeAttempts(challenge.code));
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameState]);
+
+  // Daily challenge finished: record the attempt (streak trigger runs
+  // server-side), then load rank and streak for the results screen.
+  useEffect(() => {
+    if (gameState !== "results" || !daily) return;
+    (async () => {
+      const pid = playerId ?? (await initializeAuth());
+      if (pid) {
+        await submitDailyAttempt(
+          daily.date,
+          pid,
+          playerName || getSavedUsername() || "A music fan",
+          soloScore,
+          roundResults.filter(Boolean).length
+        );
+        const [{ rank, total }, stats] = await Promise.all([
+          fetchMyDailyRank(daily.date, soloScore),
+          fetchMyDailyStats(pid),
+        ]);
+        setDailyResult({
+          rank,
+          total,
+          streak: isStreakActive(stats) ? stats?.current_streak ?? 0 : 0,
+        });
+      }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameState]);
@@ -573,6 +612,29 @@ export default function Game() {
     const percentage = Math.round((soloScore / maxScore) * 100);
 
     const handleShare = async () => {
+      if (daily) {
+        const text = buildDailyShareText({
+          number: daily.number,
+          categoryName: playlistName || "Music Quiz",
+          score: soloScore,
+          results: roundResults,
+          streak: dailyResult?.streak,
+        });
+        const imageOutcome = await shareResultImage(
+          { categoryName: `Daily #${daily.number} — ${playlistName}`, score: soloScore, results: roundResults },
+          text
+        );
+        if (imageOutcome === "shared" || imageOutcome === "canceled") return;
+        if (imageOutcome === "downloaded") {
+          toast.success("Image saved — result text copied too!");
+          return;
+        }
+        const outcome = await shareResult(text);
+        if (outcome === "copied") toast.success("Result copied — paste it anywhere!");
+        if (outcome === "failed") toast.error("Couldn't share your result");
+        return;
+      }
+
       // Reuse the incoming challenge's link, or the one created for this game
       const code = challenge?.code ?? createdChallengeRef.current;
       const cardOpts = {
@@ -627,7 +689,26 @@ export default function Game() {
             )}
           </div>
 
-          {challenge && (
+          {daily && (
+            <div className="bg-background/50 rounded-xl p-4 mb-6">
+              <p className="text-muted-foreground mb-2">Daily Challenge #{daily.number}</p>
+              {dailyResult ? (
+                <>
+                  <p className="text-2xl font-bold text-primary mb-1">
+                    #{dailyResult.rank} <span className="text-base font-normal text-foreground/70">of {dailyResult.total} today</span>
+                  </p>
+                  {dailyResult.streak > 0 && (
+                    <p className="font-semibold text-gold">🔥 {dailyResult.streak}-day streak</p>
+                  )}
+                  <p className="text-muted-foreground text-xs mt-2">Come back tomorrow to keep it alive!</p>
+                </>
+              ) : (
+                <p className="text-muted-foreground text-sm">Saving your result…</p>
+              )}
+            </div>
+          )}
+
+          {challenge && !daily && (
             <div className="bg-background/50 rounded-xl p-4 mb-6">
               <p className="mb-3 font-semibold text-foreground">
                 {soloScore > challenge.creator_score
@@ -685,7 +766,15 @@ export default function Game() {
             Share Result
           </Button>
 
-          {challenge ? (
+          {daily ? (
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => navigate("/daily")}
+            >
+              See Daily Leaderboard
+            </Button>
+          ) : challenge ? (
             <Button
               variant="outline"
               className="w-full"

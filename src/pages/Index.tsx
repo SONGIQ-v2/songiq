@@ -1,12 +1,19 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Starfield } from "@/components/Starfield";
 import { Header } from "@/components/Header";
 import { GameModeCard } from "@/components/GameModeCard";
-import { Music, Users, Headphones, Mic2, Trophy, Zap } from "lucide-react";
+import { Music, Users, Headphones, Mic2, Trophy, Zap, CalendarDays, ChevronRight } from "lucide-react";
+import { fetchTodayChallenge, type DailyChallenge } from "@/lib/daily";
 
 const Index = () => {
   const navigate = useNavigate();
+  const [daily, setDaily] = useState<DailyChallenge | null>(null);
+
+  useEffect(() => {
+    fetchTodayChallenge().then(setDaily).catch(() => {});
+  }, []);
 
   return (
     <div className="min-h-screen relative overflow-hidden">
@@ -30,6 +37,32 @@ const Index = () => {
               Listen to a clip, guess the song or artist, and prove you're the biggest music fan.
             </p>
           </motion.div>
+
+          {/* Daily Challenge banner */}
+          {daily && (
+            <motion.button
+              onClick={() => navigate("/daily")}
+              className="w-full max-w-2xl mx-auto mb-6 flex items-center justify-between gap-3 px-5 py-4 rounded-2xl border-2 border-gold/50 bg-gold/10 hover:bg-gold/20 transition-colors text-left"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.99 }}
+            >
+              <span className="flex items-center gap-3">
+                <CalendarDays className="w-8 h-8 text-gold shrink-0" />
+                <span>
+                  <span className="block font-display uppercase tracking-wide text-foreground">
+                    Daily Challenge #{daily.number}
+                  </span>
+                  <span className="block text-sm text-muted-foreground">
+                    {daily.category_name} · same 10 songs for everyone · one attempt
+                  </span>
+                </span>
+              </span>
+              <ChevronRight className="w-6 h-6 text-gold shrink-0" />
+            </motion.button>
+          )}
 
           {/* Game Mode Cards */}
           <motion.div

@@ -36,6 +36,54 @@ export async function searchTracks(query: string, limit: number = 50): Promise<i
 // Cap how many terms we search to keep latency and API load bounded.
 export const MAX_TERMS = 25;
 
+export interface PlanRound {
+  track_id: string;
+  track_name: string;
+  artist_name: string;
+  preview_url: string;
+  artwork_url: string;
+  question_type: "song" | "artist";
+  options: string[];
+}
+
+// Build a playable round plan (question type + 4 options per round) from a
+// track pool. Mirrors the client-side multiplayer plan builder.
+export function buildRoundPlanFromPool(pool: iTunesTrack[], rounds: number): PlanRound[] {
+  const picks = [...pool].sort(() => Math.random() - 0.5).slice(0, rounds);
+  return picks.map((track) => {
+    const isGuessSong = Math.random() > 0.5;
+
+    let options: string[];
+    if (isGuessSong) {
+      const others = pool
+        .filter((t) => t.trackId !== track.trackId && t.trackName !== track.trackName)
+        .map((t) => t.trackName)
+        .filter((s, i, arr) => arr.indexOf(s) === i)
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 3);
+      options = [track.trackName, ...others].sort(() => Math.random() - 0.5);
+    } else {
+      const others = pool
+        .filter((t) => t.trackId !== track.trackId && t.artistName !== track.artistName)
+        .map((t) => t.artistName)
+        .filter((a, i, arr) => arr.indexOf(a) === i)
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 3);
+      options = [track.artistName, ...others].sort(() => Math.random() - 0.5);
+    }
+
+    return {
+      track_id: String(track.trackId),
+      track_name: track.trackName,
+      artist_name: track.artistName,
+      preview_url: track.previewUrl,
+      artwork_url: track.artworkUrl100?.replace("100x100", "600x600") || "",
+      question_type: isGuessSong ? "song" as const : "artist" as const,
+      options,
+    };
+  });
+}
+
 // Playlists whose first "search term" carries this prefix are chart-driven:
 // the pool comes from Apple's official Most Played feed for a storefront
 // (e.g. "__chart:ng") instead of artist searches.

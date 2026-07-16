@@ -2,7 +2,10 @@
 // Archives games to `game_history` (kept 14 days) before deletion.
 // Triggered every 10 minutes via pg_cron.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { fetchPlaylistPool } from "../_shared/itunes.ts";
+import { fetchPlaylistPool, buildRoundPlanFromPool } from "../_shared/itunes.ts";
+
+// Playlists never used for the daily challenge
+const DAILY_EXCLUDED = new Set(["East Africa Vibes", "Ghana Sounds", "CacheProbe"]);
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -77,6 +80,51 @@ Deno.serve(async (req) => {
     }
     if (refreshedPlaylists > 0) {
       console.log(`[cleanup-stale-rooms] Refreshed ${refreshedPlaylists} playlist pools`);
+    }
+
+    // Generate today's Daily Challenge (day boundary = Lagos, UTC+1) if it
+    // doesn't exist yet: pick a random cached playlist and snapshot 10 rounds.
+    const lagosToday = new Date(now + 60 * 60 * 1000).toISOString().slice(0, 10);
+    const { data: existingDaily } = await supabase
+      .from("daily_challenges")
+      .select("challenge_date")
+      .eq("challenge_date", lagosToday)
+      .maybeSingle();
+
+    if (!existingDaily) {
+      const { data: pools } = await supabase
+        .from("playlist_cache")
+        .select("playlist_name, tracks");
+
+      const eligible = (pools ?? []).filter(
+        (p) =>
+          !DAILY_EXCLUDED.has(p.playlist_name) &&
+          Array.isArray(p.tracks) &&
+          p.tracks.length >= 20
+      );
+
+      if (eligible.length > 0) {
+        const pick = eligible[Math.floor(Math.random() * eligible.length)];
+        const plan = buildRoundPlanFromPool(pick.tracks, 10);
+        const { count: dailyCount } = await supabase
+          .from("daily_challenges")
+          .select("*", { count: "exact", head: true });
+
+        const { error: dailyErr } = await supabase.from("daily_challenges").insert({
+          challenge_date: lagosToday,
+          number: (dailyCount ?? 0) + 1,
+          category_name: pick.playlist_name,
+          time_per_round: 15,
+          plan,
+        });
+        if (dailyErr) {
+          console.error("[cleanup-stale-rooms] Daily challenge insert failed:", dailyErr.message);
+        } else {
+          console.log(`[cleanup-stale-rooms] Generated daily #${(dailyCount ?? 0) + 1} (${pick.playlist_name})`);
+        }
+      } else {
+        console.log("[cleanup-stale-rooms] No eligible playlist pools for daily challenge yet");
+      }
     }
 
     // 1) waiting rooms older than 2h (never started) — not archived (no gameplay data)
