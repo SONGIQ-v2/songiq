@@ -40,6 +40,22 @@ export function buildShareText({ categoryName, score, results, rank, playerCount
 
 export type ShareOutcome = "shared" | "copied" | "canceled" | "failed";
 
+/**
+ * Native share sheets are only a good experience on phones/tablets. Desktop
+ * browsers also implement navigator.share (Windows/macOS share panels), but
+ * they're flaky — half-succeeding, rejecting after sharing, and consuming
+ * the user gesture so clipboard writes fail. On desktop we always use
+ * download + copy instead.
+ */
+export function isMobileDevice(): boolean {
+  const ua = navigator.userAgent;
+  if (/android|iphone|ipod/i.test(ua)) return true;
+  // iPads (including iPadOS masquerading as macOS)
+  if (/ipad/i.test(ua)) return true;
+  if (/mac/i.test(ua) && navigator.maxTouchPoints > 1) return true;
+  return false;
+}
+
 /** Legacy copy fallback for when the async Clipboard API rejects
  * (stale user gesture, unfocused document, older browsers). */
 export function legacyCopyText(text: string): boolean {
@@ -69,7 +85,7 @@ export async function copyText(text: string): Promise<boolean> {
 }
 
 export async function shareResult(text: string): Promise<ShareOutcome> {
-  if (typeof navigator !== "undefined" && navigator.share) {
+  if (typeof navigator !== "undefined" && navigator.share && isMobileDevice()) {
     try {
       await navigator.share({ text });
       return "shared";

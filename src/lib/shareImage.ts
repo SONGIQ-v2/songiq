@@ -3,7 +3,7 @@
 // share in shareCard.ts if anything here fails.
 
 import songiqLogo from "@/assets/songiq-logo.png";
-import { copyText, type ShareCardOptions } from "@/lib/shareCard";
+import { copyText, isMobileDevice, type ShareCardOptions } from "@/lib/shareCard";
 
 // Theme tokens (mirrors src/index.css)
 const COLORS = {
@@ -192,7 +192,7 @@ export async function shareResultImage(opts: ShareCardOptions, text: string): Pr
 
   const file = new File([blob], "songiq-result.png", { type: "image/png" });
 
-  if (typeof navigator !== "undefined" && navigator.canShare?.({ files: [file] })) {
+  if (typeof navigator !== "undefined" && isMobileDevice() && navigator.canShare?.({ files: [file] })) {
     try {
       await navigator.share({ files: [file], text });
       return "shared";
