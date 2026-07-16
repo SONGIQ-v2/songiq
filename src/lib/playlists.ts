@@ -1,7 +1,7 @@
 // Curated playlists for SongIQ
 // Each playlist uses search terms to fetch tracks from Apple Music/iTunes
 
-export type PlaylistCategory = "africa" | "rap" | "rnb" | "pop";
+export type PlaylistCategory = "africa" | "rap" | "rnb" | "pop" | "gospel";
 
 export interface PlaylistCategoryOption {
   id: "all" | PlaylistCategory;
@@ -14,6 +14,7 @@ export const PLAYLIST_CATEGORIES: PlaylistCategoryOption[] = [
   { id: "rnb", label: "R&B" },
   { id: "rap", label: "Rap & Hip-Hop" },
   { id: "africa", label: "Africa" },
+  { id: "gospel", label: "Gospel" },
 ];
 
 export interface Playlist {
@@ -149,8 +150,57 @@ export const PLAYLISTS: Playlist[] = [
     ],
   },
   {
+    id: "international-gospel",
+    category: "gospel",
+    name: "International Gospel",
+    description: "Worship & praise from around the world",
+    image: "",
+    searchTerms: [
+      // Contemporary worship
+      "hillsong worship",
+      "hillsong united",
+      "elevation worship",
+      "maverick city music",
+      "bethel music",
+      "chandler moore",
+      "naomi raine",
+      "dante bowe",
+      "brandon lake",
+      "cody carnes",
+      "kari jobe",
+      "chris tomlin",
+      "phil wickham",
+      "lauren daigle",
+      "tauren wells",
+      "for king and country",
+      "mercyme",
+      "casting crowns",
+      "michael w smith",
+      "don moen",
+      "ron kenoly",
+      // Gospel / urban gospel
+      "kirk franklin",
+      "tasha cobbs leonard",
+      "cece winans",
+      "donnie mcclurkin",
+      "fred hammond",
+      "marvin sapp",
+      "yolanda adams",
+      "israel houghton",
+      "travis greene",
+      "tye tribbett",
+      "william mcdowell",
+      "hezekiah walker",
+      "kierra sheard",
+      "mary mary",
+      "the clark sisters",
+      "jonathan mcreynolds",
+      "todd dulaney",
+    ],
+  },
+  {
     id: "nigerian-gospel",
-    category: "africa",
+    category: "gospel",
     name: "Nigerian Gospel",
     description: "Praise & worship, old school to new wave",
     image: "",
