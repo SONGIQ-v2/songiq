@@ -564,7 +564,7 @@ export type Database = {
           created_at: string
           endpoint: string
           id: string
-          last_notified: string | null
+          last_notified_slot: string | null
           p256dh: string
           player_id: string
         }
@@ -573,7 +573,7 @@ export type Database = {
           created_at?: string
           endpoint: string
           id?: string
-          last_notified?: string | null
+          last_notified_slot?: string | null
           p256dh: string
           player_id: string
         }
@@ -582,7 +582,7 @@ export type Database = {
           created_at?: string
           endpoint?: string
           id?: string
-          last_notified?: string | null
+          last_notified_slot?: string | null
           p256dh?: string
           player_id?: string
         }
