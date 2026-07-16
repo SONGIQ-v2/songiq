@@ -40,6 +40,34 @@ export function buildShareText({ categoryName, score, results, rank, playerCount
 
 export type ShareOutcome = "shared" | "copied" | "canceled" | "failed";
 
+/** Legacy copy fallback for when the async Clipboard API rejects
+ * (stale user gesture, unfocused document, older browsers). */
+export function legacyCopyText(text: string): boolean {
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    const ok = document.execCommand("copy");
+    ta.remove();
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function copyText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return legacyCopyText(text);
+  }
+}
+
 export async function shareResult(text: string): Promise<ShareOutcome> {
   if (typeof navigator !== "undefined" && navigator.share) {
     try {
@@ -50,10 +78,5 @@ export async function shareResult(text: string): Promise<ShareOutcome> {
       // fall through to clipboard
     }
   }
-  try {
-    await navigator.clipboard.writeText(text);
-    return "copied";
-  } catch {
-    return "failed";
-  }
+  return (await copyText(text)) ? "copied" : "failed";
 }

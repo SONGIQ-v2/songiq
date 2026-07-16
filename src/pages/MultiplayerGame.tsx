@@ -405,8 +405,12 @@ export default function MultiplayerGame() {
 
       const imageOutcome = await shareResultImage(cardOpts, text);
       if (imageOutcome === "shared" || imageOutcome === "canceled") return;
-      if (imageOutcome === "downloaded") {
-        toast.success("Image saved — result text copied too!");
+      if (imageOutcome === "downloaded" || imageOutcome === "downloaded_copy_failed") {
+        toast.success(
+          imageOutcome === "downloaded"
+            ? "Image saved — result text copied too!"
+            : "Image saved!"
+        );
         return;
       }
 

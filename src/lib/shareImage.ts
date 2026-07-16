@@ -3,7 +3,7 @@
 // share in shareCard.ts if anything here fails.
 
 import songiqLogo from "@/assets/songiq-logo.png";
-import type { ShareCardOptions } from "@/lib/shareCard";
+import { copyText, type ShareCardOptions } from "@/lib/shareCard";
 
 // Theme tokens (mirrors src/index.css)
 const COLORS = {
@@ -170,7 +170,12 @@ export async function renderShareCard(opts: ShareCardOptions): Promise<Blob | nu
   return new Promise((resolve) => canvas.toBlob((b) => resolve(b), "image/png"));
 }
 
-export type ImageShareOutcome = "shared" | "downloaded" | "canceled" | "failed";
+export type ImageShareOutcome =
+  | "shared"
+  | "downloaded" // PNG saved AND text on the clipboard
+  | "downloaded_copy_failed" // PNG saved, clipboard refused
+  | "canceled"
+  | "failed";
 
 /**
  * Share the rendered card image via the native share sheet; on desktop (no
@@ -198,6 +203,11 @@ export async function shareResultImage(opts: ShareCardOptions, text: string): Pr
   }
 
   try {
+    // Copy the text BEFORE triggering the download: the clipboard needs the
+    // user gesture to still be fresh and the document focused, and the
+    // download click can break both.
+    const copied = await copyText(text);
+
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -206,12 +216,8 @@ export async function shareResultImage(opts: ShareCardOptions, text: string): Pr
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 10_000);
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch {
-      // text copy is best-effort alongside the download
-    }
-    return "downloaded";
+
+    return copied ? "downloaded" : "downloaded_copy_failed";
   } catch {
     return "failed";
   }
