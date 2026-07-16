@@ -128,26 +128,27 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Ensure a VAPID keypair exists on EVERY run — subscriptions need the
+    // public key immediately, only the sending waits for the evening.
+    let { data: vapid } = await supabase
+      .from("push_vapid")
+      .select("public_key, private_key")
+      .eq("id", 1)
+      .maybeSingle();
+    if (!vapid) {
+      const keys = webpush.generateVAPIDKeys();
+      const { data: inserted, error: vapidErr } = await supabase
+        .from("push_vapid")
+        .insert({ id: 1, public_key: keys.publicKey, private_key: keys.privateKey })
+        .select("public_key, private_key")
+        .single();
+      if (!vapidErr) vapid = inserted;
+      else console.error("[cleanup-stale-rooms] VAPID insert failed:", vapidErr.message);
+    }
+
     // ---- Daily reminder push (from 18:00 Lagos; once per subscription/day) ----
     const lagosHour = new Date(now + 60 * 60 * 1000).getUTCHours();
     if (lagosHour >= 18) {
-      // Ensure a VAPID keypair exists (generated once, kept service-role only)
-      let { data: vapid } = await supabase
-        .from("push_vapid")
-        .select("public_key, private_key")
-        .eq("id", 1)
-        .maybeSingle();
-      if (!vapid) {
-        const keys = webpush.generateVAPIDKeys();
-        const { data: inserted, error: vapidErr } = await supabase
-          .from("push_vapid")
-          .insert({ id: 1, public_key: keys.publicKey, private_key: keys.privateKey })
-          .select("public_key, private_key")
-          .single();
-        if (!vapidErr) vapid = inserted;
-        else console.error("[cleanup-stale-rooms] VAPID insert failed:", vapidErr.message);
-      }
-
       const { data: subs } = vapid
         ? await supabase
             .from("push_subscriptions")

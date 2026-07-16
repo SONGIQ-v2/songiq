@@ -62,6 +62,8 @@ export function DailyReminderButton({ className = "" }: { className?: string }) 
       toast.error(
         result === "denied"
           ? "Notifications were blocked — enable them in your browser settings"
+          : result === "not_ready"
+          ? "Reminders are warming up — try again in a few minutes"
           : "Couldn't set the reminder — try again later"
       );
     }
@@ -69,12 +71,12 @@ export function DailyReminderButton({ className = "" }: { className?: string }) 
 
   return (
     <Button
-      variant="outline"
-      className={`w-full ${className}`}
+      size="lg"
+      className={`w-full border-0 font-bold text-white bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 shadow-lg shadow-red-500/30 ${className}`}
       onClick={handleClick}
       disabled={state === "busy"}
     >
-      <Bell className="w-4 h-4 mr-2" />
+      <Bell className="w-5 h-5 mr-2" />
       {state === "busy" ? "Setting reminder..." : "Remind me tomorrow"}
     </Button>
   );

@@ -37,14 +37,15 @@ export async function isSubscribed(): Promise<boolean> {
 
 /**
  * Subscribe this browser to daily reminders. Returns "subscribed",
- * "denied" (user refused the permission prompt) or "failed".
+ * "denied" (user refused the permission prompt), "not_ready" (server keys
+ * not generated yet — first cron run pending) or "failed".
  */
 export async function subscribeToDailyReminders(
   playerId: string
-): Promise<"subscribed" | "denied" | "failed"> {
+): Promise<"subscribed" | "denied" | "not_ready" | "failed"> {
   try {
     const { data: publicKey } = await (supabase as any).rpc("get_vapid_public_key");
-    if (!publicKey) return "failed"; // keys not generated yet (cron's first run pending)
+    if (!publicKey) return "not_ready";
 
     const reg = await navigator.serviceWorker.register("/sw.js");
     await navigator.serviceWorker.ready;
