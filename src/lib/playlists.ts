@@ -258,7 +258,7 @@ export const PLAYLISTS: Playlist[] = [
       "judikay",
       "frank edwards",
       "tim godfrey",
-      "eben",
+      "eben victory",
       "steve crown",
       "prospa ochimana",
       "victoria orenze",
