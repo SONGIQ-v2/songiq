@@ -343,7 +343,7 @@ export const PLAYLISTS: Playlist[] = [
       "dagrin",
       "lil kesh",
       "vector",
-      "reminisce",
+      "reminisce ponmile",
       "olu maintain",
       "sound sultan",
       "faze",
