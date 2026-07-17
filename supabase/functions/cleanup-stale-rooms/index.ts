@@ -225,7 +225,14 @@ Deno.serve(async (req) => {
           try {
             await webpush.sendNotification(
               { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-              payload
+              payload,
+              {
+                // High urgency wakes dozing Android devices instead of
+                // batching; TTL stops stale reminders arriving after the
+                // window has passed (pm expires at midnight).
+                urgency: "high",
+                TTL: slot === "pm" ? 2 * 60 * 60 : 12 * 60 * 60,
+              }
             );
             sent++;
           } catch (e) {
