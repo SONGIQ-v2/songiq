@@ -13,6 +13,8 @@ import { getSavedUsername, saveUsername, type Challenge } from "@/lib/challenges
 import {
   fetchTodayChallenge,
   fetchDailyAttempts,
+  fetchMyDailyAttempt,
+  fetchMyDailyRank,
   fetchDailyStatsLeaderboard,
   fetchMyDailyStats,
   isStreakActive,
@@ -31,6 +33,8 @@ export default function Daily() {
   const [totalPlayers, setTotalPlayers] = useState(0);
   const [allTime, setAllTime] = useState<DailyStats[]>([]);
   const [myStats, setMyStats] = useState<DailyStats | null>(null);
+  const [myAttempt, setMyAttempt] = useState<DailyAttempt | null>(null);
+  const [myRank, setMyRank] = useState<number | null>(null);
   const [tab, setTab] = useState<"today" | "alltime">("today");
   const [name, setName] = useState("");
 
@@ -44,24 +48,28 @@ export default function Daily() {
       }
       setDaily(challenge);
       setName(getSavedUsername());
-      const [{ attempts: rows, total }, board, mine] = await Promise.all([
+      const [{ attempts: rows, total }, board, mine, attempt] = await Promise.all([
         fetchDailyAttempts(challenge.challenge_date),
         fetchDailyStatsLeaderboard(),
         pid ? fetchMyDailyStats(pid) : Promise.resolve(null),
+        // Direct lookup — never rely on the top-50 board slice to know
+        // whether this player already played (they may rank below it)
+        pid ? fetchMyDailyAttempt(challenge.challenge_date, pid) : Promise.resolve(null),
       ]);
       setAttempts(rows);
       setTotalPlayers(total);
       setAllTime(board);
       setMyStats(mine);
+      setMyAttempt(attempt);
+      if (attempt) {
+        const { rank } = await fetchMyDailyRank(challenge.challenge_date, attempt.score);
+        setMyRank(rank);
+      }
       setStatus("ready");
     })();
   }, [initializeAuth]);
 
-  const myAttempt = attempts.find((a) => a.player_id === playerId);
   const myStreak = isStreakActive(myStats) ? myStats?.current_streak ?? 0 : 0;
-  const myRank = myAttempt
-    ? attempts.filter((a) => a.score > myAttempt.score).length + 1
-    : null;
 
   const handlePlay = () => {
     if (!daily) return;

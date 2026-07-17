@@ -60,6 +60,20 @@ export async function fetchDailyAttempts(
   return { attempts: data as DailyAttempt[], total: count ?? data.length };
 }
 
+/** This player's attempt for the day, regardless of leaderboard position. */
+export async function fetchMyDailyAttempt(
+  date: string,
+  playerId: string
+): Promise<DailyAttempt | null> {
+  const { data } = await (supabase as any)
+    .from("daily_attempts")
+    .select("player_id, player_name, score, correct_count")
+    .eq("challenge_date", date)
+    .eq("player_id", playerId)
+    .maybeSingle();
+  return (data as DailyAttempt) ?? null;
+}
+
 /** Record the player's (single) attempt; duplicates are rejected by the DB. */
 export async function submitDailyAttempt(
   date: string,
