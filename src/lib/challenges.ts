@@ -102,6 +102,20 @@ export async function submitChallengeAttempt(
   return !error;
 }
 
+/** This player's attempt, regardless of leaderboard position. */
+export async function fetchMyChallengeAttempt(
+  code: string,
+  playerId: string
+): Promise<ChallengeAttempt | null> {
+  const { data } = await (supabase as any)
+    .from("challenge_attempts")
+    .select("player_id, player_name, score, correct_count")
+    .eq("challenge_code", code.toUpperCase())
+    .eq("player_id", playerId)
+    .maybeSingle();
+  return (data as ChallengeAttempt) ?? null;
+}
+
 /** Leaderboard entries for a challenge, best score first. */
 export async function fetchChallengeAttempts(code: string): Promise<ChallengeAttempt[]> {
   const { data, error } = await (supabase as any)

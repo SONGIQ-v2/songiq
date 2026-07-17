@@ -12,6 +12,7 @@ import { useGameStore } from "@/lib/gameStore";
 import {
   fetchChallenge,
   fetchChallengeAttempts,
+  fetchMyChallengeAttempt,
   getSavedUsername,
   saveUsername,
   challengeUrl,
@@ -59,25 +60,30 @@ export default function ChallengePage() {
 
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const [attempts, setAttempts] = useState<ChallengeAttempt[]>([]);
+  const [myAttempt, setMyAttempt] = useState<ChallengeAttempt | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "not_found">("loading");
   const [name, setName] = useState("");
 
   useEffect(() => {
     (async () => {
-      await initializeAuth();
+      const pid = await initializeAuth();
       const c = code ? await fetchChallenge(code) : null;
       if (!c) {
         setStatus("not_found");
         return;
       }
       setChallenge(c);
-      setAttempts(await fetchChallengeAttempts(c.code));
+      const [board, mine] = await Promise.all([
+        fetchChallengeAttempts(c.code),
+        // Direct lookup — never infer played-state from the truncated board
+        pid ? fetchMyChallengeAttempt(c.code, pid) : Promise.resolve(null),
+      ]);
+      setAttempts(board);
+      setMyAttempt(mine);
       setName(getSavedUsername());
       setStatus("ready");
     })();
   }, [code, initializeAuth]);
-
-  const myAttempt = attempts.find((a) => a.player_id === playerId);
   const isCreator = !!challenge?.creator_id && challenge.creator_id === playerId;
 
   const board: BoardEntry[] = challenge
