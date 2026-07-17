@@ -1,13 +1,10 @@
 // Curated playlists for SongIQ
 // Each playlist uses search terms to fetch tracks from Apple Music/iTunes
-
 export type PlaylistCategory = "africa" | "rap" | "rnb" | "pop" | "gospel";
-
 export interface PlaylistCategoryOption {
   id: "all" | PlaylistCategory;
   label: string;
 }
-
 export const PLAYLIST_CATEGORIES: PlaylistCategoryOption[] = [
   { id: "all", label: "All" },
   { id: "pop", label: "Pop" },
@@ -16,7 +13,6 @@ export const PLAYLIST_CATEGORIES: PlaylistCategoryOption[] = [
   { id: "africa", label: "Africa" },
   { id: "gospel", label: "Gospel" },
 ];
-
 export interface Playlist {
   id: string;
   name: string;
@@ -25,7 +21,6 @@ export interface Playlist {
   searchTerms: string[]; // Artists/songs to search for
   category: PlaylistCategory;
 }
-
 // African music playlists with curated search terms
 export const PLAYLISTS: Playlist[] = [
   {
@@ -124,7 +119,6 @@ export const PLAYLISTS: Playlist[] = [
       "de mthuda",
       "mr jazziq",
       "lady du",
-      "costa titch",
       "tyla",
       "dj stokie",
       "oscar mbo",
@@ -258,7 +252,7 @@ export const PLAYLISTS: Playlist[] = [
       "judikay",
       "frank edwards",
       "tim godfrey",
-      "eben victory",
+      "__artist:1454576171",
       "steve crown",
       "prospa ochimana",
       "victoria orenze",
@@ -342,11 +336,11 @@ export const PLAYLISTS: Playlist[] = [
       "patoranking",
       "dagrin",
       "lil kesh",
-      "vector",
-      "reminisce ponmile",
+      "vector tha viper",
+      "__artist:452279375",
       "olu maintain",
       "sound sultan",
-      "faze",
+      "faze originality",
       "lord of ajasa",
       "don jazzy",
       "ycee",
@@ -434,7 +428,7 @@ export const PLAYLISTS: Playlist[] = [
       "otile brown",
       "mbosso",
       "nandy",
-      "bien",
+      "__artist:1588944195",
       "nviiri the storyteller",
       "nikita kering",
       "bensoul",
@@ -447,7 +441,6 @@ export const PLAYLISTS: Playlist[] = [
       "bahati kenya",
       "willy paul",
       "arrow bwoy",
-      "jovial",
       "navy kenzo",
       "vanessa mdee",
       "darassa",
@@ -572,25 +565,23 @@ export const PLAYLISTS: Playlist[] = [
     searchTerms: [
       "beyonce crazy in love", "destiny's child", "nelly", "ja rule",
       "ashanti", "missy elliott", "timbaland", "outkast", "ludacris",
-      "50 cent in da club", "young jeezy", "t.i.", "lil jon", "ying yang twins",
+      "50 cent in da club", "young jeezy", "t.i. whatever you like", "lil jon", "ying yang twins",
       "fat joe", "fabolous", "akon", "ne-yo so sick", "chris brown run it",
       "usher yeah", "alicia keys fallin", "mario let me love you", "bow wow",
       "omarion", "ciara goodies", "kelly rowland", "amerie 1 thing", "fergie",
       "black eyed peas", "justin timberlake cry me a river", "nsync",
       "backstreet boys", "britney spears toxic", "christina aguilera",
-      "pink so what", "kelly clarkson since u been gone", "avril lavigne",
+      "__artist:4488522", "kelly clarkson since u been gone", "avril lavigne",
       "gwen stefani hollaback", "fall out boy", "panic at the disco",
       "my chemical romance", "linkin park", "blink 182", "shaggy",
       "sean paul", "nelly furtado",
     ],
   },
 ];
-
 // Get a playlist by ID
 export function getPlaylistById(id: string): Playlist | undefined {
   return PLAYLISTS.find((p) => p.id === id);
 }
-
 // Get all playlist IDs
 export function getPlaylistIds(): string[] {
   return PLAYLISTS.map((p) => p.id);
