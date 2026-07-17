@@ -21,5 +21,3 @@ verify_jwt = false
 [functions.feedback-notify]
 verify_jwt = false
 
-[functions.push-test]
-verify_jwt = false

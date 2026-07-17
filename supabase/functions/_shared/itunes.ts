@@ -84,6 +84,21 @@ export function buildRoundPlanFromPool(pool: iTunesTrack[], rounds: number): Pla
   });
 }
 
+// Terms with this prefix reference an exact iTunes artist ID instead of a
+// text search — immune to same-name collisions (O-Zone/Eben/Reminisce class
+// bugs). Format: "__artist:<id>"
+export const ARTIST_TERM_PREFIX = "__artist:";
+
+// Fetch an artist's top songs by their exact iTunes artist ID.
+export async function lookupArtistSongs(artistId: string, limit: number): Promise<iTunesTrack[]> {
+  const url = `https://itunes.apple.com/lookup?id=${encodeURIComponent(artistId)}&entity=song&limit=${limit + 1}`;
+  const response = await fetch(url);
+  const data = await response.json();
+  return ((data.results ?? []) as (iTunesTrack & { wrapperType?: string })[])
+    .filter((r) => r.wrapperType === "track" && r.previewUrl)
+    .slice(0, limit);
+}
+
 // Playlists whose first "search term" carries this prefix are chart-driven:
 // the pool comes from Apple's official Most Played feed for a storefront
 // (e.g. "__chart:ng") instead of artist searches.
@@ -149,7 +164,11 @@ export async function fetchPlaylistPool(
   const tracksPerTerm = Math.max(3, Math.ceil((targetSize * 2) / usedTerms.length));
 
   const results = await Promise.allSettled(
-    usedTerms.map((term) => searchTracks(term, tracksPerTerm))
+    usedTerms.map((term) =>
+      term.startsWith(ARTIST_TERM_PREFIX)
+        ? lookupArtistSongs(term.slice(ARTIST_TERM_PREFIX.length), tracksPerTerm)
+        : searchTracks(term, tracksPerTerm)
+    )
   );
 
   const allTracks: iTunesTrack[] = [];

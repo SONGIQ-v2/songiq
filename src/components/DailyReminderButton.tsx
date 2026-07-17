@@ -31,7 +31,9 @@ export function DailyReminderButton({ className = "" }: { className?: string }) 
 
   if (state === "done") {
     const sendTest = async () => {
-      const { data, error } = await supabase.functions.invoke("push-test", { body: {} });
+      const { data, error } = await supabase.functions.invoke("apple-music", {
+        body: { action: "push-test" },
+      });
       if (error || !data?.ok) {
         const reason = data?.reason;
         toast.error(
