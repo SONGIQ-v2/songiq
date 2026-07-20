@@ -3,7 +3,6 @@ import { Bell, BellRing, Share } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useGameStore } from "@/lib/gameStore";
-import { supabase } from "@/integrations/supabase/client";
 import { getPushSupport, isSubscribed, subscribeToDailyReminders } from "@/lib/push";
 
 /**
@@ -30,36 +29,10 @@ export function DailyReminderButton({ className = "" }: { className?: string }) 
   if (state === "hidden") return null;
 
   if (state === "done") {
-    const sendTest = async () => {
-      const { data, error } = await supabase.functions.invoke("apple-music", {
-        body: { action: "push-test" },
-      });
-      if (error || !data?.ok) {
-        const reason = data?.reason;
-        toast.error(
-          reason === "no_subscription"
-            ? "No reminder subscription found on this browser"
-            : reason === "no_vapid"
-            ? "Reminders are warming up — try again in a few minutes"
-            : `Test failed${data?.errors?.length ? ` (status ${data.errors[0]})` : ""}`
-        );
-      } else {
-        toast.success("Test sent — it should pop up right now");
-      }
-    };
-
     return (
-      <div className={className}>
-        <p className="text-sm text-muted-foreground flex items-center justify-center gap-1.5">
-          <BellRing className="w-4 h-4 text-gold" /> Daily reminder is on
-        </p>
-        <button
-          onClick={sendTest}
-          className="text-xs text-muted-foreground underline hover:text-foreground mt-1"
-        >
-          Send test notification
-        </button>
-      </div>
+      <p className={`text-sm text-muted-foreground flex items-center justify-center gap-1.5 ${className}`}>
+        <BellRing className="w-4 h-4 text-gold" /> Daily reminder is on
+      </p>
     );
   }
 
