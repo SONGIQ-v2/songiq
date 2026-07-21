@@ -46,7 +46,7 @@ async function getPlaylistTracksCached(
   searchTerms: string[],
   playlistName: string,
   limit: number
-): Promise<{ playlistName: string; playlistImage: string; tracks: iTunesTrack[] }> {
+): Promise<{ playlistName: string; playlistImage: string; tracks: iTunesTrack[]; cached: boolean }> {
   const admin = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -74,7 +74,11 @@ async function getPlaylistTracksCached(
   } else {
     try {
       const fetched = await fetchPlaylistPool(searchTerms, 50);
-      if (fetched.pool.length === 0) throw new Error('iTunes returned no tracks');
+      // A tiny pool means iTunes was throttling/failing during the rebuild —
+      // never cache it (a game needs 10+ tracks; a healthy pool is 40+).
+      if (fetched.pool.length < 20) {
+        throw new Error(`iTunes returned only ${fetched.pool.length} tracks`);
+      }
       pool = fetched.pool;
       image = fetched.image;
       const { error: writeErr } = await admin.from('playlist_cache').upsert({

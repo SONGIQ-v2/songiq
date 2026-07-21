@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
         const terms = Array.isArray(row.search_terms) ? row.search_terms : [];
         if (terms.length === 0) continue;
         const { pool, image } = await fetchPlaylistPool(terms, 50);
-        if (pool.length === 0) continue; // keep serving the old pool
+        if (pool.length < 20) continue; // throttled/failed fetch — keep the old pool
         await supabase.from("playlist_cache").upsert({
           playlist_name: row.playlist_name,
           search_terms: terms,
