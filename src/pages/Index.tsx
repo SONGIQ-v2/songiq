@@ -123,7 +123,7 @@ const Index = () => {
       <Header />
 
       <main className="relative z-10 pt-24 pb-12 px-4">
-        <motion.div className="max-w-4xl mx-auto" variants={container(0.12)} initial="hidden" animate="show">
+        <motion.div className="max-w-[1100px] mx-auto" variants={container(0.12)} initial="hidden" animate="show">
           {/* Hero Section */}
           <motion.div className="text-center mb-12" variants={fade}>
             <h1 className="font-display text-5xl md:text-7xl leading-[1.05] mb-4">
