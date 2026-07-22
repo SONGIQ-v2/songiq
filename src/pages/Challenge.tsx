@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Starfield } from "@/components/Starfield";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PlayerAvatar } from "@/components/PlayerAvatar";
 import songiqLogo from "@/assets/songiq-logo.png";
 import { useGameStore } from "@/lib/gameStore";
 import {
@@ -22,6 +23,7 @@ import {
 
 interface BoardEntry {
   name: string;
+  playerId?: string | null;
   score: number;
   isCreator: boolean;
   isMe: boolean;
@@ -39,11 +41,12 @@ function Leaderboard({ entries }: { entries: BoardEntry[] }) {
               e.isMe ? "bg-primary/15 border border-primary/40" : "bg-card/50"
             }`}
           >
-            <span className="flex items-center gap-2 font-semibold text-foreground">
+            <span className="flex items-center gap-2 font-semibold text-foreground min-w-0">
               <span className="text-muted-foreground w-6">#{i + 1}</span>
-              {e.name}
-              {e.isCreator && <Crown className="w-4 h-4 text-gold" />}
-              {e.isMe && <span className="text-xs text-primary">(you)</span>}
+              <PlayerAvatar variant="icon-only" size="xs" name={e.name} avatarIndex={1} playerId={e.playerId ?? undefined} />
+              <span className="truncate">{e.name}</span>
+              {e.isCreator && <Crown className="w-4 h-4 text-gold shrink-0" />}
+              {e.isMe && <span className="text-xs text-primary shrink-0">(you)</span>}
             </span>
             <span className="font-bold text-gold">{e.score}</span>
           </div>
@@ -88,9 +91,16 @@ export default function ChallengePage() {
 
   const board: BoardEntry[] = challenge
     ? [
-        { name: challenge.creator_name, score: challenge.creator_score, isCreator: true, isMe: false },
+        {
+          name: challenge.creator_name,
+          playerId: challenge.creator_id,
+          score: challenge.creator_score,
+          isCreator: true,
+          isMe: false,
+        },
         ...attempts.map((a) => ({
           name: a.player_name,
+          playerId: a.player_id,
           score: a.score,
           isCreator: false,
           isMe: a.player_id === playerId,

@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { Starfield } from "@/components/Starfield";
 import { Header } from "@/components/Header";
 import { GameModeCard } from "@/components/GameModeCard";
+import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { Music, Users, Headphones, Mic2, Trophy, Zap, CalendarDays, ChevronRight } from "lucide-react";
 import { fetchTodayChallenge, fetchDailyAttempts, type DailyChallenge, type DailyAttempt } from "@/lib/daily";
 
@@ -75,7 +76,9 @@ const Index = () => {
                     <span className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1.5 text-xs text-foreground/80">
                       {topThree.map((a, i) => (
                         <span key={a.player_id} className="flex items-center gap-1 truncate">
-                          {MEDALS[i]} <span className="font-semibold truncate max-w-[90px]">{a.player_name}</span>
+                          {MEDALS[i]}
+                          <PlayerAvatar variant="icon-only" size="2xs" name={a.player_name} avatarIndex={1} playerId={a.player_id} />
+                          <span className="font-semibold truncate max-w-[90px]">{a.player_name}</span>
                           <span className="text-gold font-bold">{a.score}</span>
                         </span>
                       ))}

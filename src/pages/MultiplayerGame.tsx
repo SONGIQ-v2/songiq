@@ -11,6 +11,7 @@ import { AudioVisualizer } from "@/components/AudioVisualizer";
 import { AnswerOption } from "@/components/AnswerOption";
 import { TimerBar } from "@/components/TimerBar";
 import { Leaderboard } from "@/components/Leaderboard";
+import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { Button } from "@/components/ui/button";
 import { logError, logWarn, logInfo } from "@/lib/clientLogger";
 import { warmAudioUrl, preloadAudio, playWithUnmute } from "@/lib/audioPreload";
@@ -477,7 +478,16 @@ export default function MultiplayerGame() {
             {winner && (
               <div className="mb-6">
                 <p className="text-muted-foreground mb-2">Winner</p>
-                <p className="text-2xl font-bold text-gold">{winner.player_name}</p>
+                <div className="flex items-center justify-center gap-2">
+                  <PlayerAvatar
+                    variant="icon-only"
+                    size="sm"
+                    name={winner.player_name}
+                    avatarIndex={winner.avatar_index}
+                    playerId={winner.player_id}
+                  />
+                  <p className="text-2xl font-bold text-gold">{winner.player_name}</p>
+                </div>
                 <p className="text-lg text-foreground/80">{winner.score} points</p>
               </div>
             )}
@@ -918,6 +928,13 @@ export default function MultiplayerGame() {
                   }`}
                 >
                   <span className="font-bold text-sm">{index + 1}</span>
+                  <PlayerAvatar
+                    variant="icon-only"
+                    size="xs"
+                    name={player.player_name}
+                    avatarIndex={player.avatar_index}
+                    playerId={player.player_id}
+                  />
                   <span className="text-sm truncate max-w-[60px]">{player.player_name}</span>
                   <span className="text-sm font-bold text-gold">{player.score}</span>
                   {player.hasAnswered && (

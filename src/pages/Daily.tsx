@@ -6,6 +6,7 @@ import { Music2, Play, CalendarDays, Flame, Trophy, Hash, Clock } from "lucide-r
 import { Starfield } from "@/components/Starfield";
 import { Button } from "@/components/ui/button";
 import { DailyReminderButton } from "@/components/DailyReminderButton";
+import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { Input } from "@/components/ui/input";
 import songiqLogo from "@/assets/songiq-logo.png";
 import { useGameStore } from "@/lib/gameStore";
@@ -241,9 +242,12 @@ export default function Daily() {
                           : "bg-card/50"
                       }`}
                     >
-                      <span className="font-semibold text-foreground truncate">
-                        #{i + 1} {a.player_name}
-                        {a.player_id === playerId && <span className="text-primary text-xs"> (you)</span>}
+                      <span className="font-semibold text-foreground flex items-center gap-1.5 min-w-0">
+                        <PlayerAvatar variant="icon-only" size="xs" name={a.player_name} avatarIndex={1} playerId={a.player_id} />
+                        <span className="truncate">
+                          #{i + 1} {a.player_name}
+                          {a.player_id === playerId && <span className="text-primary text-xs"> (you)</span>}
+                        </span>
                       </span>
                       <span className="font-bold text-gold ml-2">{a.score}</span>
                     </div>
@@ -265,9 +269,12 @@ export default function Daily() {
                         : "bg-card/50"
                     }`}
                   >
-                    <span className="font-semibold text-foreground truncate">
-                      #{i + 1} {s.player_name}
-                      {s.player_id === playerId && <span className="text-primary text-xs"> (you)</span>}
+                    <span className="font-semibold text-foreground flex items-center gap-1.5 min-w-0">
+                      <PlayerAvatar variant="icon-only" size="xs" name={s.player_name} avatarIndex={1} playerId={s.player_id} />
+                      <span className="truncate">
+                        #{i + 1} {s.player_name}
+                        {s.player_id === playerId && <span className="text-primary text-xs"> (you)</span>}
+                      </span>
                     </span>
                     <span className="font-bold text-gold ml-2 flex items-center gap-1">
                       <Flame className="w-3.5 h-3.5" />

@@ -2,8 +2,7 @@ import { memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Crown, TrendingUp, TrendingDown, Minus, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-
+import { PlayerAvatar } from "@/components/PlayerAvatar";
 
 interface LeaderboardPlayer {
   id: string;
@@ -24,17 +23,6 @@ interface LeaderboardProps {
   showRoundScore?: boolean;
   compact?: boolean;
 }
-
-const AVATAR_COLORS = [
-  "from-orange-500 to-yellow-500",
-  "from-pink-500 to-purple-500",
-  "from-green-500 to-teal-500",
-  "from-blue-500 to-cyan-500",
-  "from-red-500 to-orange-500",
-  "from-purple-500 to-indigo-500",
-  "from-yellow-500 to-lime-500",
-  "from-cyan-500 to-blue-500",
-];
 
 const RANK_COLORS = ["text-yellow-400", "text-gray-300", "text-amber-600"];
 
@@ -88,7 +76,6 @@ interface LeaderboardRowProps {
 
 const LeaderboardRow = memo(
   ({ player, index, isCurrentPlayer, rankChange, showRoundScore }: LeaderboardRowProps) => {
-    const colorClass = AVATAR_COLORS[(player.avatar_index - 1) % AVATAR_COLORS.length];
     return (
       <motion.div
         layout
@@ -124,9 +111,13 @@ const LeaderboardRow = memo(
             )}
           </AnimatePresence>
         </div>
-        <div className={cn("w-8 h-8 rounded-full bg-gradient-to-br flex items-center justify-center text-sm font-bold text-white", colorClass)}>
-          {player.player_name.charAt(0).toUpperCase()}
-        </div>
+        <PlayerAvatar
+          variant="icon-only"
+          size="xs"
+          name={player.player_name}
+          avatarIndex={player.avatar_index}
+          playerId={player.player_id}
+        />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1">
             <span className={cn("font-medium truncate", isCurrentPlayer && "text-primary")}>
