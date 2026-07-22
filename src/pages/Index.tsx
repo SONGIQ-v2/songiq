@@ -159,6 +159,41 @@ const Index = () => {
             </div>
           </motion.section>
 
+          {/* Daily Challenge quick-play */}
+          {daily && (
+            <motion.div variants={pop} className="raised-panel max-w-2xl mx-auto p-5 mb-16 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="relative inline-flex items-center justify-center rounded-full p-1.5 shrink-0">
+                  {myStreak > 0 ? (
+                    <>
+                      <span className={cn("absolute inset-0 rounded-full", !shouldReduceMotion && "pulse-kente")} />
+                      <motion.span
+                        className="inline-flex"
+                        animate={shouldReduceMotion ? undefined : { scale: [1, 1.15, 1] }}
+                        transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+                      >
+                        <Flame className="w-7 h-7 text-kente-green" />
+                      </motion.span>
+                      <span className="absolute -bottom-1 -right-1 rounded-full bg-kente-green text-[10px] font-bold px-1.5 leading-4 text-background">
+                        {myStreak}
+                      </span>
+                    </>
+                  ) : (
+                    <CalendarDays className="w-8 h-8 text-gold" />
+                  )}
+                </span>
+                <div className="min-w-0">
+                  <p className="font-display text-foreground truncate">Daily Challenge #{daily.number}</p>
+                  <p className="text-sm text-muted-foreground truncate">{daily.category_name}</p>
+                </div>
+              </div>
+              <Button variant="gold" onClick={() => navigate("/daily")} className="shrink-0">
+                <Play className="w-4 h-4 mr-1.5 fill-current" />
+                Play
+              </Button>
+            </motion.div>
+          )}
+
           {/* Pick Your Battlefield */}
           <motion.section className="mb-16" variants={container(0.08)}>
             <motion.h2 variants={fade} className="font-display text-2xl md:text-3xl text-center mb-2">
@@ -237,38 +272,6 @@ const Index = () => {
               <motion.h2 variants={fade} className="font-display text-2xl md:text-3xl text-center mb-8">
                 Daily <span className="text-primary">Challenge</span>
               </motion.h2>
-
-              <motion.div variants={pop} className="raised-panel max-w-2xl mx-auto p-5 mb-6 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="relative inline-flex items-center justify-center rounded-full p-1.5 shrink-0">
-                    {myStreak > 0 ? (
-                      <>
-                        <span className={cn("absolute inset-0 rounded-full", !shouldReduceMotion && "pulse-kente")} />
-                        <motion.span
-                          className="inline-flex"
-                          animate={shouldReduceMotion ? undefined : { scale: [1, 1.15, 1] }}
-                          transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-                        >
-                          <Flame className="w-7 h-7 text-kente-green" />
-                        </motion.span>
-                        <span className="absolute -bottom-1 -right-1 rounded-full bg-kente-green text-[10px] font-bold px-1.5 leading-4 text-background">
-                          {myStreak}
-                        </span>
-                      </>
-                    ) : (
-                      <CalendarDays className="w-8 h-8 text-gold" />
-                    )}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="font-display text-foreground truncate">Daily Challenge #{daily.number}</p>
-                    <p className="text-sm text-muted-foreground truncate">{daily.category_name}</p>
-                  </div>
-                </div>
-                <Button variant="gold" onClick={() => navigate("/daily")} className="shrink-0">
-                  <Play className="w-4 h-4 mr-1.5 fill-current" />
-                  Play
-                </Button>
-              </motion.div>
 
               {dailyBoard.length > 0 && (
                 <motion.div variants={pop} className="raised-panel max-w-2xl mx-auto p-4">
