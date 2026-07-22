@@ -43,7 +43,7 @@ async function ensureFonts() {
   try {
     await Promise.race([
       Promise.all([
-        document.fonts.load('80px "Archivo Black"'),
+        document.fonts.load('700 80px "Space Grotesk"'),
         document.fonts.load('40px "Space Grotesk"'),
       ]),
       new Promise((r) => setTimeout(r, 1500)),
@@ -53,7 +53,7 @@ async function ensureFonts() {
   }
 }
 
-const display = (px: number) => `${px}px "Archivo Black", sans-serif`;
+const display = (px: number) => `700 ${px}px "Space Grotesk", sans-serif`;
 const body = (px: number, weight = 400) => `${weight} ${px}px "Space Grotesk", sans-serif`;
 
 export async function renderShareCard(opts: ShareCardOptions): Promise<Blob | null> {

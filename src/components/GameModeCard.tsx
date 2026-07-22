@@ -1,5 +1,6 @@
-import { motion } from "framer-motion";
+import { motion, type Variants } from "framer-motion";
 import { Music, Users, Play } from "lucide-react";
+import { BUTTON_SPRING } from "@/lib/motion";
 
 interface GameModeCardProps {
   title: string;
@@ -7,6 +8,7 @@ interface GameModeCardProps {
   icon: "solo" | "multiplayer";
   onClick: () => void;
   isPrimary?: boolean;
+  variants?: Variants;
 }
 
 export const GameModeCard = ({
@@ -15,15 +17,18 @@ export const GameModeCard = ({
   icon,
   onClick,
   isPrimary = false,
+  variants,
 }: GameModeCardProps) => {
   const Icon = icon === "solo" ? Music : Users;
 
   return (
     <motion.button
       onClick={onClick}
+      variants={variants}
       className={`${isPrimary ? "game-card-primary" : "game-card"} w-full text-left group`}
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
+      whileHover={{ scale: 1.03 }}
+      whileTap={{ scale: 0.95 }}
+      transition={BUTTON_SPRING}
     >
       <div className="flex flex-col items-center text-center">
         {/* Icon */}

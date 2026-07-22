@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
 @layer base {
   :root {
@@ -55,6 +55,7 @@
     --shadow-glow: 0 0 40px hsl(45 100% 60% / 0.2);
     --shadow-card: 0 8px 32px hsl(0 0% 0% / 0.3);
     --shadow-gold: 0 4px 20px hsl(45 100% 60% / 0.3);
+    --shadow-inset-highlight: inset 0 1px 0 hsl(0 0% 100% / 0.12), inset 0 -3px 8px hsl(0 0% 0% / 0.25);
   }
 
   .dark {
@@ -91,8 +92,9 @@
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Archivo Black', sans-serif;
-    letter-spacing: 0.02em;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.01em;
   }
 }
 
@@ -139,24 +141,44 @@
   .game-card {
     @apply relative overflow-hidden rounded-2xl p-6 transition-all duration-300;
     background: var(--gradient-card);
-    border: 1px solid hsl(var(--border));
-    box-shadow: var(--shadow-card);
+    border: 2px solid hsl(var(--border));
+    box-shadow: var(--shadow-card), var(--shadow-inset-highlight);
   }
 
   .game-card:hover {
     transform: translateY(-4px);
-    box-shadow: var(--shadow-glow);
+    box-shadow: var(--shadow-glow), var(--shadow-inset-highlight);
     border-color: hsl(var(--gold) / 0.5);
   }
 
   .game-card-primary {
     @apply game-card;
-    border: 2px solid hsl(var(--gold) / 0.3);
-    box-shadow: var(--shadow-glow);
+    border: 3px solid hsl(var(--gold-glow) / 0.4);
+    box-shadow: var(--shadow-glow), var(--shadow-inset-highlight);
   }
 
   .game-card-primary:hover {
     border-color: hsl(var(--gold));
+  }
+
+  /* Raised panel — chunky-border/layered-shadow surface for non-button panels */
+  .raised-panel {
+    @apply relative rounded-2xl border-2 border-border/60;
+    background: hsl(var(--card) / 0.5);
+    box-shadow: var(--shadow-card), var(--shadow-inset-highlight);
+  }
+
+  /* HUD scoreboard chip — accent color applied per-instance via Tailwind utilities */
+  .stat-chip {
+    @apply relative flex flex-col items-center gap-1 px-6 py-3 rounded-xl border-2 border-border/60 min-w-[92px];
+    background: hsl(var(--card) / 0.6);
+    box-shadow: var(--shadow-card), var(--shadow-inset-highlight);
+  }
+  .stat-chip-value {
+    @apply text-2xl font-bold leading-none;
+  }
+  .stat-chip-label {
+    @apply text-[11px] uppercase tracking-[0.15em] text-muted-foreground mt-0.5;
   }
 
   /* Category card */
@@ -178,10 +200,12 @@
 
   /* Gold button glow effect */
   .btn-gold {
-    @apply relative overflow-hidden font-bold uppercase tracking-wider;
+    @apply relative overflow-hidden font-bold uppercase tracking-wider border-2;
+    border-color: hsl(var(--gold-glow) / 0.6);
     background: var(--gradient-gold);
     color: hsl(var(--primary-foreground));
     text-shadow: 0 1px 2px hsl(0 0% 0% / 0.2);
+    box-shadow: var(--shadow-gold), var(--shadow-inset-highlight);
   }
 
   .btn-gold::before {
@@ -298,6 +322,16 @@
   @keyframes pulseGold {
     0%, 100% { box-shadow: 0 0 0 0 hsl(45 100% 60% / 0.4); }
     50% { box-shadow: 0 0 0 20px hsl(45 100% 60% / 0); }
+  }
+
+  /* Pulse animation for an active daily streak */
+  .pulse-kente {
+    animation: pulseKente 2s ease-in-out infinite;
+  }
+
+  @keyframes pulseKente {
+    0%, 100% { box-shadow: 0 0 0 0 hsl(var(--kente-green) / 0.4); }
+    50% { box-shadow: 0 0 0 20px hsl(var(--kente-green) / 0); }
   }
 }
 

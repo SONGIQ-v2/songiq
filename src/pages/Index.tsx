@@ -1,19 +1,42 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
+import { cn } from "@/lib/utils";
 import { Starfield } from "@/components/Starfield";
 import { Header } from "@/components/Header";
 import { GameModeCard } from "@/components/GameModeCard";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
-import { Music, Users, Headphones, Mic2, Trophy, Zap, CalendarDays, ChevronRight } from "lucide-react";
-import { fetchTodayChallenge, fetchDailyAttempts, type DailyChallenge, type DailyAttempt } from "@/lib/daily";
+import { Button } from "@/components/ui/button";
+import { getMotionVariants, BUTTON_SPRING } from "@/lib/motion";
+import { useGameStore } from "@/lib/gameStore";
+import { Headphones, Mic2, Trophy, Zap, CalendarDays, ChevronRight, Flame } from "lucide-react";
+import { fetchTodayChallenge, fetchDailyAttempts, fetchMyDailyStats, isStreakActive, type DailyChallenge, type DailyAttempt } from "@/lib/daily";
 
 const MEDALS = ["🥇", "🥈", "🥉"];
 
+const STATS = [
+  { value: "8+", label: "Genres", valueClass: "text-primary", chipClass: "border-primary/40" },
+  { value: "1000+", label: "Songs", valueClass: "text-deep-purple", chipClass: "border-deep-purple/40" },
+  { value: "∞", label: "Fun", valueClass: "text-kente-green", chipClass: "border-kente-green/40" },
+] as const;
+
+const HOW_TO_PLAY = [
+  { icon: Headphones, title: "Listen", desc: "Hear a short clip from a trending song" },
+  { icon: Mic2, title: "Guess", desc: "Pick the correct song title or artist name" },
+  { icon: Trophy, title: "Win", desc: "Score points, climb the leaderboard & flex your IQ" },
+] as const;
+
+const GENRES = ["Afrobeats", "Amapiano", "Highlife", "Bongo Flava", "Afro-Pop", "Naija Hits", "Gospel", "Hip-Hop"];
+
 const Index = () => {
   const navigate = useNavigate();
+  const { initializeAuth } = useGameStore();
+  const shouldReduceMotion = useReducedMotion();
+  const { container, pop, pill, fade } = getMotionVariants(!!shouldReduceMotion);
+
   const [daily, setDaily] = useState<DailyChallenge | null>(null);
   const [topThree, setTopThree] = useState<DailyAttempt[]>([]);
+  const [myStreak, setMyStreak] = useState(0);
 
   useEffect(() => {
     (async () => {
@@ -29,25 +52,33 @@ const Index = () => {
     })();
   }, []);
 
+  useEffect(() => {
+    (async () => {
+      try {
+        const pid = await initializeAuth();
+        if (!pid) return;
+        const stats = await fetchMyDailyStats(pid);
+        setMyStreak(isStreakActive(stats) ? stats?.current_streak ?? 0 : 0);
+      } catch {
+        // homepage works fine without the streak badge
+      }
+    })();
+  }, [initializeAuth]);
+
   return (
     <div className="min-h-screen relative overflow-hidden">
       <Starfield />
       <Header />
 
       <main className="relative z-10 pt-24 pb-12 px-4">
-        <div className="max-w-4xl mx-auto">
+        <motion.div className="max-w-4xl mx-auto" variants={container(0.12)} initial="hidden" animate="show">
           {/* Hero Section */}
-          <motion.div
-            className="text-center mb-12"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-          >
-            <h1 className="font-display text-4xl md:text-6xl uppercase tracking-wide mb-4">
+          <motion.div className="text-center mb-12" variants={fade}>
+            <h1 className="font-display text-5xl md:text-7xl uppercase tracking-[-0.02em] leading-[0.95] mb-4">
               Guess the <span className="text-primary">Song</span> — Test Your Music IQ.
             </h1>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              The ultimate music quiz game for Afrobeats, Amapiano, Highlife, Bongo Flava & more. 
+              The ultimate music quiz game for Afrobeats, Amapiano, Highlife, Bongo Flava & more.
               Listen to a clip, guess the song or artist, and prove you're the biggest music fan.
             </p>
           </motion.div>
@@ -56,15 +87,32 @@ const Index = () => {
           {daily && (
             <motion.button
               onClick={() => navigate("/daily")}
-              className="w-full max-w-2xl mx-auto mb-6 flex items-center justify-between gap-3 px-5 py-4 rounded-2xl border-2 border-gold/50 bg-gold/10 hover:bg-gold/20 transition-colors text-left"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.1 }}
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.99 }}
+              variants={pop}
+              className="raised-panel w-full max-w-2xl mx-auto mb-6 flex items-center justify-between gap-3 px-5 py-4 border-gold/50 bg-gold/10 hover:bg-gold/20 transition-colors text-left"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.95 }}
+              transition={BUTTON_SPRING}
             >
               <span className="flex items-center gap-3 min-w-0">
-                <CalendarDays className="w-8 h-8 text-gold shrink-0" />
+                <span className="relative inline-flex items-center justify-center rounded-full p-1.5 shrink-0">
+                  {myStreak > 0 ? (
+                    <>
+                      <span className={cn("absolute inset-0 rounded-full", !shouldReduceMotion && "pulse-kente")} />
+                      <motion.span
+                        className="inline-flex"
+                        animate={shouldReduceMotion ? undefined : { scale: [1, 1.15, 1] }}
+                        transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+                      >
+                        <Flame className="w-7 h-7 text-kente-green" />
+                      </motion.span>
+                      <span className="absolute -bottom-1 -right-1 rounded-full bg-kente-green text-[10px] font-bold px-1.5 leading-4 text-background">
+                        {myStreak}
+                      </span>
+                    </>
+                  ) : (
+                    <CalendarDays className="w-8 h-8 text-gold" />
+                  )}
+                </span>
                 <span className="min-w-0">
                   <span className="block font-display uppercase tracking-wide text-foreground">
                     Daily Challenge #{daily.number}
@@ -91,13 +139,9 @@ const Index = () => {
           )}
 
           {/* Game Mode Cards */}
-          <motion.div
-            className="grid md:grid-cols-2 gap-6 max-w-2xl mx-auto mb-12"
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-          >
+          <motion.div className="grid md:grid-cols-2 gap-6 max-w-2xl mx-auto mb-12" variants={container(0.12)}>
             <GameModeCard
+              variants={pop}
               title="Solo Music Quiz"
               description="Guess the song & artist — play at your own pace"
               icon="solo"
@@ -105,6 +149,7 @@ const Index = () => {
               isPrimary
             />
             <GameModeCard
+              variants={pop}
               title="Multiplayer Challenge"
               description="Challenge friends in real-time music trivia"
               icon="multiplayer"
@@ -113,79 +158,47 @@ const Index = () => {
           </motion.div>
 
           {/* Quick Stats */}
-          <motion.div
-            className="flex justify-center gap-8 text-center mb-16"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.4 }}
-          >
-            <div>
-              <div className="text-2xl font-bold text-primary">8+</div>
-              <div className="text-xs text-muted-foreground uppercase tracking-wide">Genres</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-primary">1000+</div>
-              <div className="text-xs text-muted-foreground uppercase tracking-wide">Songs</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-primary">∞</div>
-              <div className="text-xs text-muted-foreground uppercase tracking-wide">Fun</div>
-            </div>
+          <motion.div className="flex justify-center gap-4 sm:gap-6 mb-16" variants={container(0.08)}>
+            {STATS.map((s) => (
+              <motion.div key={s.label} variants={pop} className={cn("stat-chip", s.chipClass)}>
+                <span className={cn("stat-chip-value", s.valueClass)}>{s.value}</span>
+                <span className="stat-chip-label">{s.label}</span>
+              </motion.div>
+            ))}
           </motion.div>
 
           {/* How It Works Section */}
-          <motion.section
-            className="mb-16"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-          >
-            <h2 className="font-display text-2xl md:text-3xl uppercase tracking-wide text-center mb-8">
+          <motion.section className="mb-16" variants={container(0.08)}>
+            <motion.h2 variants={fade} className="font-display text-2xl md:text-3xl uppercase tracking-wide text-center mb-8">
               How to <span className="text-primary">Play</span>
-            </h2>
+            </motion.h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-3xl mx-auto">
-              <div className="text-center p-6 rounded-2xl bg-card/50 border border-border/50">
-                <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center mx-auto mb-3">
-                  <Headphones className="w-6 h-6 text-primary" />
-                </div>
-                <h3 className="font-display text-lg uppercase mb-2">Listen</h3>
-                <p className="text-muted-foreground text-sm">Hear a short clip from a trending song</p>
-              </div>
-              <div className="text-center p-6 rounded-2xl bg-card/50 border border-border/50">
-                <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center mx-auto mb-3">
-                  <Mic2 className="w-6 h-6 text-primary" />
-                </div>
-                <h3 className="font-display text-lg uppercase mb-2">Guess</h3>
-                <p className="text-muted-foreground text-sm">Pick the correct song title or artist name</p>
-              </div>
-              <div className="text-center p-6 rounded-2xl bg-card/50 border border-border/50">
-                <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center mx-auto mb-3">
-                  <Trophy className="w-6 h-6 text-primary" />
-                </div>
-                <h3 className="font-display text-lg uppercase mb-2">Win</h3>
-                <p className="text-muted-foreground text-sm">Score points, climb the leaderboard & flex your IQ</p>
-              </div>
+              {HOW_TO_PLAY.map((step) => (
+                <motion.div key={step.title} variants={pop} className="raised-panel text-center p-6">
+                  <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center mx-auto mb-3">
+                    <step.icon className="w-6 h-6 text-primary" />
+                  </div>
+                  <h3 className="font-display text-lg uppercase mb-2">{step.title}</h3>
+                  <p className="text-muted-foreground text-sm">{step.desc}</p>
+                </motion.div>
+              ))}
             </div>
           </motion.section>
 
           {/* Genre Highlights */}
-          <motion.section
-            className="mb-16"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6 }}
-          >
-            <h2 className="font-display text-2xl md:text-3xl uppercase tracking-wide text-center mb-8">
+          <motion.section className="mb-16" variants={container(0.05)}>
+            <motion.h2 variants={fade} className="font-display text-2xl md:text-3xl uppercase tracking-wide text-center mb-8">
               African Music <span className="text-primary">Genres</span> We Cover
-            </h2>
+            </motion.h2>
             <div className="flex flex-wrap justify-center gap-3 max-w-2xl mx-auto">
-              {["Afrobeats", "Amapiano", "Highlife", "Bongo Flava", "Afro-Pop", "Naija Hits", "Gospel", "Hip-Hop"].map((genre) => (
-                <span
+              {GENRES.map((genre) => (
+                <motion.span
                   key={genre}
-                  className="px-4 py-2 rounded-full bg-card/60 border border-border/50 text-sm text-foreground/80 font-medium"
+                  variants={pill}
+                  className="px-4 py-2 rounded-full border-2 border-deep-purple/40 bg-deep-purple/10 text-sm text-foreground/80 font-medium"
                 >
                   {genre}
-                </span>
+                </motion.span>
               ))}
             </div>
             <p className="text-muted-foreground text-sm text-center mt-4 max-w-xl mx-auto">
@@ -194,13 +207,8 @@ const Index = () => {
           </motion.section>
 
           {/* CTA Section */}
-          <motion.section
-            className="text-center"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.7 }}
-          >
-            <div className="p-8 rounded-3xl bg-card/40 border border-border/50 max-w-xl mx-auto">
+          <motion.section className="text-center" variants={pop}>
+            <div className="raised-panel p-8 max-w-xl mx-auto">
               <Zap className="w-8 h-8 text-primary mx-auto mb-3" />
               <h2 className="font-display text-xl md:text-2xl uppercase tracking-wide mb-2">
                 Ready to Play?
@@ -208,17 +216,12 @@ const Index = () => {
               <p className="text-muted-foreground text-sm mb-6">
                 No sign-up needed. Jump straight into the music quiz and start guessing songs now — it's free!
               </p>
-              <motion.button
-                onClick={() => navigate("/solo")}
-                className="px-8 py-3 rounded-xl bg-primary text-primary-foreground font-display uppercase tracking-wide hover:bg-primary/90 transition-colors"
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-              >
+              <Button variant="gold" size="lg" onClick={() => navigate("/solo")}>
                 Start Guessing Songs
-              </motion.button>
+              </Button>
             </div>
           </motion.section>
-        </div>
+        </motion.div>
       </main>
     </div>
   );

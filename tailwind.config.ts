@@ -15,7 +15,7 @@ export default {
     extend: {
       fontFamily: {
         sans: ['Space Grotesk', 'sans-serif'],
-        display: ['Archivo Black', 'sans-serif'],
+        display: ['Space Grotesk', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -53,6 +53,9 @@ export default {
         },
         gold: "hsl(var(--gold))",
         terracotta: "hsl(var(--terracotta))",
+        "kente-green": "hsl(var(--kente-green))",
+        "kente-red": "hsl(var(--kente-red))",
+        "deep-purple": "hsl(var(--deep-purple))",
       },
       borderRadius: {
         lg: "var(--radius)",
