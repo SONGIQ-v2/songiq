@@ -138,6 +138,20 @@ export async function fetchMyDailyStats(playerId: string): Promise<DailyStats | 
   return (data as DailyStats) ?? null;
 }
 
+/** Streak stats for a specific set of players, keyed by player_id — used to merge
+ *  streaks into a score-ranked list (e.g. today's leaderboard) without pulling the
+ *  separate all-time-by-streak board. */
+export async function fetchDailyStatsForPlayers(playerIds: string[]): Promise<Record<string, DailyStats>> {
+  if (playerIds.length === 0) return {};
+  const { data } = await (supabase as any)
+    .from("daily_stats")
+    .select("*")
+    .in("player_id", playerIds);
+  const byId: Record<string, DailyStats> = {};
+  for (const row of (data as DailyStats[]) ?? []) byId[row.player_id] = row;
+  return byId;
+}
+
 /** A streak only counts if it includes today or yesterday (Lagos time). */
 export function isStreakActive(stats: DailyStats | null): boolean {
   if (!stats?.last_played) return false;

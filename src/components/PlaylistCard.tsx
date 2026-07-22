@@ -1,12 +1,16 @@
-import { motion } from "framer-motion";
+import { motion, type Variants } from "framer-motion";
 import { Music } from "lucide-react";
 import type { Playlist } from "@/lib/playlists";
+import { cn } from "@/lib/utils";
 
 interface PlaylistCardProps {
   playlist: Playlist;
   imageUrl?: string;
   isSelected: boolean;
   onClick: () => void;
+  featured?: boolean;
+  variants?: Variants;
+  className?: string;
 }
 
 export const PlaylistCard = ({
@@ -14,17 +18,21 @@ export const PlaylistCard = ({
   imageUrl,
   isSelected,
   onClick,
+  featured = false,
+  variants,
+  className,
 }: PlaylistCardProps) => {
   const displayImage = imageUrl || playlist.image;
 
   return (
     <motion.button
       onClick={onClick}
-      className={`relative overflow-hidden rounded-xl border-2 transition-all duration-300 ${
-        isSelected 
-          ? "border-primary ring-2 ring-primary/50" 
-          : "border-border/50 hover:border-primary/50"
-      }`}
+      variants={variants}
+      className={cn(
+        "relative w-full overflow-hidden rounded-xl border-2 transition-all duration-300",
+        isSelected ? "border-primary ring-2 ring-primary/50" : "border-border/50 hover:border-primary/50",
+        className,
+      )}
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
     >
@@ -47,10 +55,10 @@ export const PlaylistCard = ({
         
         {/* Text content */}
         <div className="absolute bottom-0 left-0 right-0 p-3 text-left">
-          <h4 className="font-display text-sm uppercase tracking-wide text-white truncate">
+          <h4 className={cn("font-display tracking-wide text-white truncate", featured ? "text-lg md:text-xl" : "text-sm")}>
             {playlist.name}
           </h4>
-          <p className="text-xs text-white/70 truncate">
+          <p className={cn("text-white/70 truncate", featured ? "text-sm" : "text-xs")}>
             {playlist.description}
           </p>
         </div>

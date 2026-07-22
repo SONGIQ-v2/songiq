@@ -168,19 +168,6 @@
     box-shadow: var(--shadow-card), var(--shadow-inset-highlight);
   }
 
-  /* HUD scoreboard chip — accent color applied per-instance via Tailwind utilities */
-  .stat-chip {
-    @apply relative flex flex-col items-center gap-1 px-6 py-3 rounded-xl border-2 border-border/60 min-w-[92px];
-    background: hsl(var(--card) / 0.6);
-    box-shadow: var(--shadow-card), var(--shadow-inset-highlight);
-  }
-  .stat-chip-value {
-    @apply text-2xl font-bold leading-none;
-  }
-  .stat-chip-label {
-    @apply text-[11px] uppercase tracking-[0.15em] text-muted-foreground mt-0.5;
-  }
-
   /* Category card */
   .category-card {
     @apply relative overflow-hidden rounded-xl transition-all duration-300 cursor-pointer;
