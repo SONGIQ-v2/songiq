@@ -19,20 +19,18 @@ import {
   fetchDailyAttempts,
   fetchMyDailyStats,
   fetchDailyStatsForPlayers,
+  fetchDailyStatsLeaderboard,
   isStreakActive,
   type DailyChallenge,
   type DailyAttempt,
+  type DailyStats,
 } from "@/lib/daily";
-
-const MEDALS = ["🥇", "🥈", "🥉"];
 
 const HOW_TO_PLAY = [
   { icon: Headphones, title: "Listen", desc: "Hear a short clip from a trending song" },
   { icon: Mic2, title: "Guess", desc: "Pick the correct song title or artist name" },
   { icon: Trophy, title: "Win", desc: "Score points, climb the leaderboard & flex your IQ" },
 ] as const;
-
-const GENRES = ["Afrobeats", "Amapiano", "Highlife", "Bongo Flava", "Afro-Pop", "Naija Hits", "Gospel", "Hip-Hop"];
 
 const FEATURED_PLAYLIST_ID = "afrobeats-chill";
 
@@ -52,12 +50,15 @@ const Index = () => {
   const { initializeAuth, setCategory } = useGameStore();
   const { getPlaylistTracks } = useAppleMusic();
   const shouldReduceMotion = useReducedMotion();
-  const { container, pop, pill, fade } = getMotionVariants(!!shouldReduceMotion);
+  const { container, pop, fade } = getMotionVariants(!!shouldReduceMotion);
 
   const [daily, setDaily] = useState<DailyChallenge | null>(null);
   const [dailyBoard, setDailyBoard] = useState<DailyBoardRow[]>([]);
+  const [overallBoard, setOverallBoard] = useState<DailyStats[]>([]);
+  const [dailyTab, setDailyTab] = useState<"today" | "overall">("today");
   const [myStreak, setMyStreak] = useState(0);
   const [playerId, setPlayerId] = useState<string | null>(null);
+  const [totalPlayedToday, setTotalPlayedToday] = useState(0);
 
   const [battlefield] = useState<Playlist[]>(pickBattlefield);
   const [battlefieldImages, setBattlefieldImages] = useState<Record<string, string>>({});
@@ -68,7 +69,8 @@ const Index = () => {
         const challenge = await fetchTodayChallenge();
         if (!challenge) return;
         setDaily(challenge);
-        const { attempts } = await fetchDailyAttempts(challenge.challenge_date);
+        const { attempts, total } = await fetchDailyAttempts(challenge.challenge_date);
+        setTotalPlayedToday(total);
         const top = attempts.slice(0, 5);
         const statsById = await fetchDailyStatsForPlayers(top.map((a) => a.player_id));
         setDailyBoard(
@@ -77,6 +79,8 @@ const Index = () => {
             return { ...a, streak: isStreakActive(stats) ? stats!.current_streak : 0 };
           })
         );
+        const allTime = await fetchDailyStatsLeaderboard();
+        setOverallBoard(allTime.slice(0, 5));
       } catch {
         // homepage works fine without the daily section
       }
@@ -123,13 +127,13 @@ const Index = () => {
       <Header />
 
       <main className="relative z-10 pt-24 pb-12 px-4">
-        <motion.div className="max-w-[1100px] mx-auto" variants={container(0.12)} initial="hidden" animate="show">
+        <motion.div className="max-w-[900px] mx-auto" variants={container(0.12)} initial="hidden" animate="show">
           {/* Hero Section */}
           <motion.div className="text-center mb-12" variants={fade}>
             <h1 className="font-display text-5xl md:text-7xl leading-[1.05] mb-4">
               Guess the <span className="text-primary">Song</span>: Test Your Music IQ.
             </h1>
-            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+            <p className="text-muted-foreground text-lg">
               The ultimate music quiz game for Afrobeats, Amapiano, Highlife, Bongo Flava & more.
               Listen to a clip, guess the song or artist, and prove you're the biggest music fan.
             </p>
@@ -138,9 +142,9 @@ const Index = () => {
           {/* Two Ways to Play */}
           <motion.section className="mb-16" variants={container(0.12)}>
             <motion.h2 variants={fade} className="font-display text-2xl md:text-3xl text-center mb-8">
-              Two Ways to <span className="text-primary">Play</span>
+              Two Ways to Play
             </motion.h2>
-            <div className="grid md:grid-cols-2 gap-6 max-w-2xl mx-auto">
+            <div className="grid md:grid-cols-2 gap-6">
               <GameModeCard
                 variants={pop}
                 title="Solo Music Quiz"
@@ -161,30 +165,37 @@ const Index = () => {
 
           {/* Daily Challenge quick-play */}
           {daily && (
-            <motion.div variants={pop} className="raised-panel max-w-2xl mx-auto p-5 mb-16 flex items-center justify-between gap-4">
+            <motion.div variants={pop} className="raised-panel p-5 mb-16 flex items-center justify-between gap-4">
               <div className="flex items-center gap-3 min-w-0">
                 <span className="relative inline-flex items-center justify-center rounded-full p-1.5 shrink-0">
-                  {myStreak > 0 ? (
-                    <>
-                      <span className={cn("absolute inset-0 rounded-full", !shouldReduceMotion && "pulse-kente")} />
-                      <motion.span
-                        className="inline-flex"
-                        animate={shouldReduceMotion ? undefined : { scale: [1, 1.15, 1] }}
-                        transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-                      >
-                        <Flame className="w-7 h-7 text-kente-green" />
-                      </motion.span>
-                      <span className="absolute -bottom-1 -right-1 rounded-full bg-kente-green text-[10px] font-bold px-1.5 leading-4 text-background">
-                        {myStreak}
-                      </span>
-                    </>
-                  ) : (
-                    <CalendarDays className="w-8 h-8 text-gold" />
+                  <span
+                    className={cn(
+                      "absolute inset-0 rounded-full",
+                      !shouldReduceMotion && (myStreak > 0 ? "pulse-kente" : "pulse-gold")
+                    )}
+                  />
+                  <motion.span
+                    className="inline-flex"
+                    animate={shouldReduceMotion ? undefined : { scale: [1, 1.15, 1] }}
+                    transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+                  >
+                    {myStreak > 0 ? (
+                      <Flame className="w-7 h-7 text-kente-green" />
+                    ) : (
+                      <CalendarDays className="w-8 h-8 text-gold" />
+                    )}
+                  </motion.span>
+                  {myStreak > 0 && (
+                    <span className="absolute -bottom-1 -right-1 rounded-full bg-kente-green text-[10px] font-bold px-1.5 leading-4 text-background">
+                      {myStreak}
+                    </span>
                   )}
                 </span>
                 <div className="min-w-0">
                   <p className="font-display text-foreground truncate">Daily Challenge #{daily.number}</p>
-                  <p className="text-sm text-muted-foreground truncate">{daily.category_name}</p>
+                  <p className="text-sm text-muted-foreground truncate">
+                    {daily.category_name} · {totalPlayedToday > 0 ? `${totalPlayedToday} played today` : "Be the first to play"}
+                  </p>
                 </div>
               </div>
               <Button variant="gold" onClick={() => navigate("/daily")} className="shrink-0">
@@ -194,15 +205,18 @@ const Index = () => {
             </motion.div>
           )}
 
-          {/* Pick Your Battlefield */}
-          <motion.section className="mb-16" variants={container(0.08)}>
+          {/* Pick Your Battlefield — deliberately wider than the page's 900px column */}
+          <motion.section
+            className="mb-16 relative left-1/2 -translate-x-1/2 w-screen max-w-[1100px] px-4"
+            variants={container(0.08)}
+          >
             <motion.h2 variants={fade} className="font-display text-2xl md:text-3xl text-center mb-2">
-              Pick Your <span className="text-primary">Battlefield</span>
+              Pick Your Battlefield
             </motion.h2>
             <p className="text-muted-foreground text-sm text-center mb-8">
               Jump straight into a genre — new picks every visit
             </p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-3xl mx-auto">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {battlefield[0] && (
                 <PlaylistCard
                   featured
@@ -230,9 +244,9 @@ const Index = () => {
           {/* How It Works Section */}
           <motion.section className="mb-16" variants={container(0.08)}>
             <motion.h2 variants={fade} className="font-display text-2xl md:text-3xl text-center mb-8">
-              How to <span className="text-primary">Play</span>
+              How to Play
             </motion.h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-3xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {HOW_TO_PLAY.map((step) => (
                 <motion.div key={step.title} variants={pop} className="raised-panel text-center p-6">
                   <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center mx-auto mb-3">
@@ -245,87 +259,138 @@ const Index = () => {
             </div>
           </motion.section>
 
-          {/* Genre Highlights */}
-          <motion.section className="mb-16" variants={container(0.05)}>
-            <motion.h2 variants={fade} className="font-display text-2xl md:text-3xl text-center mb-8">
-              African Music <span className="text-primary">Genres</span> We Cover
-            </motion.h2>
-            <div className="flex flex-wrap justify-center gap-3 max-w-2xl mx-auto">
-              {GENRES.map((genre) => (
-                <motion.span
-                  key={genre}
-                  variants={pill}
-                  className="px-4 py-2 rounded-full border-2 border-deep-purple/40 bg-deep-purple/10 text-sm text-foreground/80 font-medium"
-                >
-                  {genre}
-                </motion.span>
-              ))}
-            </div>
-            <p className="text-muted-foreground text-sm text-center mt-4 max-w-xl mx-auto">
-              From Burna Boy to Wizkid, Tems to Asake — guess the song from today's hottest African artists and classic throwbacks.
-            </p>
-          </motion.section>
-
           {/* Daily Challenge */}
           {daily && (
             <motion.section className="mb-16" variants={container(0.08)}>
               <motion.h2 variants={fade} className="font-display text-2xl md:text-3xl text-center mb-8">
-                Daily <span className="text-primary">Challenge</span>
+                Daily Challenge
               </motion.h2>
 
-              {dailyBoard.length > 0 && (
-                <motion.div variants={pop} className="raised-panel max-w-2xl mx-auto p-4">
-                  <p className="text-sm font-semibold text-muted-foreground text-center mb-3">Today's Leaderboard</p>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-14">Rank</TableHead>
-                        <TableHead>Player</TableHead>
-                        <TableHead className="text-center">Streak</TableHead>
-                        <TableHead className="text-right">Score</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {dailyBoard.map((row, i) => (
-                        <TableRow
-                          key={row.player_id}
-                          className={row.player_id === playerId ? "bg-primary/10" : undefined}
-                        >
-                          <TableCell className="font-bold text-muted-foreground">
-                            {MEDALS[i] ?? `#${i + 1}`}
-                          </TableCell>
-                          <TableCell>
-                            <span className="flex items-center gap-2 min-w-0">
-                              <PlayerAvatar variant="icon-only" size="xs" name={row.player_name} avatarIndex={1} playerId={row.player_id} />
-                              <span className="truncate">
-                                {row.player_name}
-                                {row.player_id === playerId && <span className="text-primary text-xs"> (you)</span>}
-                              </span>
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {row.streak > 0 ? (
-                              <span className="inline-flex items-center gap-1 text-kente-green font-semibold">
-                                <Flame className="w-3.5 h-3.5" />
-                                {row.streak}
-                              </span>
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right font-bold text-gold">{row.score}</TableCell>
+              {(dailyBoard.length > 0 || overallBoard.length > 0) && (
+                <motion.div variants={pop} className="raised-panel p-4">
+                  <div className="flex gap-2 mb-4">
+                    <button
+                      onClick={() => setDailyTab("today")}
+                      className={cn(
+                        "flex-1 py-2 rounded-xl text-sm font-bold border-2 transition-all",
+                        dailyTab === "today"
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border/50 bg-card/50 text-muted-foreground"
+                      )}
+                    >
+                      Today's Leaderboard
+                    </button>
+                    <button
+                      onClick={() => setDailyTab("overall")}
+                      className={cn(
+                        "flex-1 py-2 rounded-xl text-sm font-bold border-2 transition-all",
+                        dailyTab === "overall"
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border/50 bg-card/50 text-muted-foreground"
+                      )}
+                    >
+                      Overall Leaderboard
+                    </button>
+                  </div>
+
+                  {dailyTab === "today" ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-14">Rank</TableHead>
+                          <TableHead>Player</TableHead>
+                          <TableHead className="text-center">Streak</TableHead>
+                          <TableHead className="text-right">Score</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {dailyBoard.map((row, i) => (
+                          <TableRow
+                            key={row.player_id}
+                            className={row.player_id === playerId ? "bg-primary/10" : undefined}
+                          >
+                            <TableCell className="font-bold text-muted-foreground">{i + 1}</TableCell>
+                            <TableCell>
+                              <span className="flex items-center gap-2 min-w-0">
+                                <PlayerAvatar variant="icon-only" size="xs" name={row.player_name} avatarIndex={1} playerId={row.player_id} />
+                                <span className="truncate">
+                                  {row.player_name}
+                                  {row.player_id === playerId && <span className="text-primary text-xs"> (you)</span>}
+                                </span>
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {row.streak > 0 ? (
+                                <span className="inline-flex items-center gap-1 text-kente-green font-semibold">
+                                  <Flame className="w-3.5 h-3.5" />
+                                  {row.streak}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right font-bold text-gold">{row.score}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-14">Rank</TableHead>
+                          <TableHead>Player</TableHead>
+                          <TableHead className="text-center">Streak</TableHead>
+                          <TableHead className="text-right">Total Score</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {overallBoard.map((row, i) => (
+                          <TableRow
+                            key={row.player_id}
+                            className={row.player_id === playerId ? "bg-primary/10" : undefined}
+                          >
+                            <TableCell className="font-bold text-muted-foreground">{i + 1}</TableCell>
+                            <TableCell>
+                              <span className="flex items-center gap-2 min-w-0">
+                                <PlayerAvatar variant="icon-only" size="xs" name={row.player_name} avatarIndex={1} playerId={row.player_id} />
+                                <span className="truncate">
+                                  {row.player_name}
+                                  {row.player_id === playerId && <span className="text-primary text-xs"> (you)</span>}
+                                </span>
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {isStreakActive(row) ? (
+                                <span className="inline-flex items-center gap-1 text-kente-green font-semibold">
+                                  <Flame className="w-3.5 h-3.5" />
+                                  {row.current_streak}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right font-bold text-gold">{row.total_score}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
                 </motion.div>
               )}
+
+              <motion.div variants={pop} className="text-center mt-6">
+                <Button variant="gold" onClick={() => navigate("/daily")}>
+                  <Play className="w-4 h-4 mr-1.5 fill-current" />
+                  Play Today's Challenge
+                </Button>
+              </motion.div>
             </motion.section>
           )}
 
           {/* CTA Section */}
           <motion.section className="text-center" variants={pop}>
-            <div className="raised-panel p-8 max-w-xl mx-auto">
+            <div className="raised-panel p-8">
               <Zap className="w-8 h-8 text-primary mx-auto mb-3" />
               <h2 className="font-display text-xl md:text-2xl mb-2">
                 Ready to Play?
