@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { Helmet } from "react-helmet-async";
 import { Starfield } from "@/components/Starfield";
 import { Header } from "@/components/Header";
@@ -10,6 +10,7 @@ import { PLAYLISTS, PLAYLIST_CATEGORIES, type PlaylistCategory } from "@/lib/pla
 import { cn } from "@/lib/utils";
 import { useGameStore } from "@/lib/gameStore";
 import { useAppleMusic } from "@/hooks/useAppleMusic";
+import { getMotionVariants } from "@/lib/motion";
 import { ArrowLeft, Play, Loader2 } from "lucide-react";
 
 const SoloPlay = () => {
@@ -20,6 +21,8 @@ const SoloPlay = () => {
   const [activeCategory, setActiveCategory] = useState<"all" | PlaylistCategory>("all");
   const { setCategory } = useGameStore();
   const { getPlaylistTracks } = useAppleMusic();
+  const shouldReduceMotion = useReducedMotion();
+  const { container, pop, fade } = getMotionVariants(!!shouldReduceMotion);
 
   const visiblePlaylists = activeCategory === "all"
     ? PLAYLISTS
@@ -30,7 +33,7 @@ const SoloPlay = () => {
     const fetchPlaylistImages = async () => {
       setLoadingImages(true);
       const images: Record<string, string> = {};
-      
+
       // Fetch first playlist's image to show quickly
       const firstPlaylist = PLAYLISTS[0];
       if (firstPlaylist) {
@@ -44,7 +47,7 @@ const SoloPlay = () => {
           setPlaylistImages({ ...images });
         }
       }
-      
+
       // Fetch remaining playlist images in background
       for (const playlist of PLAYLISTS.slice(1)) {
         const result = await getPlaylistTracks(
@@ -57,7 +60,7 @@ const SoloPlay = () => {
           setPlaylistImages({ ...images });
         }
       }
-      
+
       setLoadingImages(false);
     };
 
@@ -83,25 +86,23 @@ const SoloPlay = () => {
       <Header />
 
       <main className="relative z-10 pt-24 pb-12 px-4">
-        <div className="max-w-4xl mx-auto">
+        <motion.div className="max-w-[1100px] mx-auto" variants={container(0.1)} initial="hidden" animate="show">
           {/* Back button */}
-          <Button
-            variant="ghost"
-            onClick={() => navigate("/")}
-            className="mb-6"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
-          </Button>
+          <motion.div variants={fade}>
+            <Button
+              variant="ghost"
+              onClick={() => navigate("/")}
+              className="mb-6"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back
+            </Button>
+          </motion.div>
 
           {/* Title */}
-          <motion.div
-            className="text-center mb-8"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-          >
-            <h1 className="font-display text-3xl md:text-4xl uppercase tracking-wide mb-2">
-              Choose Your Vibe
+          <motion.div className="text-center mb-8" variants={fade}>
+            <h1 className="font-display text-3xl md:text-4xl mb-2">
+              Choose Your <span className="text-primary">Vibe</span>
             </h1>
             <p className="text-muted-foreground">
               Select a playlist to start your music quiz
@@ -109,12 +110,7 @@ const SoloPlay = () => {
           </motion.div>
 
           {/* Category Tabs */}
-          <motion.div
-            className="flex flex-wrap justify-center gap-2 mb-6"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.05 }}
-          >
+          <motion.div className="flex flex-wrap justify-center gap-2 mb-6" variants={fade}>
             {PLAYLIST_CATEGORIES.map((cat) => (
               <button
                 key={cat.id}
@@ -134,14 +130,15 @@ const SoloPlay = () => {
           {/* Playlists Grid */}
           <motion.div
             key={activeCategory}
-            className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
+            className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8"
+            variants={container(0.05)}
+            initial="hidden"
+            animate="show"
           >
             {visiblePlaylists.map((playlist) => (
               <PlaylistCard
                 key={playlist.id}
+                variants={pop}
                 playlist={playlist}
                 imageUrl={playlistImages[playlist.id]}
                 isSelected={selectedPlaylistId === playlist.id}
@@ -151,15 +148,10 @@ const SoloPlay = () => {
           </motion.div>
 
           {/* Play Button */}
-          <motion.div
-            className="flex justify-center"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-          >
-            <Button 
-              variant="gold" 
-              size="xl" 
+          <motion.div className="flex justify-center" variants={pop}>
+            <Button
+              variant="gold"
+              size="xl"
               onClick={handlePlay}
               disabled={!selectedPlaylistId}
             >
@@ -171,7 +163,7 @@ const SoloPlay = () => {
               Start Quiz
             </Button>
           </motion.div>
-        </div>
+        </motion.div>
       </main>
     </div>
   );
