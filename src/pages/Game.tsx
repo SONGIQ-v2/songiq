@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Helmet } from "react-helmet-async";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Volume2, VolumeX, Trophy, Music2, X, Share2, Play } from "lucide-react";
+import { Volume2, VolumeX, Music2, X, Share2, Play, Star, Flame } from "lucide-react";
 import { toast } from "sonner";
 import { Starfield } from "@/components/Starfield";
 import { RoundIndicator } from "@/components/RoundIndicator";
@@ -11,6 +11,8 @@ import { AnswerOption } from "@/components/AnswerOption";
 import { TimerBar } from "@/components/TimerBar";
 import { Button } from "@/components/ui/button";
 import { DailyReminderButton } from "@/components/DailyReminderButton";
+import { PlayerAvatar } from "@/components/PlayerAvatar";
+import { CARD_SPRING } from "@/lib/motion";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,6 +46,9 @@ import {
   submitDailyAttempt,
   fetchMyDailyRank,
   fetchMyDailyStats,
+  fetchTodayChallenge,
+  fetchMyDailyAttempt,
+  fetchDailyAttempts,
   isStreakActive,
   buildDailyShareText,
 } from "@/lib/daily";
@@ -113,6 +118,7 @@ export default function Game() {
   const [roundResults, setRoundResults] = useState<boolean[]>([]);
   const [challengeAttempts, setChallengeAttempts] = useState<ChallengeAttempt[] | null>(null);
   const [dailyResult, setDailyResult] = useState<{ rank: number; total: number; streak: number } | null>(null);
+  const [dailyPromo, setDailyPromo] = useState<{ number: number; categoryName: string; totalPlayed: number } | null>(null);
 
   // Rounds captured as played, so a normal game can be shared as a challenge
   const planRef = useRef<ChallengeRound[]>([]);
@@ -445,6 +451,28 @@ export default function Game() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameState]);
 
+  // Regular (non-daily) game finished: if today's Daily Challenge exists and
+  // this player hasn't attempted it yet, surface a conversion-focused prompt
+  // on the results screen.
+  useEffect(() => {
+    if (gameState !== "results" || daily) return;
+    (async () => {
+      try {
+        const todayChallenge = await fetchTodayChallenge();
+        if (!todayChallenge) return;
+        const pid = playerId ?? (await initializeAuth());
+        if (!pid) return;
+        const mine = await fetchMyDailyAttempt(todayChallenge.challenge_date, pid);
+        if (mine) return; // already played today's daily challenge
+        const { total } = await fetchDailyAttempts(todayChallenge.challenge_date);
+        setDailyPromo({ number: todayChallenge.number, categoryName: todayChallenge.category_name, totalPlayed: total });
+      } catch {
+        // results screen works fine without the daily-challenge promo
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameState]);
+
   // Background queue: while the game plays, download the remaining rounds'
   // clips one at a time into in-memory object URLs, so every later round
   // starts instantly regardless of connection speed. Solo-only — the device
@@ -585,7 +613,7 @@ export default function Game() {
         <motion.div
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="card-african p-8 max-w-md w-full text-center z-10"
+          className="raised-panel p-8 max-w-md w-full text-center z-10"
         >
           <Music2 className="w-16 h-16 text-gold mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-foreground mb-1">
@@ -673,10 +701,54 @@ export default function Game() {
         <motion.div
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="card-african p-8 max-w-md w-full text-center z-10"
+          className="raised-panel p-8 max-w-md w-full text-center z-10"
         >
-          <Trophy className="w-20 h-20 text-gold mx-auto mb-6" />
-          <h1 className="text-3xl font-bold text-foreground mb-2">Game Complete!</h1>
+          <h1 className="sr-only">Game Complete!</h1>
+          <div className="relative flex flex-col items-center mb-4">
+            <div className="relative flex items-end justify-center gap-1 mb-[-16px] z-10">
+              <motion.div
+                initial={{ scale: 0, rotate: -20 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ ...CARD_SPRING, delay: 0.15 }}
+              >
+                <Star className="w-9 h-9 text-gold drop-shadow-[0_0_8px_hsl(45_100%_60%/0.7)]" fill="currentColor" />
+              </motion.div>
+              <motion.div
+                initial={{ scale: 0, rotate: 10 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={CARD_SPRING}
+              >
+                <Star className="w-14 h-14 text-gold drop-shadow-[0_0_12px_hsl(45_100%_60%/0.8)]" fill="currentColor" />
+              </motion.div>
+              <motion.div
+                initial={{ scale: 0, rotate: 20 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ ...CARD_SPRING, delay: 0.15 }}
+              >
+                <Star className="w-9 h-9 text-gold drop-shadow-[0_0_8px_hsl(45_100%_60%/0.7)]" fill="currentColor" />
+              </motion.div>
+            </div>
+
+            <motion.div
+              initial={{ scale: 0.5, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ ...CARD_SPRING, delay: 0.25 }}
+              className="relative px-10 py-3 rounded-2xl border-2"
+              style={{
+                background: "linear-gradient(180deg, hsl(150 65% 48%), hsl(150 65% 36%))",
+                borderColor: "hsl(150 70% 60% / 0.8)",
+                boxShadow: "0 4px 0 hsl(150 70% 24%), 0 0 30px hsl(150 60% 45% / 0.5), var(--shadow-inset-highlight)",
+              }}
+            >
+              <span className="pulse-kente absolute inset-0 rounded-2xl" />
+              <p
+                className="relative text-2xl font-bold text-white"
+                style={{ textShadow: "0 2px 3px hsl(150 70% 15% / 0.6)" }}
+              >
+                Game Complete!
+              </p>
+            </motion.div>
+          </div>
           <p className="text-foreground/60 mb-6">{playlistName}</p>
           
           <div className="bg-background/50 rounded-xl p-6 mb-6">
@@ -731,12 +803,14 @@ export default function Game() {
                 const board = [
                   {
                     name: challenge.creator_name,
+                    playerId: challenge.creator_id ?? null,
                     score: challenge.creator_score,
                     isMe: false,
                     isCreator: true,
                   },
                   ...(challengeAttempts ?? []).map((a) => ({
                     name: a.player_name,
+                    playerId: a.player_id as string | null,
                     score: a.score,
                     isMe: a.player_id === playerId,
                     isCreator: false,
@@ -758,10 +832,13 @@ export default function Game() {
                             e.isMe ? "bg-primary/15 border border-primary/40" : "bg-card/50"
                           }`}
                         >
-                          <span className="font-semibold text-foreground">
-                            #{i + 1} {e.name} {e.isCreator && "👑"} {e.isMe && <span className="text-primary text-xs">(you)</span>}
+                          <span className="font-semibold text-foreground flex items-center gap-2 min-w-0">
+                            <PlayerAvatar variant="icon-only" size="xs" name={e.name} avatarIndex={1} playerId={e.playerId ?? undefined} />
+                            <span className="truncate">
+                              #{i + 1} {e.name} {e.isCreator && "👑"} {e.isMe && <span className="text-primary text-xs">(you)</span>}
+                            </span>
                           </span>
-                          <span className="font-bold text-gold">{e.score}</span>
+                          <span className="font-bold text-gold shrink-0">{e.score}</span>
                         </div>
                       ))}
                     </div>
@@ -809,6 +886,40 @@ export default function Game() {
                 Play Again
               </Button>
             </div>
+          )}
+
+          {!daily && dailyPromo && (
+            <motion.div
+              initial={{ opacity: 0, y: 12, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={CARD_SPRING}
+              className="relative rounded-2xl border-2 p-5 mt-6 text-center overflow-hidden"
+              style={{
+                borderColor: "hsl(var(--kente-green) / 0.6)",
+                background: "linear-gradient(160deg, hsl(150 60% 40% / 0.18), hsl(150 65% 30% / 0.1))",
+                boxShadow: "0 4px 20px hsl(150 60% 40% / 0.3), var(--shadow-inset-highlight)",
+              }}
+            >
+              <span className="pulse-kente absolute inset-0 rounded-2xl" />
+              <p className="relative font-display text-lg text-kente-green mb-1">
+                🔥 Daily Challenge #{dailyPromo.number}
+              </p>
+              <p className="relative text-sm text-muted-foreground mb-4">
+                {dailyPromo.categoryName} ·{" "}
+                {dailyPromo.totalPlayed > 0
+                  ? `${dailyPromo.totalPlayed} played today`
+                  : "be the first to play today"}
+              </p>
+              <Button
+                variant="kente"
+                size="lg"
+                className="relative w-full whitespace-normal text-center leading-tight px-4 tracking-normal text-sm sm:text-base sm:tracking-wider"
+                onClick={() => navigate("/daily")}
+              >
+                <Flame className="w-5 h-5 mr-2 shrink-0" />
+                Play Today's Challenge
+              </Button>
+            </motion.div>
           )}
         </motion.div>
       </div>
@@ -872,7 +983,15 @@ export default function Game() {
         <div className="flex items-center gap-4">
           <div className="text-right">
             <p className="text-sm text-foreground/60">Score</p>
-            <p className="text-xl font-bold text-gold">{soloScore}</p>
+            <motion.p
+              key={soloScore}
+              initial={{ scale: 1.3 }}
+              animate={{ scale: 1 }}
+              transition={CARD_SPRING}
+              className="text-xl font-bold text-gold"
+            >
+              {soloScore}
+            </motion.p>
           </div>
           <Button
             variant="ghost"
@@ -898,7 +1017,9 @@ export default function Game() {
           key={`${currentRound}-${questionType}`}
           initial={{ opacity: 0, scale: 0.9, y: -10 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={CARD_SPRING}
           className="mb-6 px-6 py-3 rounded-xl bg-gold shadow-lg shadow-gold/30"
+          style={{ boxShadow: "var(--shadow-inset-highlight)" }}
         >
           <p className="text-lg font-bold text-background tracking-wide">
             {questionType === "artist" ? "🎤 GUESS THE ARTIST" : "🎵 GUESS THE SONG"}
@@ -906,26 +1027,38 @@ export default function Game() {
         </motion.div>
 
         {/* Album art / Visualizer */}
-        <motion.div
-          key={currentRound}
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="relative mb-8"
-        >
-          {gameState === "answered" && currentTrack ? (
-            <div className="w-48 h-48 rounded-2xl overflow-hidden shadow-2xl">
-              <img
-                src={currentTrack.artworkUrl100.replace('100x100', '600x600')}
-                alt={currentTrack.collectionName}
-                className="w-full h-full object-cover"
-              />
-            </div>
-          ) : (
-            <div className="w-48 h-48 rounded-2xl bg-card flex items-center justify-center shadow-2xl border border-border">
-              <AudioVisualizer isPlaying={isPlaying} />
-            </div>
-          )}
-        </motion.div>
+        <div className="relative mb-8 w-48 h-48">
+          <AnimatePresence mode="wait">
+            {gameState === "answered" && currentTrack ? (
+              <motion.div
+                key="artwork"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                transition={CARD_SPRING}
+                className="absolute inset-0 rounded-2xl overflow-hidden shadow-2xl"
+              >
+                <img
+                  src={currentTrack.artworkUrl100.replace('100x100', '600x600')}
+                  alt={currentTrack.collectionName}
+                  className="w-full h-full object-cover"
+                />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="visualizer"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                transition={CARD_SPRING}
+                className="absolute inset-0 rounded-2xl bg-card flex items-center justify-center shadow-2xl border-2 border-border"
+                style={{ boxShadow: "var(--shadow-card), var(--shadow-inset-highlight)" }}
+              >
+                <AudioVisualizer isPlaying={isPlaying} />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
 
         {/* Song info (shown after answer) */}
         <AnimatePresence>
@@ -993,7 +1126,7 @@ export default function Game() {
                       stroke="currentColor"
                       strokeWidth="6"
                       fill="none"
-                      className="text-gold"
+                      className={isCorrect ? "text-kente-green" : "text-kente-red"}
                       strokeLinecap="round"
                       initial={{ strokeDashoffset: 0 }}
                       animate={{ strokeDashoffset: 283 }}

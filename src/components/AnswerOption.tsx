@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
-
+import { CARD_SPRING, BUTTON_SPRING } from "@/lib/motion";
 
 interface AnswerOptionProps {
   option: string;
@@ -24,6 +24,8 @@ export const AnswerOption = memo(({
 }: AnswerOptionProps) => {
 
   const letters = ["A", "B", "C", "D"];
+  const wrongPick = isRevealed && isSelected && !isCorrect;
+  const rightPick = isRevealed && !!isCorrect;
 
   return (
     <motion.button
@@ -36,10 +38,20 @@ export const AnswerOption = memo(({
         isRevealed && !isSelected && isCorrect && "correct opacity-70"
       )}
       initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ delay: index * 0.05 }}
-      whileHover={!disabled ? { scale: 1.02 } : {}}
-      whileTap={!disabled ? { scale: 0.98 } : {}}
+      animate={
+        wrongPick
+          ? { opacity: 1, scale: 1, x: [0, -6, 6, -6, 0] }
+          : rightPick
+          ? { opacity: 1, scale: [1, 1.05, 1] }
+          : { opacity: 1, scale: 1 }
+      }
+      transition={
+        wrongPick || rightPick
+          ? { duration: 0.4 }
+          : { ...CARD_SPRING, delay: index * 0.05 }
+      }
+      whileHover={!disabled ? { scale: 1.03, x: 3, transition: BUTTON_SPRING } : undefined}
+      whileTap={!disabled ? { scale: 0.95, transition: BUTTON_SPRING } : undefined}
     >
       <div className="flex flex-col items-center gap-2 text-center p-2">
         {/* Letter badge */}
@@ -60,9 +72,10 @@ export const AnswerOption = memo(({
           <motion.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
+            transition={CARD_SPRING}
             className={cn(
               "w-6 h-6 rounded-full flex items-center justify-center text-xs",
-              isCorrect ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
+              isCorrect ? "bg-kente-green/20 text-kente-green" : "bg-kente-red/20 text-kente-red"
             )}
           >
             {isCorrect ? "✓" : "✗"}

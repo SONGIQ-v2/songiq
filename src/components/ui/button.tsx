@@ -20,6 +20,7 @@ const buttonVariants = cva(
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
         gold: "btn-gold",
+        kente: "btn-kente",
         gameCard: "bg-card border-2 border-border hover:border-primary/50 hover:shadow-lg",
       },
       size: {

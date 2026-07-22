@@ -239,6 +239,11 @@ const Index = () => {
                 />
               ))}
             </div>
+            <motion.div variants={fade} className="flex justify-center mt-6">
+              <Button variant="outline" onClick={() => navigate("/solo")}>
+                View All Genres
+              </Button>
+            </motion.div>
           </motion.section>
 
           {/* How It Works Section */}
