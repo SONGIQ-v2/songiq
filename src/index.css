@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;500;600;700&display=swap');
 
 @layer base {
   :root {
@@ -88,13 +88,13 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: 'Nunito', sans-serif;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: 'Fredoka', sans-serif;
     font-weight: 700;
-    letter-spacing: -0.01em;
+    letter-spacing: normal;
   }
 }
 
@@ -198,14 +198,19 @@
     box-shadow: var(--shadow-gold);
   }
 
-  /* Gold button glow effect */
+  /* Gold button — hard-offset "arcade" press, not a soft glow */
   .btn-gold {
     @apply relative overflow-hidden font-bold uppercase tracking-wider border-2;
-    border-color: hsl(var(--gold-glow) / 0.6);
+    border-color: hsl(var(--gold-glow) / 0.8);
     background: var(--gradient-gold);
     color: hsl(var(--primary-foreground));
-    text-shadow: 0 1px 2px hsl(0 0% 0% / 0.2);
-    box-shadow: var(--shadow-gold), var(--shadow-inset-highlight);
+    text-shadow: none;
+    box-shadow: 0 4px 0 hsl(35 90% 38%), 0 8px 16px hsl(45 100% 60% / 0.35), var(--shadow-inset-highlight);
+    transition: box-shadow 0.15s ease-out;
+  }
+
+  .btn-gold:active {
+    box-shadow: 0 1px 0 hsl(35 90% 38%), 0 3px 8px hsl(45 100% 60% / 0.3), var(--shadow-inset-highlight);
   }
 
   .btn-gold::before {

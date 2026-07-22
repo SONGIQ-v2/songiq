@@ -15,9 +15,9 @@ import { fetchTodayChallenge, fetchDailyAttempts, fetchMyDailyStats, isStreakAct
 const MEDALS = ["🥇", "🥈", "🥉"];
 
 const STATS = [
-  { value: "8+", label: "Genres", valueClass: "text-primary", chipClass: "border-primary/40" },
-  { value: "1000+", label: "Songs", valueClass: "text-deep-purple", chipClass: "border-deep-purple/40" },
-  { value: "∞", label: "Fun", valueClass: "text-kente-green", chipClass: "border-kente-green/40" },
+  { value: "8+", label: "Genres", valueClass: "text-primary", chipClass: "border-primary/50 bg-primary/15" },
+  { value: "1000+", label: "Songs", valueClass: "text-deep-purple", chipClass: "border-deep-purple/50 bg-deep-purple/15" },
+  { value: "∞", label: "Fun", valueClass: "text-kente-green", chipClass: "border-kente-green/50 bg-kente-green/15" },
 ] as const;
 
 const HOW_TO_PLAY = [
@@ -74,7 +74,7 @@ const Index = () => {
         <motion.div className="max-w-4xl mx-auto" variants={container(0.12)} initial="hidden" animate="show">
           {/* Hero Section */}
           <motion.div className="text-center mb-12" variants={fade}>
-            <h1 className="font-display text-5xl md:text-7xl uppercase tracking-[-0.02em] leading-[0.95] mb-4">
+            <h1 className="font-display text-5xl md:text-7xl leading-[1.05] mb-4">
               Guess the <span className="text-primary">Song</span> — Test Your Music IQ.
             </h1>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
@@ -114,7 +114,7 @@ const Index = () => {
                   )}
                 </span>
                 <span className="min-w-0">
-                  <span className="block font-display uppercase tracking-wide text-foreground">
+                  <span className="block font-display text-foreground">
                     Daily Challenge #{daily.number}
                   </span>
                   <span className="block text-sm text-muted-foreground">
@@ -169,7 +169,7 @@ const Index = () => {
 
           {/* How It Works Section */}
           <motion.section className="mb-16" variants={container(0.08)}>
-            <motion.h2 variants={fade} className="font-display text-2xl md:text-3xl uppercase tracking-wide text-center mb-8">
+            <motion.h2 variants={fade} className="font-display text-2xl md:text-3xl text-center mb-8">
               How to <span className="text-primary">Play</span>
             </motion.h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-3xl mx-auto">
@@ -178,7 +178,7 @@ const Index = () => {
                   <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center mx-auto mb-3">
                     <step.icon className="w-6 h-6 text-primary" />
                   </div>
-                  <h3 className="font-display text-lg uppercase mb-2">{step.title}</h3>
+                  <h3 className="font-display text-lg mb-2">{step.title}</h3>
                   <p className="text-muted-foreground text-sm">{step.desc}</p>
                 </motion.div>
               ))}
@@ -187,7 +187,7 @@ const Index = () => {
 
           {/* Genre Highlights */}
           <motion.section className="mb-16" variants={container(0.05)}>
-            <motion.h2 variants={fade} className="font-display text-2xl md:text-3xl uppercase tracking-wide text-center mb-8">
+            <motion.h2 variants={fade} className="font-display text-2xl md:text-3xl text-center mb-8">
               African Music <span className="text-primary">Genres</span> We Cover
             </motion.h2>
             <div className="flex flex-wrap justify-center gap-3 max-w-2xl mx-auto">
@@ -210,7 +210,7 @@ const Index = () => {
           <motion.section className="text-center" variants={pop}>
             <div className="raised-panel p-8 max-w-xl mx-auto">
               <Zap className="w-8 h-8 text-primary mx-auto mb-3" />
-              <h2 className="font-display text-xl md:text-2xl uppercase tracking-wide mb-2">
+              <h2 className="font-display text-xl md:text-2xl mb-2">
                 Ready to Play?
               </h2>
               <p className="text-muted-foreground text-sm mb-6">

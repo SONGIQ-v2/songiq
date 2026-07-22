@@ -14,8 +14,8 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['Space Grotesk', 'sans-serif'],
-        display: ['Space Grotesk', 'sans-serif'],
+        sans: ['Nunito', 'sans-serif'],
+        display: ['Fredoka', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",

@@ -41,7 +41,7 @@ export const GameModeCard = ({
         </div>
 
         {/* Title */}
-        <h3 className="font-display text-xl md:text-2xl uppercase tracking-wide mb-2">
+        <h3 className="font-display text-xl md:text-2xl mb-2">
           {title}
         </h3>
 
