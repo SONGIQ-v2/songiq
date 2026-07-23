@@ -357,6 +357,28 @@
     0%, 100% { box-shadow: 0 0 0 0 hsl(var(--kente-green) / 0.4); }
     50% { box-shadow: 0 0 0 20px hsl(var(--kente-green) / 0); }
   }
+
+  /* Room lobby layout — Room Code first on mobile, grouped with Players in a
+     sidebar column alongside Game Settings on desktop */
+  .room-lobby-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "roomcode"
+      "settings"
+      "players";
+    gap: 1.5rem;
+  }
+
+  @media (min-width: 1024px) {
+    .room-lobby-grid {
+      grid-template-columns: 1fr 400px;
+      grid-template-areas:
+        "settings roomcode"
+        "settings players";
+      align-items: start;
+    }
+  }
 }
 
 /* Scrollbar styling */

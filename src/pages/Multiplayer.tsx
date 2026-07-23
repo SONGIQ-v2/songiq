@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { Helmet } from "react-helmet-async";
 import { Starfield } from "@/components/Starfield";
 import { Header } from "@/components/Header";
@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { useGameStore } from "@/lib/gameStore";
 import { generateRoomCode } from "@/lib/spotify";
 import { supabase } from "@/integrations/supabase/client";
+import { getMotionVariants } from "@/lib/motion";
+import { cn } from "@/lib/utils";
 import { ArrowLeft, Users, Plus, LogIn, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -20,6 +22,8 @@ const Multiplayer = () => {
   const [isJoining, setIsJoining] = useState(false);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const { playerId, isInitialized, initializeAuth, setPlayer, setRoom } = useGameStore();
+  const shouldReduceMotion = useReducedMotion();
+  const { container, pop, fade } = getMotionVariants(!!shouldReduceMotion);
 
   const getUsernameCookie = () => {
     const match = document.cookie.match(/(?:^|; )songiq_username=([^;]*)/);
@@ -78,15 +82,16 @@ const Multiplayer = () => {
 
       if (roomError) throw roomError;
 
+      const avatarIndex = Math.floor(Math.random() * 8) + 1;
       await supabase.from("room_players").insert({
         room_id: room.id,
         player_id: playerId, // Now using authenticated user ID
         player_name: sanitized,
-        avatar_index: Math.floor(Math.random() * 8) + 1,
+        avatar_index: avatarIndex,
         is_host: true,
       });
 
-      setPlayer(playerName, 1);
+      setPlayer(sanitized, avatarIndex);
       setRoom(room.id, code, true);
       setUsernameCookie(playerName);
       navigate(`/room/${code}`);
@@ -137,15 +142,16 @@ const Multiplayer = () => {
         return;
       }
 
+      const avatarIndex = Math.floor(Math.random() * 8) + 1;
       await supabase.from("room_players").insert({
         room_id: room.id,
         player_id: playerId, // Now using authenticated user ID
         player_name: sanitized,
-        avatar_index: Math.floor(Math.random() * 8) + 1,
+        avatar_index: avatarIndex,
         is_host: false,
       });
 
-      setPlayer(playerName, 1);
+      setPlayer(sanitized, avatarIndex);
       setRoom(room.id, roomCode.toUpperCase(), false);
       setUsernameCookie(playerName);
       navigate(`/room/${roomCode.toUpperCase()}`);
@@ -183,21 +189,29 @@ const Multiplayer = () => {
       <Header />
 
       <main className="relative z-10 pt-24 pb-12 px-4">
-        <div className="max-w-md mx-auto">
-          <Button variant="ghost" onClick={() => navigate("/")} className="mb-6">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
-          </Button>
+        <motion.div className="max-w-md mx-auto" variants={container(0.1)} initial="hidden" animate="show">
+          <motion.div variants={fade}>
+            <Button variant="ghost" onClick={() => navigate("/")} className="mb-6">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back
+            </Button>
+          </motion.div>
 
-          <motion.div
-            className="text-center mb-8"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-          >
-            <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-secondary flex items-center justify-center">
-              <Users className="w-10 h-10 text-primary" />
+          <motion.div className="text-center mb-8" variants={fade}>
+            <div className="relative w-20 h-20 mx-auto mb-4 flex items-center justify-center">
+              <span className={cn("absolute inset-0 rounded-2xl", !shouldReduceMotion && "pulse-gold")} />
+              <div
+                className="relative w-full h-full rounded-2xl border-2 flex items-center justify-center"
+                style={{
+                  borderColor: "hsl(var(--gold-glow) / 0.6)",
+                  background: "linear-gradient(160deg, hsl(var(--gold) / 0.35), hsl(var(--gold) / 0.15))",
+                  boxShadow: "var(--shadow-card), var(--shadow-inset-highlight)",
+                }}
+              >
+                <Users className="w-10 h-10 text-primary" />
+              </div>
             </div>
-            <h1 className="font-display text-3xl uppercase tracking-wide mb-2">
+            <h1 className="font-display text-3xl mb-2">
               Play with Friends
             </h1>
             <p className="text-muted-foreground">
@@ -206,12 +220,7 @@ const Multiplayer = () => {
           </motion.div>
 
           {/* Name Input */}
-          <motion.div
-            className="mb-6"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-          >
+          <motion.div className="mb-6" variants={fade}>
             <label htmlFor="mp-player-name" className="block text-sm font-medium mb-2">Your Name</label>
             <Input
               id="mp-player-name"
@@ -224,12 +233,7 @@ const Multiplayer = () => {
           </motion.div>
 
           {/* Create Room */}
-          <motion.div
-            className="game-card mb-4"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-          >
+          <motion.div className="raised-panel p-6 mb-4" variants={pop}>
             <Button
               variant="gold"
               size="lg"
@@ -243,19 +247,14 @@ const Multiplayer = () => {
           </motion.div>
 
           {/* Divider */}
-          <div className="flex items-center gap-4 my-6">
+          <motion.div className="flex items-center gap-4 my-6" variants={fade}>
             <div className="flex-1 h-px bg-border" />
             <span className="text-muted-foreground text-sm">or</span>
             <div className="flex-1 h-px bg-border" />
-          </div>
+          </motion.div>
 
           {/* Join Room */}
-          <motion.div
-            className="game-card"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-          >
+          <motion.div className="raised-panel p-6" variants={pop}>
             <label htmlFor="mp-room-code" className="block text-sm font-medium mb-2">Room Code</label>
             <Input
               id="mp-room-code"
@@ -276,7 +275,7 @@ const Multiplayer = () => {
               {isJoining ? "Joining..." : "Join Room"}
             </Button>
           </motion.div>
-        </div>
+        </motion.div>
       </main>
     </div>
   );
