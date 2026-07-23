@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Starfield } from "@/components/Starfield";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import songiqLogo from "@/assets/songiq-logo.png";
 import { useGameStore } from "@/lib/gameStore";
@@ -32,7 +33,9 @@ interface BoardEntry {
 function Leaderboard({ entries }: { entries: BoardEntry[] }) {
   return (
     <div className="bg-background/50 rounded-xl p-4 mb-6 text-left">
-      <p className="text-muted-foreground mb-3 text-center text-sm">Leaderboard — first attempt counts</p>
+      <p className="text-muted-foreground mb-3 text-center text-sm">
+        Leaderboard — First Attempt Counts
+      </p>
       <div className="space-y-2">
         {entries.slice(0, 8).map((e, i) => (
           <div
@@ -151,47 +154,77 @@ export default function ChallengePage() {
       )}
 
       {status === "ready" && challenge && (
-        <motion.div
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="card-african p-8 max-w-md w-full text-center z-10"
-        >
-          <Link to="/" className="inline-block mb-6">
-            <img src={songiqLogo} alt="SongIQ — Music Trivia Game" className="h-12 mx-auto" />
+        <div className="z-10 max-w-md w-full flex flex-col items-center">
+          <Link to="/" className="mb-6">
+            <img src={songiqLogo} alt="SongIQ — Music Trivia Game" className="h-12" />
           </Link>
 
-          <Swords className="w-14 h-14 text-gold mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-foreground mb-1">
-            {isCreator
-              ? "Your challenge"
-              : myAttempt
-              ? "You played this challenge"
-              : "You've been challenged!"}
-          </h1>
-          <p className="text-muted-foreground mb-6">{challenge.category_name}</p>
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="raised-panel p-8 w-full text-center"
+          >
+            <Badge className="uppercase tracking-wide mb-4">
+              <Swords className="w-3 h-3 mr-1" />
+              Challenge
+            </Badge>
 
-          {!myAttempt && !isCreator && (
-            <div className="bg-background/50 rounded-xl p-6 mb-6">
-              <p className="text-muted-foreground mb-1">{challenge.creator_name} scored</p>
-              <p className="text-5xl font-bold text-gold mb-2">{challenge.creator_score}</p>
-              <p className="text-foreground/60">points</p>
-            </div>
-          )}
+            <h1 className="text-2xl font-bold text-foreground mb-1">
+              {isCreator
+                ? "Your challenge"
+                : myAttempt
+                ? "You played this challenge"
+                : "You've been challenged!"}
+            </h1>
+            <p className="text-muted-foreground mb-6">{challenge.category_name}</p>
 
-          {board.length > 1 || myAttempt || isCreator ? <Leaderboard entries={board} /> : null}
+            {!myAttempt && !isCreator && (
+              <div className="bg-background/50 rounded-xl px-0 sm:px-4 py-4 mb-6 flex items-center justify-between text-left gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <PlayerAvatar
+                    variant="icon-only"
+                    size="md"
+                    className="w-10 h-10 sm:w-14 sm:h-14"
+                    name={challenge.creator_name}
+                    avatarIndex={1}
+                    playerId={challenge.creator_id ?? undefined}
+                  />
+                  <div className="min-w-0">
+                    <p className="text-muted-foreground text-sm truncate">{challenge.creator_name} scored</p>
+                    <p className="text-3xl font-bold text-gold leading-none">
+                      {challenge.creator_score} <span className="text-sm font-normal text-foreground/60">pts</span>
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right text-xs text-muted-foreground space-y-1 shrink-0">
+                  <p className="flex items-center justify-end gap-1.5">
+                    <Hash className="w-3.5 h-3.5 text-primary" />
+                    {challenge.plan.length} songs
+                  </p>
+                  <p className="flex items-center justify-end gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-primary" />
+                    {challenge.time_per_round}s per song
+                  </p>
+                </div>
+              </div>
+            )}
 
-          <div className="flex justify-center gap-6 mb-6 text-sm text-muted-foreground">
-            <span className="flex items-center gap-1.5">
-              <Hash className="w-4 h-4 text-primary" />
-              {challenge.plan.length} songs
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Clock className="w-4 h-4 text-primary" />
-              {challenge.time_per_round}s per song
-            </span>
-          </div>
+            {board.length > 1 || myAttempt || isCreator ? <Leaderboard entries={board} /> : null}
 
-          {isCreator ? (
+            {(isCreator || !!myAttempt) && (
+              <div className="flex justify-center gap-6 mb-6 text-sm text-muted-foreground">
+                <span className="flex items-center gap-1.5">
+                  <Hash className="w-4 h-4 text-primary" />
+                  {challenge.plan.length} songs
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Clock className="w-4 h-4 text-primary" />
+                  {challenge.time_per_round}s per song
+                </span>
+              </div>
+            )}
+
+            {isCreator ? (
             <>
               <p className="text-foreground/80 font-semibold mb-4">
                 This is your challenge — share the link and watch the leaderboard fill up.
@@ -240,11 +273,12 @@ export default function ChallengePage() {
                 disabled={!name.trim()}
               >
                 <Play className="w-5 h-5 mr-2" />
-                Accept Challenge
+                Accept Challenge →
               </Button>
             </>
           )}
-        </motion.div>
+          </motion.div>
+        </div>
       )}
     </div>
   );

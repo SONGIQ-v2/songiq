@@ -4,6 +4,7 @@ import { Crown } from "lucide-react";
 import { createAvatar } from "@dicebear/core";
 import { avataaars } from "@dicebear/collection";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { cn } from "@/lib/utils";
 
 interface PlayerAvatarProps {
   name: string;
@@ -16,6 +17,8 @@ interface PlayerAvatarProps {
   /** "card" (default) renders the full name/score/crown layout used in the lobby.
    *  "icon-only" renders just the avatar circle, for embedding in a custom row layout. */
   variant?: "card" | "icon-only";
+  /** Extra classes merged onto the avatar circle — e.g. responsive size overrides. Only applies to "icon-only". */
+  className?: string;
 }
 
 // Fallback color palette — used only if avatar generation fails
@@ -53,11 +56,13 @@ function AvatarCircle({
   avatarIndex,
   playerId,
   size,
+  className,
 }: {
   name: string;
   avatarIndex: number;
   playerId?: string;
   size: "2xs" | "xs" | "sm" | "md" | "lg";
+  className?: string;
 }) {
   const colorClass = AVATAR_COLORS[(avatarIndex - 1) % AVATAR_COLORS.length];
   const initial = name ? name.charAt(0).toUpperCase() : "?";
@@ -65,7 +70,7 @@ function AvatarCircle({
   const dataUri = useAvatarDataUri(seed);
 
   return (
-    <Avatar className={sizeClasses[size]}>
+    <Avatar className={cn(sizeClasses[size], className)}>
       {dataUri && <AvatarImage src={dataUri} alt={name} />}
       <AvatarFallback
         className={`bg-gradient-to-br ${colorClass} font-bold text-white`}
@@ -85,10 +90,11 @@ export const PlayerAvatar = ({
   size = "md",
   showScore = false,
   variant = "card",
+  className,
 }: PlayerAvatarProps) => {
   if (variant === "icon-only") {
     return (
-      <AvatarCircle name={name} avatarIndex={avatarIndex} playerId={playerId} size={size} />
+      <AvatarCircle name={name} avatarIndex={avatarIndex} playerId={playerId} size={size} className={className} />
     );
   }
 
