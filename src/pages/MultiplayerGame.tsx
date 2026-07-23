@@ -539,14 +539,7 @@ export default function MultiplayerGame() {
               )}
             </div>
 
-            {/* Remaining players (4th place and below) */}
-            {restPlayers.length > 0 && (
-              <div className="mb-6">
-                <Leaderboard players={restPlayers} currentPlayerId={playerId} compact rankOffset={3} hideHeader />
-              </div>
-            )}
-
-            <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex flex-col sm:flex-row gap-4 mb-6">
               <Button variant="gold" size="lg" className="w-full sm:flex-1" onClick={handleShare}>
                 <Share2 className="w-5 h-5 mr-2" />
                 Share Result
@@ -561,6 +554,11 @@ export default function MultiplayerGame() {
                 </Button>
               )}
             </div>
+
+            {/* Remaining players (4th place and below) */}
+            {restPlayers.length > 0 && (
+              <Leaderboard players={restPlayers} currentPlayerId={playerId} compact rankOffset={3} hideHeader />
+            )}
           </motion.div>
         </div>
       </div>
