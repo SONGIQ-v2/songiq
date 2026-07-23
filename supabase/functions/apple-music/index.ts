@@ -119,32 +119,6 @@ serve(async (req) => {
   }
 
   try {
-    // Verify authentication
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return new Response(
-        JSON.stringify({ error: 'Missing authorization' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    const jwt = authHeader.replace('Bearer ', '');
-    const { data, error: authError } = await supabaseClient.auth.getClaims(jwt);
-
-    if (authError || !data?.claims) {
-      console.error("Auth error:", authError);
-      return new Response(
-        JSON.stringify({ error: 'Invalid authorization' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
     const { action, query, genre, searchTerms, playlistName, limit } = await req.json();
 
     console.log(`[Apple Music] Action: ${action}`);
@@ -171,8 +145,46 @@ serve(async (req) => {
 
       case 'push-test': {
         // Send a test push notification to the caller's own subscriptions —
-        // verifies the full reminder pipeline on demand.
-        const playerId = data.claims.sub;
+        // verifies the full reminder pipeline on demand. Unlike search/genre/
+        // playlist (public catalog browsing, no login required), this needs a
+        // real signed-in user to know whose subscriptions to send to.
+        const authHeader = req.headers.get('Authorization');
+        if (!authHeader?.startsWith('Bearer ')) {
+          return new Response(
+            JSON.stringify({ error: 'Missing authorization' }),
+            { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        let playerId: string | undefined;
+        try {
+          const supabaseClient = createClient(
+            Deno.env.get('SUPABASE_URL')!,
+            Deno.env.get('SUPABASE_ANON_KEY')!,
+            { global: { headers: { Authorization: authHeader } } }
+          );
+          const jwt = authHeader.replace('Bearer ', '');
+          const { data: claimsData, error: authError } = await supabaseClient.auth.getClaims(jwt);
+          if (authError || !claimsData?.claims?.sub) {
+            playerId = undefined;
+          } else {
+            playerId = claimsData.claims.sub;
+          }
+        } catch (e) {
+          // getClaims throws (rather than resolving with an error) for tokens
+          // that aren't a real user session — e.g. the anon key with no "sub"
+          // claim. Treat that the same as an auth failure instead of a 500.
+          console.error("[push-test] Auth check failed:", e);
+          playerId = undefined;
+        }
+
+        if (!playerId) {
+          return new Response(
+            JSON.stringify({ error: 'Invalid authorization' }),
+            { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
         const admin = createClient(
           Deno.env.get('SUPABASE_URL')!,
           Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
