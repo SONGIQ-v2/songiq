@@ -133,13 +133,12 @@ export default function Daily() {
         <motion.div
           initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="card-african p-6 md:p-8 max-w-lg w-full text-center z-10 my-8"
+          className="raised-panel p-6 md:p-8 max-w-lg w-full text-center z-10 my-8"
         >
           <Link to="/" className="inline-block mb-4">
             <img src={songiqLogo} alt="SongIQ — Music Trivia Game" className="h-10 mx-auto" />
           </Link>
 
-          <CalendarDays className="w-12 h-12 text-gold mx-auto mb-2" />
           <h1 className="text-2xl font-bold text-foreground mb-1">Daily Challenge #{daily.number}</h1>
           <p className="text-muted-foreground mb-4">{daily.category_name}</p>
 
@@ -288,6 +287,10 @@ export default function Daily() {
               </div>
             )}
           </div>
+
+          <Button variant="outline" size="lg" className="w-full mt-5" onClick={() => navigate("/")}>
+            Return to Home
+          </Button>
         </motion.div>
       )}
     </div>
