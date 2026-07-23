@@ -636,6 +636,7 @@ export default function RoomLobby() {
             )}
             </div>
 
+            <div className="room-lobby-sidebar">
             {/* Room Code */}
             <motion.div variants={pop} style={{ gridArea: "roomcode" }} className="raised-panel p-6 text-center">
               <p className="text-sm text-muted-foreground mb-2">Room Code</p>
@@ -722,6 +723,7 @@ export default function RoomLobby() {
                   </AnimatePresence>
                 </div>
               </motion.div>
+            </div>
           </motion.div>
         </div>
       </main>

@@ -373,10 +373,25 @@
   @media (min-width: 1024px) {
     .room-lobby-grid {
       grid-template-columns: 1fr 400px;
-      grid-template-areas:
-        "settings roomcode"
-        "settings players";
+      grid-template-areas: "settings sidebar";
       align-items: start;
+    }
+  }
+
+  /* Room Code + Players share a column: plain stacked items on mobile
+     (display: contents so each keeps its own grid-area in the 3-row
+     mobile layout above), a self-contained flex column on desktop so
+     their spacing never depends on the taller Settings panel's height */
+  .room-lobby-sidebar {
+    display: contents;
+  }
+
+  @media (min-width: 1024px) {
+    .room-lobby-sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      grid-area: sidebar;
     }
   }
 }

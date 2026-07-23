@@ -22,6 +22,10 @@ interface LeaderboardProps {
   currentPlayerId: string | null;
   showRoundScore?: boolean;
   compact?: boolean;
+  /** Number of higher ranks not present in `players` (e.g. a podium shown separately). Offsets the displayed rank numbers and medal colors. */
+  rankOffset?: number;
+  /** Hides the "Leaderboard" header — useful when this list is a continuation of a podium shown above it. */
+  hideHeader?: boolean;
 }
 
 const RANK_COLORS = ["text-yellow-400", "text-gray-300", "text-amber-600"];
@@ -31,6 +35,8 @@ export function Leaderboard({
   currentPlayerId,
   showRoundScore = false,
   compact = false,
+  rankOffset = 0,
+  hideHeader = false,
 }: LeaderboardProps) {
   const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
 
@@ -43,10 +49,12 @@ export function Leaderboard({
 
   return (
     <div className={cn("bg-card/80 backdrop-blur-sm rounded-2xl border border-border overflow-hidden", compact ? "p-3" : "p-4")}>
-      <div className="flex items-center gap-2 mb-4">
-        <Crown className="w-5 h-5 text-gold" />
-        <h3 className="font-bold text-foreground">Leaderboard</h3>
-      </div>
+      {!hideHeader && (
+        <div className="flex items-center gap-2 mb-4">
+          <Crown className="w-5 h-5 text-gold" />
+          <h3 className="font-bold text-foreground">Leaderboard</h3>
+        </div>
+      )}
 
       <div className="space-y-2">
         <AnimatePresence mode="popLayout">
@@ -54,7 +62,7 @@ export function Leaderboard({
             <LeaderboardRow
               key={player.player_id}
               player={player}
-              index={index}
+              index={index + rankOffset}
               isCurrentPlayer={player.player_id === currentPlayerId}
               rankChange={getRankChange(player)}
               showRoundScore={showRoundScore}

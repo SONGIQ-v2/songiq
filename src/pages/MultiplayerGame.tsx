@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { motion, AnimatePresence } from "framer-motion";
-import { Volume2, VolumeX, Music2, Trophy, X, AlertTriangle, LogOut, UserCircle, Share2 } from "lucide-react";
+import { Volume2, VolumeX, Music2, Trophy, X, AlertTriangle, LogOut, UserCircle, Share2, Star } from "lucide-react";
 import { toast } from "sonner";
 import { Starfield } from "@/components/Starfield";
 import songiqLogo from "@/assets/songiq-logo.png";
@@ -12,9 +12,11 @@ import { AnswerOption } from "@/components/AnswerOption";
 import { TimerBar } from "@/components/TimerBar";
 import { Leaderboard } from "@/components/Leaderboard";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
+import { Podium } from "@/components/Podium";
 import { Button } from "@/components/ui/button";
 import { logError, logWarn, logInfo } from "@/lib/clientLogger";
 import { warmAudioUrl, preloadAudio, playWithUnmute } from "@/lib/audioPreload";
+import { CARD_SPRING } from "@/lib/motion";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -389,9 +391,10 @@ export default function MultiplayerGame() {
   // Results screen
   if (gameStatus === "results") {
     const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
-    const winner = sortedPlayers[0];
     const currentPlayerRank = sortedPlayers.findIndex((p) => p.player_id === playerId) + 1;
     const myScore = players.find((p) => p.player_id === playerId)?.score || 0;
+    const podiumPlayers = sortedPlayers.slice(0, 3);
+    const restPlayers = sortedPlayers.slice(3);
 
     const handleShare = async () => {
       const cardOpts = {
@@ -470,25 +473,58 @@ export default function MultiplayerGame() {
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="card-african p-8 max-w-lg w-full text-center z-10"
+            className="p-8 max-w-xl w-full text-center z-10"
           >
-            <Trophy className="w-20 h-20 text-gold mx-auto mb-6" />
-            <h1 className="text-3xl font-bold text-foreground mb-2">Game Over!</h1>
-            
-            {winner && (
+            <h1 className="sr-only">Game Over!</h1>
+            <div className="relative flex flex-col items-center mb-6">
+              <div className="relative flex items-end justify-center gap-1 mb-[-16px] z-10">
+                <motion.div
+                  initial={{ scale: 0, rotate: -20 }}
+                  animate={{ scale: 1, rotate: 0 }}
+                  transition={{ ...CARD_SPRING, delay: 0.15 }}
+                >
+                  <Star className="w-9 h-9 text-gold drop-shadow-[0_0_8px_hsl(45_100%_60%/0.7)]" fill="currentColor" />
+                </motion.div>
+                <motion.div
+                  initial={{ scale: 0, rotate: 10 }}
+                  animate={{ scale: 1, rotate: 0 }}
+                  transition={CARD_SPRING}
+                >
+                  <Trophy className="w-14 h-14 text-gold drop-shadow-[0_0_12px_hsl(45_100%_60%/0.8)]" fill="currentColor" />
+                </motion.div>
+                <motion.div
+                  initial={{ scale: 0, rotate: 20 }}
+                  animate={{ scale: 1, rotate: 0 }}
+                  transition={{ ...CARD_SPRING, delay: 0.15 }}
+                >
+                  <Star className="w-9 h-9 text-gold drop-shadow-[0_0_8px_hsl(45_100%_60%/0.7)]" fill="currentColor" />
+                </motion.div>
+              </div>
+
+              <motion.div
+                initial={{ scale: 0.5, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ ...CARD_SPRING, delay: 0.25 }}
+                className="relative px-10 py-3 rounded-2xl border-2"
+                style={{
+                  background: "linear-gradient(180deg, hsl(150 65% 48%), hsl(150 65% 36%))",
+                  borderColor: "hsl(150 70% 60% / 0.8)",
+                  boxShadow: "0 4px 0 hsl(150 70% 24%), 0 0 30px hsl(150 60% 45% / 0.5), var(--shadow-inset-highlight)",
+                }}
+              >
+                <span className="pulse-kente absolute inset-0 rounded-2xl" />
+                <p
+                  className="relative text-2xl font-bold text-white"
+                  style={{ textShadow: "0 2px 3px hsl(150 70% 15% / 0.6)" }}
+                >
+                  Game Over!
+                </p>
+              </motion.div>
+            </div>
+
+            {podiumPlayers.length > 0 && (
               <div className="mb-6">
-                <p className="text-muted-foreground mb-2">Winner</p>
-                <div className="flex items-center justify-center gap-2">
-                  <PlayerAvatar
-                    variant="icon-only"
-                    size="sm"
-                    name={winner.player_name}
-                    avatarIndex={winner.avatar_index}
-                    playerId={winner.player_id}
-                  />
-                  <p className="text-2xl font-bold text-gold">{winner.player_name}</p>
-                </div>
-                <p className="text-lg text-foreground/80">{winner.score} points</p>
+                <Podium players={podiumPlayers} currentPlayerId={playerId} />
               </div>
             )}
 
@@ -503,24 +539,28 @@ export default function MultiplayerGame() {
               )}
             </div>
 
-            <Button variant="gold" size="lg" className="w-full mb-4" onClick={handleShare}>
-              <Share2 className="w-5 h-5 mr-2" />
-              Share Result
-            </Button>
-
-            {/* Final Leaderboard */}
-            <div className="mb-6">
-              <Leaderboard players={players} currentPlayerId={playerId} compact />
-            </div>
-
-            {isHostPlayer && (
-              <Button variant="outline" size="lg" className="w-full" onClick={async () => {
-                await playAgain();
-                navigate(`/room/${code}`);
-              }}>
-                Play Again
-              </Button>
+            {/* Remaining players (4th place and below) */}
+            {restPlayers.length > 0 && (
+              <div className="mb-6">
+                <Leaderboard players={restPlayers} currentPlayerId={playerId} compact rankOffset={3} hideHeader />
+              </div>
             )}
+
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Button variant="gold" size="lg" className="w-full sm:flex-1" onClick={handleShare}>
+                <Share2 className="w-5 h-5 mr-2" />
+                Share Result
+              </Button>
+
+              {isHostPlayer && (
+                <Button variant="outline" size="lg" className="w-full sm:flex-1" onClick={async () => {
+                  await playAgain();
+                  navigate(`/room/${code}`);
+                }}>
+                  Play Again
+                </Button>
+              )}
+            </div>
           </motion.div>
         </div>
       </div>
@@ -668,7 +708,7 @@ export default function MultiplayerGame() {
           </div>
 
           {/* Leaderboard - always visible */}
-          <div className="lg:w-80">
+          <div className="lg:w-96">
             <Leaderboard players={players} currentPlayerId={playerId} showRoundScore />
           </div>
         </div>
@@ -910,7 +950,7 @@ export default function MultiplayerGame() {
         </div>
 
         {/* Sidebar Leaderboard - Desktop */}
-        <div className="hidden lg:block w-80 p-4 border-l border-border bg-background/50 backdrop-blur-sm">
+        <div className="hidden lg:block w-96 p-4 border-l border-border bg-background/50 backdrop-blur-sm">
           <Leaderboard players={players} currentPlayerId={playerId} showRoundScore />
         </div>
 
