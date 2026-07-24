@@ -694,10 +694,20 @@ export function useMultiplayerGame(roomCode: string) {
   // Build the full round plan (track + question type + options per round).
   // Stored server-side so advance_game_round() can create rounds without
   // depending on the host's browser being awake.
-  const buildRoundPlan = useCallback((tracks: AppleMusicTrack[]) => {
+  const buildRoundPlan = useCallback((tracks: AppleMusicTrack[], isArtistPlaylist: boolean) => {
+    // An artist-spotlight playlist is only ever "Guess the Song" — features/
+    // collabs can make the pool's artist names look diverse enough for
+    // "Guess the Artist" to technically work, but that defeats the point of
+    // an artist playlist. Any other playlist still needs the diversity check
+    // as a safety net against unexpectedly narrow pools.
+    const uniqueArtists = new Set(tracks.map((t) => t.artistName)).size;
+    const canGuessArtist = !isArtistPlaylist && uniqueArtists >= 4;
+
     const maxRounds = Math.min(tracks.length, 20); // 20 = largest rounds setting
     return tracks.slice(0, maxRounds).map((track) => {
-      const questionType = QUESTION_TYPES[Math.floor(Math.random() * QUESTION_TYPES.length)];
+      const questionType = canGuessArtist
+        ? QUESTION_TYPES[Math.floor(Math.random() * QUESTION_TYPES.length)]
+        : "Guess the Song";
       const isGuessSong = questionType === "Guess the Song";
 
       let options: string[];
@@ -744,7 +754,7 @@ export function useMultiplayerGame(roomCode: string) {
         return;
       }
 
-      const plan = buildRoundPlan(loadedTracks);
+      const plan = buildRoundPlan(loadedTracks, !!getPlaylistById(category)?.isArtist);
       const { error: planErr } = await (supabase as any)
         .from("room_tracks")
         .upsert({ room_id: room.id, plan }, { onConflict: "room_id" });

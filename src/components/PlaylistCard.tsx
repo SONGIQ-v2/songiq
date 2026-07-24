@@ -1,5 +1,5 @@
 import { motion, type Variants } from "framer-motion";
-import { Music } from "lucide-react";
+import { Music, Mic2 } from "lucide-react";
 import type { Playlist } from "@/lib/playlists";
 import { cn } from "@/lib/utils";
 
@@ -52,7 +52,15 @@ export const PlaylistCard = ({
         
         {/* Gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-        
+
+        {/* Artist sub-category badge */}
+        {playlist.isArtist && (
+          <div className="absolute top-2 left-2 flex items-center gap-1 bg-kente-green text-white text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shadow-sm">
+            <Mic2 className="w-3 h-3" />
+            Artist
+          </div>
+        )}
+
         {/* Text content */}
         <div className="absolute bottom-0 left-0 right-0 p-3 text-left">
           <h4 className={cn("font-display tracking-wide text-white truncate", featured ? "text-lg md:text-xl" : "text-sm")}>

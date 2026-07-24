@@ -170,7 +170,7 @@ export default function Daily() {
               <p className="text-foreground/70 mt-1">
                 #{myRank} of {totalPlayers} · {myAttempt.correct_count}/{daily.plan.length} correct
               </p>
-              <p className="text-muted-foreground text-xs mt-2">Next challenge at midnight (Lagos time)</p>
+              <p className="text-muted-foreground text-xs mt-2">Next challenge at midnight (GMT)</p>
               <DailyReminderButton className="mt-3" />
             </div>
           ) : (

@@ -8,6 +8,25 @@ import { fetchPlaylistPool, buildRoundPlanFromPool } from "../_shared/itunes.ts"
 // Playlists never used for the daily challenge
 const DAILY_EXCLUDED = new Set(["East Africa Vibes", "Ghana Sounds", "CacheProbe"]);
 
+// Single-artist spotlight playlists — eligible for the daily challenge, but
+// buildRoundPlanFromPool forces "Guess the Song" only for these, since a
+// "Guess the Artist" round makes no sense for a playlist about one artist
+// (and the pool's other credited artists on features/collabs could otherwise
+// slip past its diversity check).
+const DAILY_ARTIST_PLAYLISTS = new Set([
+  "Rihanna",
+  "Adele",
+  "Taylor Swift",
+  "Justin Bieber",
+  "Sam Smith",
+  "Ed Sheeran",
+  "Beyoncé",
+  "Chris Brown",
+  "Wizkid",
+  "Davido",
+  "Burna Boy",
+]);
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -106,7 +125,7 @@ Deno.serve(async (req) => {
 
       if (eligible.length > 0) {
         const pick = eligible[Math.floor(Math.random() * eligible.length)];
-        const plan = buildRoundPlanFromPool(pick.tracks, 10);
+        const plan = buildRoundPlanFromPool(pick.tracks, 10, DAILY_ARTIST_PLAYLISTS.has(pick.playlist_name));
         const { count: dailyCount } = await supabase
           .from("daily_challenges")
           .select("*", { count: "exact", head: true });

@@ -48,10 +48,22 @@ export interface PlanRound {
 
 // Build a playable round plan (question type + 4 options per round) from a
 // track pool. Mirrors the client-side multiplayer plan builder.
-export function buildRoundPlanFromPool(pool: iTunesTrack[], rounds: number): PlanRound[] {
+export function buildRoundPlanFromPool(
+  pool: iTunesTrack[],
+  rounds: number,
+  isArtistPlaylist = false
+): PlanRound[] {
+  // An artist-spotlight playlist is only ever "Guess the Song" — features/
+  // collabs can make the pool's artist names look diverse enough for
+  // "Guess the Artist" to technically work, but that defeats the point of
+  // an artist playlist. Any other narrow pool still falls back via the
+  // diversity check below as a safety net.
+  const uniqueArtists = new Set(pool.map((t) => t.artistName)).size;
+  const canGuessArtist = !isArtistPlaylist && uniqueArtists >= 4;
+
   const picks = [...pool].sort(() => Math.random() - 0.5).slice(0, rounds);
   return picks.map((track) => {
-    const isGuessSong = Math.random() > 0.5;
+    const isGuessSong = !canGuessArtist || Math.random() > 0.5;
 
     let options: string[];
     if (isGuessSong) {
@@ -153,6 +165,17 @@ export async function fetchPlaylistPool(
   // Chart-driven playlist? Route to the Most Played feed.
   if (searchTerms[0]?.startsWith(CHART_TERM_PREFIX)) {
     return fetchChartPool(searchTerms[0].slice(CHART_TERM_PREFIX.length));
+  }
+
+  // A single-artist spotlight playlist (an exact artist-ID reference, no
+  // other terms) — pull the deepest catalog the iTunes Lookup API allows
+  // (200, its hard cap) instead of the multi-term averaging formula below,
+  // which is tuned for blending many different artists' search results.
+  if (searchTerms.length === 1 && searchTerms[0].startsWith(ARTIST_TERM_PREFIX)) {
+    const pool = await lookupArtistSongs(searchTerms[0].slice(ARTIST_TERM_PREFIX.length), 200);
+    const image = pool[0]?.artworkUrl100?.replace("100x100", "600x600") ?? "";
+    console.log(`[iTunes] Artist spotlight: ${pool.length} playable tracks`);
+    return { pool, image };
   }
 
   const usedTerms = searchTerms.length > MAX_TERMS

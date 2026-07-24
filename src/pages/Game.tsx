@@ -251,16 +251,26 @@ export default function Game() {
       return;
     }
 
+    // An artist-spotlight playlist is only ever "Guess the Song" — features/
+    // collabs can make the pool's artist names look diverse enough for
+    // "Guess the Artist" to technically work, but that defeats the point of
+    // an artist playlist. Any other playlist still needs the diversity check
+    // as a safety net against unexpectedly narrow pools.
+    const canGuessArtist =
+      !playlist.isArtist && new Set(availableTracks.map((t) => t.artistName)).size >= 4;
+    const pickQuestionType = (): QuestionType =>
+      canGuessArtist && Math.random() > 0.5 ? "artist" : "song";
+
     // Question type and options come from the challenge plan when replaying;
     // otherwise they're generated fresh
     const planRound = challenge?.plan[round - 1];
     const roundQuestionType: QuestionType =
-      planRound?.question_type ?? (Math.random() > 0.5 ? "artist" : "song");
+      planRound?.question_type ?? pickQuestionType();
     setQuestionType(roundQuestionType);
 
     // Pre-determine next round's question type for the hint
     const nextRoundQuestionType: QuestionType =
-      challenge?.plan[round]?.question_type ?? (Math.random() > 0.5 ? "artist" : "song");
+      challenge?.plan[round]?.question_type ?? pickQuestionType();
     setNextQuestionType(nextRoundQuestionType);
 
     console.log(`Round ${round}: Playing "${track.trackName}" by ${track.artistName} - Question: ${roundQuestionType}`);
