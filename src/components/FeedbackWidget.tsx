@@ -12,7 +12,6 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
-import { trackFeedbackSubmitted } from "@/lib/analytics";
 import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
 
@@ -66,7 +65,6 @@ export const FeedbackWidget = () => {
         submittedAt,
       },
     }).catch(() => { /* non-blocking */ });
-    trackFeedbackSubmitted();
     setSubmitting(false);
     toast({ title: "Thanks for your feedback!" });
     setName(""); setEmail(""); setMessage("");
