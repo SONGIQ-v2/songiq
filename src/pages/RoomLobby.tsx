@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { trackRoomShared, trackMultiplayerStart } from "@/lib/analytics";
 import { Copy, Check, Users, Play, Crown, LogOut, Loader2, UserCircle, Music, Clock, Hash, UserX, Lightbulb } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Starfield } from "@/components/Starfield";
@@ -234,6 +235,7 @@ export default function RoomLobby() {
     const shareUrl = `${window.location.origin}/room/${room.room_code}`;
     await navigator.clipboard.writeText(shareUrl);
     setCopied(true);
+    trackRoomShared(room.room_code, "copy_link");
     toast.success("Room link copied!");
     setTimeout(() => setCopied(false), 2000);
   };
@@ -247,6 +249,7 @@ export default function RoomLobby() {
         time_per_round: selectedTime,
       }).eq("id", room.id);
     }
+    if (room) trackMultiplayerStart(room.room_code, players.length, selectedRounds);
     await startGame(selectedCategory);
     setIsStarting(false);
   };
