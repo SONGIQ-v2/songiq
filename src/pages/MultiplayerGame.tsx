@@ -356,6 +356,21 @@ export default function MultiplayerGame() {
     }
   }, [isTerminated, navigate]);
 
+  // GA4: one game_complete per multiplayer match
+  const mpCompleteTrackedRef = useRef(false);
+  useEffect(() => {
+    if (gameStatus !== "results" || mpCompleteTrackedRef.current) return;
+    mpCompleteTrackedRef.current = true;
+    trackGameComplete(
+      "multiplayer",
+      players.find((p) => p.player_id === playerId)?.score || 0,
+      myResults.filter(Boolean).length,
+      room?.total_rounds ?? myResults.length,
+      PLAYLISTS.find((p) => p.id === room?.category)?.name
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameStatus]);
+
   // Loading state
   if (loading) {
     return (
