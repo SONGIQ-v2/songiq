@@ -13,6 +13,22 @@ const corsHeaders = {
 const PIXEL_ID = "1582626956565231";
 const GRAPH_API_VERSION = "v21.0";
 
+// This endpoint has no caller auth (it's invoked from anonymous browsers,
+// same as the Pixel itself) — without an allowlist, anyone could POST
+// arbitrary event_name/custom_data here and it'd forward straight to Meta
+// using our stored access token, polluting ad account data. Keep this in
+// sync with the event names fired by trackEvent() in src/lib/analytics.ts.
+const ALLOWED_EVENTS = new Set([
+  "solo_game_start", "solo_game_complete",
+  "daily_challenge_start", "daily_challenge_complete",
+  "challenge_create", "challenge_accept", "challenge_complete",
+  "multiplayer_room_create", "multiplayer_room_join",
+  "multiplayer_game_start", "multiplayer_game_complete",
+  "room_link_copy", "share_result",
+]);
+
+const ALLOWED_ORIGINS = ["https://songiq.io", "https://songiq.xyz"];
+
 async function sha256Hex(value: string): Promise<string> {
   const data = new TextEncoder().encode(value.trim().toLowerCase());
   const hashBuffer = await crypto.subtle.digest("SHA-256", data);
@@ -33,6 +49,12 @@ serve(async (req) => {
     const { event_name, event_id, custom_data, event_source_url, fbp, fbc, player_id } = await req.json();
     if (!event_name || !event_id) {
       throw new Error("event_name and event_id are required");
+    }
+    if (!ALLOWED_EVENTS.has(event_name)) {
+      throw new Error(`event_name "${event_name}" is not allowed`);
+    }
+    if (typeof event_source_url !== "string" || !ALLOWED_ORIGINS.some((o) => event_source_url.startsWith(o))) {
+      throw new Error("event_source_url is missing or not an allowed origin");
     }
 
     // Real, per-request values — more reliable than anything the client could self-report.

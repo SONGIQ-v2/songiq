@@ -296,8 +296,6 @@ export default function Game() {
       challenge?.plan[round]?.question_type ?? pickQuestionType();
     setNextQuestionType(nextRoundQuestionType);
 
-    console.log(`Round ${round}: Playing "${track.trackName}" by ${track.artistName} - Question: ${roundQuestionType}`);
-
     const roundOptions =
       planRound?.options ?? generateOptionsFromTracks(track, availableTracks, roundQuestionType);
 
