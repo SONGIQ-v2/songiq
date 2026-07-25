@@ -32,7 +32,7 @@ import {
 import { useMultiplayerGame } from "@/hooks/useMultiplayerGame";
 import { useGameStore } from "@/lib/gameStore";
 import { supabase } from "@/integrations/supabase/client";
-import { PLAYLISTS, PLAYLIST_CATEGORIES, type PlaylistCategory } from "@/lib/playlists";
+import { PLAYLISTS, PLAYLIST_CATEGORIES, getPlaylistById, type PlaylistCategory } from "@/lib/playlists";
 import { getMotionVariants, CARD_SPRING } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -252,6 +252,7 @@ export default function RoomLobby() {
     trackEvent("multiplayer_game_start", {
       room_code: room?.room_code,
       category: selectedCategory,
+      playlist_name: getPlaylistById(selectedCategory)?.name,
       rounds: selectedRounds,
       time_per_round: selectedTime,
       player_count: players.length,
