@@ -495,6 +495,21 @@ export default function Game() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameState]);
 
+  // Any mode finished → single GA4 game_complete event
+  const completeTrackedRef = useRef(false);
+  useEffect(() => {
+    if (gameState !== "results" || completeTrackedRef.current) return;
+    completeTrackedRef.current = true;
+    trackGameComplete(
+      analyticsMode,
+      soloScore,
+      roundResults.filter(Boolean).length,
+      TOTAL_ROUNDS,
+      playlistName || playlist?.name
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameState]);
+
   // Regular (non-daily) game finished: if today's Daily Challenge exists and
   // this player hasn't attempted it yet, surface a conversion-focused prompt
   // on the results screen.
