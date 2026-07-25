@@ -21,6 +21,7 @@ import AfrobeatsQuiz from "./pages/landing/AfrobeatsQuiz";
 import AmapianoQuiz from "./pages/landing/AmapianoQuiz";
 import AfricanMusicQuiz from "./pages/landing/AfricanMusicQuiz";
 import { FeedbackWidget } from "./components/FeedbackWidget";
+import { AnalyticsRouteTracker } from "./components/AnalyticsRouteTracker";
 
 const queryClient = new QueryClient();
 
@@ -30,6 +31,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <AnalyticsRouteTracker />
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/solo" element={<SoloPlay />} />

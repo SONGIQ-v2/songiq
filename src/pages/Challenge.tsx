@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { motion } from "framer-motion";
+import { trackChallengeAccepted } from "@/lib/analytics";
 import { Music2, Play, Swords, Clock, Hash, Crown, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { Starfield } from "@/components/Starfield";
@@ -116,6 +117,7 @@ export default function ChallengePage() {
     const trimmed = name.trim() || "A music fan";
     saveUsername(trimmed);
     setPlayer(trimmed, 1);
+    trackChallengeAccepted(challenge.code);
     navigate("/solo/game", { state: { challenge } });
   };
 
