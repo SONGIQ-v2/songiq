@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import songiqLogo from "@/assets/songiq-logo.png";
 import { useGameStore } from "@/lib/gameStore";
 import { getSavedUsername, saveUsername, type Challenge } from "@/lib/challenges";
+import { trackEvent } from "@/lib/analytics";
 import {
   fetchTodayChallenge,
   fetchDailyAttempts,
@@ -86,6 +87,11 @@ export default function Daily() {
       time_per_round: daily.time_per_round,
       plan: daily.plan,
     };
+    trackEvent("daily_challenge_start", {
+      daily_number: daily.number,
+      daily_date: daily.challenge_date,
+      category_name: daily.category_name,
+    });
     navigate("/solo/game", {
       state: { challenge, daily: { date: daily.challenge_date, number: daily.number } },
     });

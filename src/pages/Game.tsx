@@ -32,6 +32,7 @@ import { logError, logWarn, logInfo } from "@/lib/clientLogger";
 import { warmAudioUrl, preloadAudio, playWithUnmute, prefetchAudio } from "@/lib/audioPreload";
 import { buildShareText, shareResult } from "@/lib/shareCard";
 import { shareResultImage } from "@/lib/shareImage";
+import { trackEvent } from "@/lib/analytics";
 import {
   createChallenge,
   challengeUrl,
@@ -431,6 +432,19 @@ export default function Game() {
       plan: planRef.current,
     }).then((code) => {
       createdChallengeRef.current = code;
+      trackEvent("challenge_create", { challenge_code: code, score: soloScore, source: "solo" });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameState]);
+
+  // Regular solo game finished (no challenge, no daily).
+  useEffect(() => {
+    if (gameState !== "results" || challenge || daily) return;
+    trackEvent("solo_game_complete", {
+      playlist_id: playlist?.id,
+      playlist_name: playlistName || playlist?.name,
+      score: soloScore,
+      correct_count: roundResults.filter(Boolean).length,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameState]);
@@ -449,6 +463,11 @@ export default function Game() {
           soloScore,
           roundResults.filter(Boolean).length
         );
+        trackEvent("challenge_complete", {
+          challenge_code: challenge.code,
+          score: soloScore,
+          correct_count: roundResults.filter(Boolean).length,
+        });
       }
       setChallengeAttempts(await fetchChallengeAttempts(challenge.code));
     })();
@@ -475,6 +494,14 @@ export default function Game() {
         ]);
         const streak = isStreakActive(stats) ? stats?.current_streak ?? 0 : 0;
         setDailyResult({ rank, total, streak });
+        trackEvent("daily_challenge_complete", {
+          daily_number: daily.number,
+          daily_date: daily.date,
+          score: soloScore,
+          correct_count: roundResults.filter(Boolean).length,
+          rank,
+          streak,
+        });
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -670,6 +697,10 @@ export default function Game() {
     const percentage = Math.round((soloScore / maxScore) * 100);
 
     const handleShare = async () => {
+      trackEvent("share_result", {
+        mode: daily ? "daily" : challenge ? "challenge" : "solo",
+        score: soloScore,
+      });
       if (daily) {
         const text = buildDailyShareText({
           number: daily.number,

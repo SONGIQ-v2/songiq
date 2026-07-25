@@ -13,6 +13,7 @@ import { getMotionVariants } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { ArrowLeft, Users, Plus, LogIn, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { trackEvent } from "@/lib/analytics";
 
 const Multiplayer = () => {
   const navigate = useNavigate();
@@ -94,6 +95,7 @@ const Multiplayer = () => {
       setPlayer(sanitized, avatarIndex);
       setRoom(room.id, code, true);
       setUsernameCookie(playerName);
+      trackEvent("multiplayer_room_create", { room_code: code });
       navigate(`/room/${code}`);
     } catch (error) {
       console.error("Error creating room:", error);
@@ -154,6 +156,7 @@ const Multiplayer = () => {
       setPlayer(sanitized, avatarIndex);
       setRoom(room.id, roomCode.toUpperCase(), false);
       setUsernameCookie(playerName);
+      trackEvent("multiplayer_room_join", { room_code: roomCode.toUpperCase() });
       navigate(`/room/${roomCode.toUpperCase()}`);
     } catch (error) {
       console.error("Error joining room:", error);

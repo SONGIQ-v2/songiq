@@ -35,6 +35,7 @@ import { PLAYLISTS } from "@/lib/playlists";
 import { buildShareText, shareResult } from "@/lib/shareCard";
 import { shareResultImage } from "@/lib/shareImage";
 import { createChallenge, challengeUrl } from "@/lib/challenges";
+import { trackEvent } from "@/lib/analytics";
 
 
 
@@ -307,6 +308,13 @@ export default function MultiplayerGame() {
         setMyResults(ordered.map((r) => !!r.is_correct));
       }
 
+      const me = players.find((p) => p.player_id === playerId);
+      trackEvent("multiplayer_game_complete", {
+        room_code: room?.room_code,
+        score: me?.score ?? 0,
+        player_count: players.length,
+      });
+
       // Snapshot the rounds as a challenge link (before Play Again deletes
       // them), so sharing can hand out a replay of the exact same songs.
       if (!challengeCodeRef.current) {
@@ -326,13 +334,17 @@ export default function MultiplayerGame() {
             question_type: (r.question_type === "song" ? "song" : "artist") as "song" | "artist",
             options: typeof r.options === "string" ? JSON.parse(r.options) : r.options ?? [],
           }));
-          const me = players.find((p) => p.player_id === playerId);
           challengeCodeRef.current = await createChallenge({
             creator_name: me?.player_name || "A music fan",
             creator_score: me?.score || 0,
             category_name: PLAYLISTS.find((p) => p.id === room.category)?.name || "Music Quiz",
             time_per_round: room.time_per_round || 15,
             plan,
+          });
+          trackEvent("challenge_create", {
+            challenge_code: challengeCodeRef.current,
+            score: me?.score ?? 0,
+            source: "multiplayer",
           });
         }
       }
@@ -397,6 +409,7 @@ export default function MultiplayerGame() {
     const restPlayers = sortedPlayers.slice(3);
 
     const handleShare = async () => {
+      trackEvent("share_result", { mode: "multiplayer", score: myScore, rank: currentPlayerRank });
       const cardOpts = {
         categoryName: PLAYLISTS.find((p) => p.id === room.category)?.name || "Music Quiz",
         score: myScore,

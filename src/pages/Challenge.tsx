@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import songiqLogo from "@/assets/songiq-logo.png";
 import { useGameStore } from "@/lib/gameStore";
+import { trackEvent } from "@/lib/analytics";
 import {
   fetchChallenge,
   fetchChallengeAttempts,
@@ -116,6 +117,10 @@ export default function ChallengePage() {
     const trimmed = name.trim() || "A music fan";
     saveUsername(trimmed);
     setPlayer(trimmed, 1);
+    trackEvent("challenge_accept", {
+      challenge_code: challenge.code,
+      creator_score: challenge.creator_score,
+    });
     navigate("/solo/game", { state: { challenge } });
   };
 

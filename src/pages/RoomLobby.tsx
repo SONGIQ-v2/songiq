@@ -36,6 +36,7 @@ import { PLAYLISTS, PLAYLIST_CATEGORIES, type PlaylistCategory } from "@/lib/pla
 import { getMotionVariants, CARD_SPRING } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { trackEvent } from "@/lib/analytics";
 
 const MUSIC_FACTS = [
   "Fela Kuti pioneered Afrobeat in the 1970s, fusing highlife, jazz and funk with Yoruba rhythms.",
@@ -235,6 +236,7 @@ export default function RoomLobby() {
     await navigator.clipboard.writeText(shareUrl);
     setCopied(true);
     toast.success("Room link copied!");
+    trackEvent("room_link_copy", { room_code: room.room_code });
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -247,6 +249,13 @@ export default function RoomLobby() {
         time_per_round: selectedTime,
       }).eq("id", room.id);
     }
+    trackEvent("multiplayer_game_start", {
+      room_code: room?.room_code,
+      category: selectedCategory,
+      rounds: selectedRounds,
+      time_per_round: selectedTime,
+      player_count: players.length,
+    });
     await startGame(selectedCategory);
     setIsStarting(false);
   };

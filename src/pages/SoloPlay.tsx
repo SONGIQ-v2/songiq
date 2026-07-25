@@ -6,11 +6,12 @@ import { Starfield } from "@/components/Starfield";
 import { Header } from "@/components/Header";
 import { PlaylistCard } from "@/components/PlaylistCard";
 import { Button } from "@/components/ui/button";
-import { PLAYLISTS, PLAYLIST_CATEGORIES, type PlaylistCategory } from "@/lib/playlists";
+import { PLAYLISTS, PLAYLIST_CATEGORIES, getPlaylistById, type PlaylistCategory } from "@/lib/playlists";
 import { cn } from "@/lib/utils";
 import { useGameStore } from "@/lib/gameStore";
 import { useAppleMusic } from "@/hooks/useAppleMusic";
 import { getMotionVariants } from "@/lib/motion";
+import { trackEvent } from "@/lib/analytics";
 import { ArrowLeft, Play, Loader2 } from "lucide-react";
 
 const SoloPlay = () => {
@@ -69,6 +70,10 @@ const SoloPlay = () => {
 
   const handlePlay = () => {
     setCategory(selectedPlaylistId);
+    trackEvent("solo_game_start", {
+      playlist_id: selectedPlaylistId,
+      playlist_name: getPlaylistById(selectedPlaylistId)?.name,
+    });
     navigate("/solo/game");
   };
 
