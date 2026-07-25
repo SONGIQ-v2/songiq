@@ -45,7 +45,7 @@ export const SeoLanding = ({
   secondaryCta = { label: "Play Multiplayer", to: "/multiplayer" },
 }: SeoLandingProps) => {
   const navigate = useNavigate();
-  const url = `https://songiq.xyz${path}`;
+  const url = `https://songiq.io${path}`;
 
   const faqJsonLd = {
     "@context": "https://schema.org",

@@ -307,10 +307,10 @@ export default function RoomLobby() {
         <title>{`Join Room ${code ?? ""} — Multiplayer Music Quiz | SongIQ`}</title>
         <meta name="description" content="Join a private SongIQ multiplayer music quiz room. Pick a nickname and play live with friends across Afrobeats, Pop and more." />
         <meta name="robots" content="noindex, follow" />
-        <link rel="canonical" href={`https://songiq.xyz/room/${code ?? ""}`} />
+        <link rel="canonical" href={`https://songiq.io/room/${code ?? ""}`} />
         <meta property="og:title" content={`Join Room ${code ?? ""} — Multiplayer Music Quiz | SongIQ`} />
         <meta property="og:description" content="A friend invited you to a live multiplayer music quiz on SongIQ. Tap to join." />
-        <meta property="og:url" content={`https://songiq.xyz/room/${code ?? ""}`} />
+        <meta property="og:url" content={`https://songiq.io/room/${code ?? ""}`} />
       </Helmet>
       {/* Name Modal for joining players */}
       <Dialog open={showNameModal} onOpenChange={() => {}}>

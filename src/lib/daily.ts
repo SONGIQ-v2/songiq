@@ -30,7 +30,7 @@ export interface DailyStats {
   last_played: string | null;
 }
 
-export const DAILY_URL = "https://songiq.xyz/daily";
+export const DAILY_URL = "https://songiq.io/daily";
 
 /** The most recent generated challenge (normally today's). */
 export async function fetchTodayChallenge(): Promise<DailyChallenge | null> {

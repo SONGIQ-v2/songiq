@@ -209,7 +209,7 @@ serve(async (req) => {
           break;
         }
 
-        webpush.setVapidDetails('mailto:hello@songiq.xyz', vapid.public_key, vapid.private_key);
+        webpush.setVapidDetails('mailto:hello@songiq.io', vapid.public_key, vapid.private_key);
         const payload = JSON.stringify({
           title: '🔔 SongIQ test notification',
           body: 'Push reminders are working on this device!',

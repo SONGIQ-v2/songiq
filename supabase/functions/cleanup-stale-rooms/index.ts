@@ -182,7 +182,7 @@ Deno.serve(async (req) => {
         : { data: null };
 
       if (vapid && subs && subs.length > 0) {
-        webpush.setVapidDetails("mailto:hello@songiq.xyz", vapid.public_key, vapid.private_key);
+        webpush.setVapidDetails("mailto:hello@songiq.io", vapid.public_key, vapid.private_key);
 
         const { data: todayChallenge } = await supabase
           .from("daily_challenges")

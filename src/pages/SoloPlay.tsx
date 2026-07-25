@@ -77,10 +77,10 @@ const SoloPlay = () => {
       <Helmet>
         <title>Solo Play — Pick a Playlist & Start the Quiz | SongIQ</title>
         <meta name="description" content="Play SongIQ solo. Pick a genre — Afrobeats, Amapiano, Hip-Hop, Pop and more — and guess the song or artist in 15 seconds." />
-        <link rel="canonical" href="https://songiq.xyz/solo" />
+        <link rel="canonical" href="https://songiq.io/solo" />
         <meta property="og:title" content="SongIQ Solo Play — Pick a Playlist & Start the Quiz" />
         <meta property="og:description" content="Play SongIQ solo. Pick a genre and guess the song or artist in 15 seconds." />
-        <meta property="og:url" content="https://songiq.xyz/solo" />
+        <meta property="og:url" content="https://songiq.io/solo" />
       </Helmet>
       <Starfield />
       <Header />

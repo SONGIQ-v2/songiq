@@ -161,7 +161,7 @@ export async function renderShareCard(opts: ShareCardOptions): Promise<Blob | nu
   // Footer
   ctx.fillStyle = COLORS.gold;
   ctx.font = display(46);
-  ctx.fillText("songiq.xyz", W / 2, H - 150);
+  ctx.fillText("songiq.io", W / 2, H - 150);
 
   ctx.fillStyle = COLORS.muted;
   ctx.font = body(32);

@@ -750,10 +750,10 @@ export default function MultiplayerGame() {
         <title>Multiplayer Music Quiz Room | SongIQ</title>
         <meta name="description" content="Live multiplayer music quiz room on SongIQ. Compete with friends in real time across Afrobeats, Pop and more." />
         <meta name="robots" content="noindex, follow" />
-        <link rel="canonical" href={`https://songiq.xyz/room/${code}/game`} />
+        <link rel="canonical" href={`https://songiq.io/room/${code}/game`} />
         <meta property="og:title" content="Multiplayer Music Quiz Room | SongIQ" />
         <meta property="og:description" content="Join the live multiplayer music quiz on SongIQ." />
-        <meta property="og:url" content={`https://songiq.xyz/room/${code}/game`} />
+        <meta property="og:url" content={`https://songiq.io/room/${code}/game`} />
       </Helmet>
       <Starfield />
       <h1 className="sr-only">Multiplayer Music Quiz Gameplay</h1>

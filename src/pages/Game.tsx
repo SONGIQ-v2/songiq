@@ -38,6 +38,7 @@ import {
   getSavedUsername,
   submitChallengeAttempt,
   fetchChallengeAttempts,
+  fetchMyChallengeAttempt,
   type Challenge,
   type ChallengeRound,
   type ChallengeAttempt,
@@ -95,7 +96,7 @@ export default function Game() {
   const ROUND_TIME = (challenge ? challenge.time_per_round : DEFAULT_ROUND_TIME / 1000) * 1000;
   const TOTAL_ROUNDS = challenge ? challenge.plan.length : DEFAULT_TOTAL_ROUNDS;
 
-  const { category: playlistId, playerName, playerId, initializeAuth } = useGameStore();
+  const { category: playlistId, playerName, playerId, avatarIndex, initializeAuth } = useGameStore();
 
   const { getPlaylistTracks, loading: loadingTracks, error: musicError } = useAppleMusic();
   const { soloScore, addSoloPoints, resetSoloGame } = useGameStore();
@@ -178,8 +179,29 @@ export default function Game() {
 
   // Load tracks on mount
   useEffect(() => {
-    resetSoloGame();
-    loadTracks();
+    (async () => {
+      // A remount with challenge/daily nav state still present (e.g. a
+      // mobile tab reload after the OS share sheet backgrounds the page —
+      // history.state survives that) must not replay an already-completed
+      // single-attempt game. Check for an existing attempt first.
+      const pid = challenge || daily ? playerId ?? (await initializeAuth()) : null;
+      if (challenge && pid) {
+        const attempt = await fetchMyChallengeAttempt(challenge.code, pid);
+        if (attempt) {
+          navigate(`/c/${challenge.code}`, { replace: true });
+          return;
+        }
+      } else if (daily && pid) {
+        const attempt = await fetchMyDailyAttempt(daily.date, pid);
+        if (attempt) {
+          navigate("/daily", { replace: true });
+          return;
+        }
+      }
+      resetSoloGame();
+      loadTracks();
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playlistId]);
 
   const loadTracks = async () => {
@@ -759,8 +781,20 @@ export default function Game() {
               </p>
             </motion.div>
           </div>
-          <p className="text-foreground/60 mb-6">{playlistName}</p>
-          
+
+          <p className="text-foreground/60 mb-4">{playlistName}</p>
+
+          <div className="flex items-center justify-center gap-2 mb-4">
+            <PlayerAvatar
+              variant="icon-only"
+              size="sm"
+              name={playerName || getSavedUsername() || "You"}
+              avatarIndex={avatarIndex}
+              playerId={playerId ?? undefined}
+            />
+            <p className="font-bold text-foreground">{playerName || getSavedUsername() || "You"}</p>
+          </div>
+
           <div className="bg-background/50 rounded-xl p-6 mb-6">
             <p className="text-5xl font-bold text-gold mb-2">{soloScore}</p>
             <p className="text-foreground/60">points</p>
@@ -942,10 +976,10 @@ export default function Game() {
         <title>Solo Music Quiz — Play Now | SongIQ</title>
         <meta name="description" content="Solo music quiz round in progress on SongIQ. Listen to 15-second clips and guess the song or artist." />
         <meta name="robots" content="noindex, follow" />
-        <link rel="canonical" href="https://songiq.xyz/solo/game" />
+        <link rel="canonical" href="https://songiq.io/solo/game" />
         <meta property="og:title" content="Solo Music Quiz — Play Now | SongIQ" />
         <meta property="og:description" content="Live solo round on SongIQ — guess the song or artist in 15 seconds." />
-        <meta property="og:url" content="https://songiq.xyz/solo/game" />
+        <meta property="og:url" content="https://songiq.io/solo/game" />
       </Helmet>
       <Starfield />
       <h1 className="sr-only">Solo Music Quiz Gameplay</h1>

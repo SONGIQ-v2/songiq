@@ -96,10 +96,10 @@ export default function Daily() {
       <Helmet>
         <title>Daily Music Challenge | SongIQ</title>
         <meta name="description" content="One music quiz a day — the same 10 songs for everyone. Play today's SongIQ Daily Challenge, keep your streak alive and climb the leaderboard." />
-        <link rel="canonical" href="https://songiq.xyz/daily" />
+        <link rel="canonical" href="https://songiq.io/daily" />
         <meta property="og:title" content="Daily Music Challenge | SongIQ" />
         <meta property="og:description" content="Same 10 songs for everyone, once a day. Can you top today's leaderboard?" />
-        <meta property="og:url" content="https://songiq.xyz/daily" />
+        <meta property="og:url" content="https://songiq.io/daily" />
       </Helmet>
       <Starfield />
 

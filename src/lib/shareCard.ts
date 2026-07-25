@@ -1,7 +1,7 @@
 // Post-game share card: builds a Wordle-style shareable result and hands it
 // to the native share sheet (mobile) or the clipboard (desktop).
 
-const SHARE_URL = "https://songiq.xyz";
+const SHARE_URL = "https://songiq.io";
 
 export interface ShareCardOptions {
   categoryName: string;

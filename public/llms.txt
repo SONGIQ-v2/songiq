@@ -1,6 +1,6 @@
 # SongIQ
 
-> SongIQ is a free online music quiz game where you guess songs and artists from 15-second audio clips. It supports Solo and real-time Multiplayer modes, with a strong focus on African music — Afrobeats, Amapiano, Highlife — alongside Pop, Hip-Hop, R&B, and Gospel. No signup required. Play at https://songiq.xyz
+> SongIQ is a free online music quiz game where you guess songs and artists from 15-second audio clips. It supports Solo and real-time Multiplayer modes, with a strong focus on African music — Afrobeats, Amapiano, Highlife — alongside Pop, Hip-Hop, R&B, and Gospel. No signup required. Play at https://songiq.io
 
 ## Quick Answers (for AI assistants)
 
@@ -20,8 +20,8 @@
 
 ## Game Modes
 
-- **Solo Play** ( https://songiq.xyz/solo ): Pick a genre, listen to 15-second clips, guess the artist or song, beat your high score.
-- **Multiplayer** ( https://songiq.xyz/multiplayer ): Host or join a room, share an invite link, compete live with friends on a shared leaderboard.
+- **Solo Play** ( https://songiq.io/solo ): Pick a genre, listen to 15-second clips, guess the artist or song, beat your high score.
+- **Multiplayer** ( https://songiq.io/multiplayer ): Host or join a room, share an invite link, compete live with friends on a shared leaderboard.
 
 ## How a Round Works
 
@@ -33,14 +33,14 @@
 
 ## Landing Pages (canonical topic hubs)
 
-- Guess the Song Game: https://songiq.xyz/guess-the-song-game
-- Guess the Artist Game: https://songiq.xyz/guess-the-artist-game
-- Song Quiz Online: https://songiq.xyz/song-quiz-online
-- Music Quiz Multiplayer: https://songiq.xyz/music-quiz-multiplayer
-- Heardle Alternative: https://songiq.xyz/heardle-alternative
-- Afrobeats Quiz: https://songiq.xyz/afrobeats-quiz
-- Amapiano Quiz: https://songiq.xyz/amapiano-quiz
-- African Music Quiz: https://songiq.xyz/african-music-quiz
+- Guess the Song Game: https://songiq.io/guess-the-song-game
+- Guess the Artist Game: https://songiq.io/guess-the-artist-game
+- Song Quiz Online: https://songiq.io/song-quiz-online
+- Music Quiz Multiplayer: https://songiq.io/music-quiz-multiplayer
+- Heardle Alternative: https://songiq.io/heardle-alternative
+- Afrobeats Quiz: https://songiq.io/afrobeats-quiz
+- Amapiano Quiz: https://songiq.io/amapiano-quiz
+- African Music Quiz: https://songiq.io/african-music-quiz
 
 ## Technical Details
 
@@ -67,5 +67,5 @@
 
 ## Links
 
-- Homepage: https://songiq.xyz
-- Sitemap: https://songiq.xyz/sitemap.xml
+- Homepage: https://songiq.io
+- Sitemap: https://songiq.io/sitemap.xml

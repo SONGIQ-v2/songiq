@@ -26,7 +26,7 @@ export interface Challenge {
 }
 
 export function challengeUrl(code: string): string {
-  return `https://songiq.xyz/c/${code}`;
+  return `https://songiq.io/c/${code}`;
 }
 
 /** Read the nickname saved by multiplayer (1-year cookie), if any. */
