@@ -152,7 +152,10 @@ const Index = () => {
                 title="Solo Music Quiz"
                 description="Guess the song & artist — play at your own pace"
                 icon="solo"
-                onClick={() => navigate("/solo")}
+                onClick={() => {
+                  trackModeSelected("solo");
+                  navigate("/solo");
+                }}
                 isPrimary
               />
               <GameModeCard
@@ -160,7 +163,10 @@ const Index = () => {
                 title="Multiplayer Challenge"
                 description="Challenge friends in real-time music trivia"
                 icon="multiplayer"
-                onClick={() => navigate("/multiplayer")}
+                onClick={() => {
+                  trackModeSelected("multiplayer");
+                  navigate("/multiplayer");
+                }}
               />
             </div>
           </motion.section>
