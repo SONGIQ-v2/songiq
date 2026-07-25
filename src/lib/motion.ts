@@ -1,5 +1,7 @@
 // Shared motion language for the homepage's tactile/gamified redesign —
 // keeps button.tsx, GameModeCard.tsx, and Index.tsx springing in sync.
+import type { Variants } from "framer-motion";
+
 
 export const BUTTON_SPRING = { type: "spring", stiffness: 400, damping: 17, mass: 0.9 } as const;
 export const CARD_SPRING = { type: "spring", stiffness: 340, damping: 20 } as const; // ≈ GSAP back.out(1.4)
