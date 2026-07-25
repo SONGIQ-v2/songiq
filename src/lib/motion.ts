@@ -19,7 +19,7 @@ export const pillPopIn = {
   show: { opacity: 1, scale: 1, transition: CARD_SPRING },
 };
 
-export const fadeUp = {
+export const fadeUp: Variants = {
   hidden: { opacity: 0, y: 16 },
   show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: "easeOut" } },
 };
@@ -29,9 +29,9 @@ export function getMotionVariants(reduced: boolean) {
   if (!reduced) {
     return { container: staggerContainer, pop: popIn, pill: pillPopIn, fade: fadeUp };
   }
-  const still = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { duration: 0.15 } } };
+  const still: Variants = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { duration: 0.15 } } };
   return {
-    container: () => ({ hidden: {}, show: { transition: { staggerChildren: 0 } } }),
+    container: (): Variants => ({ hidden: {}, show: { transition: { staggerChildren: 0 } } }),
     pop: still,
     pill: still,
     fade: still,
