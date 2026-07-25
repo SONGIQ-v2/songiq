@@ -31,6 +31,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <AnalyticsRouteTracker />
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/solo" element={<SoloPlay />} />
