@@ -29,13 +29,6 @@ import { useGameStore } from "@/lib/gameStore";
 import { PLAYLISTS, getPlaylistById } from "@/lib/playlists";
 import { calculatePoints } from "@/lib/spotify";
 import { logError, logWarn, logInfo } from "@/lib/clientLogger";
-import {
-  trackGameStart,
-  trackGameComplete,
-  trackDailyComplete,
-  trackChallengeCreated,
-  type GameMode,
-} from "@/lib/analytics";
 import { warmAudioUrl, preloadAudio, playWithUnmute, prefetchAudio } from "@/lib/audioPreload";
 import { buildShareText, shareResult } from "@/lib/shareCard";
 import { shareResultImage } from "@/lib/shareImage";
@@ -100,8 +93,6 @@ export default function Game() {
   const navState = location.state as { challenge?: Challenge; daily?: { date: string; number: number } } | null;
   const challenge = navState?.challenge ?? null;
   const daily = navState?.daily ?? null;
-  // GA4 game_mode dimension for this session
-  const analyticsMode: GameMode = daily ? "daily" : challenge ? "challenge" : "solo";
   const ROUND_TIME = (challenge ? challenge.time_per_round : DEFAULT_ROUND_TIME / 1000) * 1000;
   const TOTAL_ROUNDS = challenge ? challenge.plan.length : DEFAULT_TOTAL_ROUNDS;
 
@@ -331,10 +322,6 @@ export default function Game() {
     setGameState("playing");
     setIsPlaying(true);
 
-    if (round === 1) {
-      trackGameStart(analyticsMode, playlistName || playlist?.name, TOTAL_ROUNDS);
-    }
-
     // Start timer
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
@@ -444,7 +431,6 @@ export default function Game() {
       plan: planRef.current,
     }).then((code) => {
       createdChallengeRef.current = code;
-      if (code) trackChallengeCreated(code, playlistName || playlist?.name);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameState]);
@@ -489,24 +475,8 @@ export default function Game() {
         ]);
         const streak = isStreakActive(stats) ? stats?.current_streak ?? 0 : 0;
         setDailyResult({ rank, total, streak });
-        trackDailyComplete(daily.date, soloScore, streak, rank);
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameState]);
-
-  // Any mode finished → single GA4 game_complete event
-  const completeTrackedRef = useRef(false);
-  useEffect(() => {
-    if (gameState !== "results" || completeTrackedRef.current) return;
-    completeTrackedRef.current = true;
-    trackGameComplete(
-      analyticsMode,
-      soloScore,
-      roundResults.filter(Boolean).length,
-      TOTAL_ROUNDS,
-      playlistName || playlist?.name
-    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameState]);
 

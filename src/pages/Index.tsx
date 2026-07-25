@@ -14,7 +14,6 @@ import { useGameStore } from "@/lib/gameStore";
 import { useAppleMusic } from "@/hooks/useAppleMusic";
 import { PLAYLISTS, getPlaylistById, type Playlist } from "@/lib/playlists";
 import { Headphones, Mic2, Trophy, Zap, CalendarDays, Flame, Play } from "lucide-react";
-import { trackModeSelected } from "@/lib/analytics";
 import {
   fetchTodayChallenge,
   fetchDailyAttempts,
@@ -118,7 +117,6 @@ const Index = () => {
   }, []);
 
   const handleBattlefieldClick = (playlist: Playlist) => {
-    trackModeSelected("solo", "battlefield");
     setCategory(playlist.id);
     navigate("/solo/game");
   };
@@ -152,10 +150,7 @@ const Index = () => {
                 title="Solo Music Quiz"
                 description="Guess the song & artist — play at your own pace"
                 icon="solo"
-                onClick={() => {
-                  trackModeSelected("solo");
-                  navigate("/solo");
-                }}
+                onClick={() => navigate("/solo")}
                 isPrimary
               />
               <GameModeCard
@@ -163,10 +158,7 @@ const Index = () => {
                 title="Multiplayer Challenge"
                 description="Challenge friends in real-time music trivia"
                 icon="multiplayer"
-                onClick={() => {
-                  trackModeSelected("multiplayer");
-                  navigate("/multiplayer");
-                }}
+                onClick={() => navigate("/multiplayer")}
               />
             </div>
           </motion.section>
@@ -206,7 +198,7 @@ const Index = () => {
                   </p>
                 </div>
               </div>
-              <Button variant="gold" onClick={() => { trackModeSelected("daily", "home_banner"); navigate("/daily"); }} className="shrink-0">
+              <Button variant="gold" onClick={() => navigate("/daily")} className="shrink-0">
                 <Play className="w-4 h-4 mr-1.5 fill-current" />
                 Play
               </Button>
@@ -393,7 +385,7 @@ const Index = () => {
               )}
 
               <motion.div variants={pop} className="text-center mt-6">
-                <Button variant="gold" onClick={() => { trackModeSelected("daily", "daily_section"); navigate("/daily"); }}>
+                <Button variant="gold" onClick={() => navigate("/daily")}>
                   <Play className="w-4 h-4 mr-1.5 fill-current" />
                   Play Today's Challenge
                 </Button>
@@ -411,7 +403,7 @@ const Index = () => {
               <p className="text-muted-foreground text-sm mb-6">
                 No sign-up needed. Jump straight into the music quiz and start guessing songs now — it's free!
               </p>
-              <Button variant="gold" size="lg" onClick={() => { trackModeSelected("solo", "cta"); navigate("/solo"); }}>
+              <Button variant="gold" size="lg" onClick={() => navigate("/solo")}>
                 Start Guessing Songs
               </Button>
             </div>
