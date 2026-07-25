@@ -117,6 +117,7 @@ const Index = () => {
   }, []);
 
   const handleBattlefieldClick = (playlist: Playlist) => {
+    trackModeSelected("solo", "battlefield");
     setCategory(playlist.id);
     navigate("/solo/game");
   };
