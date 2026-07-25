@@ -48,15 +48,12 @@ export const GameModeCard = ({
         {/* Description */}
         <p className="text-muted-foreground text-sm">{description}</p>
 
-        {/* Play indicator on hover */}
-        <motion.div
-          className="mt-4 flex items-center gap-2 text-primary opacity-0 group-hover:opacity-100 transition-opacity"
-          initial={{ opacity: 0, y: 5 }}
-          whileHover={{ opacity: 1, y: 0 }}
-        >
+        {/* Play indicator on hover — reacts to hovering the whole card (the
+            `group` is the outer button), not just this row */}
+        <div className="mt-4 flex items-center gap-2 text-primary opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-200">
           <Play className="w-4 h-4 fill-current" />
           <span className="text-sm font-medium">Play</span>
-        </motion.div>
+        </div>
       </div>
     </motion.button>
   );
