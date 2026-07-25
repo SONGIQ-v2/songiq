@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getMotionVariants } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { ArrowLeft, Users, Plus, LogIn, Loader2 } from "lucide-react";
+import { trackRoomCreated, trackRoomJoined } from "@/lib/analytics";
 import { toast } from "sonner";
 
 const Multiplayer = () => {
@@ -94,6 +95,7 @@ const Multiplayer = () => {
       setPlayer(sanitized, avatarIndex);
       setRoom(room.id, code, true);
       setUsernameCookie(playerName);
+      trackRoomCreated(code);
       navigate(`/room/${code}`);
     } catch (error) {
       console.error("Error creating room:", error);
@@ -154,6 +156,7 @@ const Multiplayer = () => {
       setPlayer(sanitized, avatarIndex);
       setRoom(room.id, roomCode.toUpperCase(), false);
       setUsernameCookie(playerName);
+      trackRoomJoined(roomCode.toUpperCase(), "code");
       navigate(`/room/${roomCode.toUpperCase()}`);
     } catch (error) {
       console.error("Error joining room:", error);
