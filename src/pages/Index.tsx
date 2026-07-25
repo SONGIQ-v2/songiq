@@ -14,6 +14,7 @@ import { useGameStore } from "@/lib/gameStore";
 import { useAppleMusic } from "@/hooks/useAppleMusic";
 import { PLAYLISTS, getPlaylistById, type Playlist } from "@/lib/playlists";
 import { Headphones, Mic2, Trophy, Zap, CalendarDays, Flame, Play } from "lucide-react";
+import { trackModeSelected } from "@/lib/analytics";
 import {
   fetchTodayChallenge,
   fetchDailyAttempts,
