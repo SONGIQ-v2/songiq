@@ -206,7 +206,7 @@ const Index = () => {
                   </p>
                 </div>
               </div>
-              <Button variant="gold" onClick={() => navigate("/daily")} className="shrink-0">
+              <Button variant="gold" onClick={() => { trackModeSelected("daily", "home_banner"); navigate("/daily"); }} className="shrink-0">
                 <Play className="w-4 h-4 mr-1.5 fill-current" />
                 Play
               </Button>
@@ -393,7 +393,7 @@ const Index = () => {
               )}
 
               <motion.div variants={pop} className="text-center mt-6">
-                <Button variant="gold" onClick={() => navigate("/daily")}>
+                <Button variant="gold" onClick={() => { trackModeSelected("daily", "daily_section"); navigate("/daily"); }}>
                   <Play className="w-4 h-4 mr-1.5 fill-current" />
                   Play Today's Challenge
                 </Button>
@@ -411,7 +411,7 @@ const Index = () => {
               <p className="text-muted-foreground text-sm mb-6">
                 No sign-up needed. Jump straight into the music quiz and start guessing songs now — it's free!
               </p>
-              <Button variant="gold" size="lg" onClick={() => navigate("/solo")}>
+              <Button variant="gold" size="lg" onClick={() => { trackModeSelected("solo", "cta"); navigate("/solo"); }}>
                 Start Guessing Songs
               </Button>
             </div>
