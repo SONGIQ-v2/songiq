@@ -31,6 +31,7 @@ import {
 import { useMultiplayerGame } from "@/hooks/useMultiplayerGame";
 import { useGameStore } from "@/lib/gameStore";
 import { supabase } from "@/integrations/supabase/client";
+import { trackGameComplete } from "@/lib/analytics";
 import { PLAYLISTS } from "@/lib/playlists";
 import { buildShareText, shareResult } from "@/lib/shareCard";
 import { shareResultImage } from "@/lib/shareImage";
