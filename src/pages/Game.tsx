@@ -24,6 +24,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { useAppleMusic, type AppleMusicTrack } from "@/hooks/useAppleMusic";
 import { useGameStore } from "@/lib/gameStore";
 import { PLAYLISTS, getPlaylistById } from "@/lib/playlists";
@@ -37,6 +45,7 @@ import {
   createChallenge,
   challengeUrl,
   getSavedUsername,
+  saveUsername,
   submitChallengeAttempt,
   fetchChallengeAttempts,
   fetchMyChallengeAttempt,
@@ -97,7 +106,7 @@ export default function Game() {
   const ROUND_TIME = (challenge ? challenge.time_per_round : DEFAULT_ROUND_TIME / 1000) * 1000;
   const TOTAL_ROUNDS = challenge ? challenge.plan.length : DEFAULT_TOTAL_ROUNDS;
 
-  const { category: playlistId, playerName, playerId, avatarIndex, initializeAuth } = useGameStore();
+  const { category: playlistId, playerName, playerId, avatarIndex, initializeAuth, setPlayer } = useGameStore();
 
   const { getPlaylistTracks, loading: loadingTracks, error: musicError } = useAppleMusic();
   const { soloScore, addSoloPoints, resetSoloGame } = useGameStore();
@@ -121,6 +130,11 @@ export default function Game() {
   const [challengeAttempts, setChallengeAttempts] = useState<ChallengeAttempt[] | null>(null);
   const [dailyResult, setDailyResult] = useState<{ rank: number; total: number; streak: number } | null>(null);
   const [dailyPromo, setDailyPromo] = useState<{ number: number; categoryName: string; totalPlayed: number } | null>(null);
+  // Solo Play never collects a name up front — prompt for one only when
+  // they try to share, so the result/challenge isn't attributed to
+  // "A music fan".
+  const [showNamePrompt, setShowNamePrompt] = useState(false);
+  const [nameInput, setNameInput] = useState("");
 
   // Rounds captured as played, so a normal game can be shared as a challenge
   const planRef = useRef<ChallengeRound[]>([]);
@@ -419,11 +433,17 @@ export default function Game() {
 
   // Pre-create the challenge link when results appear, so tapping Share stays
   // within the browser's user-gesture window (navigator.share requires it).
+  // Skipped when there's no known name yet (a Solo Play game started without
+  // one) — doShare() creates it lazily once the name prompt resolves, rather
+  // than baking in "A music fan" here, since challenges are immutable once
+  // created (no updating creator_name after the fact).
   useEffect(() => {
     if (gameState !== "results") return;
     if (challenge || createdChallengeRef.current || planRef.current.length === 0) return;
+    const knownName = playerName || getSavedUsername();
+    if (!knownName) return;
     createChallenge({
-      creator_name: playerName || getSavedUsername() || "A music fan",
+      creator_name: knownName,
       creator_score: soloScore,
       category_name: playlistName || playlist?.name || "Music Quiz",
       time_per_round: ROUND_TIME / 1000,
@@ -694,11 +714,29 @@ export default function Game() {
     const maxScore = TOTAL_ROUNDS * 200;
     const percentage = Math.round((soloScore / maxScore) * 100);
 
-    const handleShare = async () => {
+    const doShare = async () => {
       trackEvent("share_result", {
         mode: daily ? "daily" : challenge ? "challenge" : "solo",
         score: soloScore,
       });
+
+      // The auto-create effect skips creating a challenge link when no name
+      // is known yet — create it now that handleShare has guaranteed one.
+      if (!challenge && !createdChallengeRef.current && planRef.current.length > 0) {
+        const knownName = playerName || getSavedUsername();
+        if (knownName) {
+          const code = await createChallenge({
+            creator_name: knownName,
+            creator_score: soloScore,
+            category_name: playlistName || playlist?.name || "Music Quiz",
+            time_per_round: ROUND_TIME / 1000,
+            plan: planRef.current,
+          });
+          createdChallengeRef.current = code;
+          trackEvent("challenge_create", { challenge_code: code, score: soloScore, source: "solo" });
+        }
+      }
+
       if (daily) {
         const text = buildDailyShareText({
           number: daily.number,
@@ -751,6 +789,24 @@ export default function Game() {
       const outcome = await shareResult(text);
       if (outcome === "copied") toast.success("Result copied — paste it anywhere!");
       if (outcome === "failed") toast.error("Couldn't share your result");
+    };
+
+    const handleShare = () => {
+      if ((playerName || getSavedUsername()).trim()) {
+        doShare();
+      } else {
+        setNameInput("");
+        setShowNamePrompt(true);
+      }
+    };
+
+    const handleNameSubmit = () => {
+      const trimmed = nameInput.trim();
+      if (!trimmed) return;
+      saveUsername(trimmed);
+      setPlayer(trimmed, avatarIndex);
+      setShowNamePrompt(false);
+      doShare();
     };
 
     return (
@@ -992,6 +1048,37 @@ export default function Game() {
             </motion.div>
           )}
         </motion.div>
+
+        <Dialog open={showNamePrompt} onOpenChange={setShowNamePrompt}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle>What's your name?</DialogTitle>
+              <DialogDescription>
+                So your shared result isn't just "A music fan."
+              </DialogDescription>
+            </DialogHeader>
+            <Input
+              value={nameInput}
+              onChange={(e) => setNameInput(e.target.value)}
+              placeholder="Your nickname"
+              aria-label="Your nickname"
+              maxLength={20}
+              className="text-center text-lg"
+              onKeyDown={(e) => e.key === "Enter" && nameInput.trim() && handleNameSubmit()}
+              autoFocus
+            />
+            <Button
+              variant="gold"
+              size="lg"
+              className="w-full"
+              onClick={handleNameSubmit}
+              disabled={!nameInput.trim()}
+            >
+              <Share2 className="w-5 h-5 mr-2" />
+              Share Result
+            </Button>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
