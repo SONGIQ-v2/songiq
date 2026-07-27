@@ -25,6 +25,7 @@ const ALLOWED_EVENTS = new Set([
   "multiplayer_room_create", "multiplayer_room_join",
   "multiplayer_game_start", "multiplayer_game_complete",
   "room_link_copy", "share_result",
+  "push_subscribe",
 ]);
 
 const ALLOWED_ORIGINS = ["https://songiq.io", "https://songiq.xyz"];

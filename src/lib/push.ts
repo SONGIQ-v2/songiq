@@ -2,6 +2,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { logError } from "@/lib/clientLogger";
+import { trackEvent } from "@/lib/analytics";
 
 export type PushSupport = "supported" | "ios_needs_install" | "unsupported";
 
@@ -74,6 +75,7 @@ export async function subscribeToDailyReminders(
     );
     if (error) throw error;
 
+    trackEvent("push_subscribe");
     return "subscribed";
   } catch (e) {
     logError("push.subscribe_failed", "Failed to subscribe to daily reminders", {
