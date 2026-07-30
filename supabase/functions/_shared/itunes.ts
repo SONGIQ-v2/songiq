@@ -106,8 +106,31 @@ export async function lookupArtistSongs(artistId: string, limit: number): Promis
   const url = `https://itunes.apple.com/lookup?id=${encodeURIComponent(artistId)}&entity=song&limit=${limit + 1}`;
   const response = await fetch(url);
   const data = await response.json();
-  return ((data.results ?? []) as (iTunesTrack & { wrapperType?: string })[])
+  const results = (data.results ?? []) as ((iTunesTrack & { wrapperType?: string }) | { wrapperType: "artist"; artistName: string })[];
+
+  // Once an artist's real catalog runs out, the Lookup API pads remaining
+  // results with DJ mashup/compilation tracks that credit them as one of
+  // several artists in a combined string (e.g. "Steve Angello & Adele").
+  // The artist's own record (included in this same response) gives us their
+  // exact display name to filter with.
+  const artistRecord = results.find((r) => r.wrapperType === "artist") as { artistName?: string } | undefined;
+  const artistName = artistRecord?.artistName;
+
+  // A track only counts as "theirs" if the artist is actually credited on
+  // it — either solely, or as a genuine joint-billed collaboration (e.g.
+  // "Calvin Harris & Rihanna"). A plain "(feat. X)" credit on someone
+  // else's track doesn't count — X isn't in artistName there at all.
+  // The junk mashups above ALSO put the artist's name in a combined
+  // artistName string, so that alone doesn't distinguish them — the real
+  // tell is the track title: mashups splice multiple different songs
+  // together with "/", where a genuine collab or solo remix has one
+  // clean title (remix/edit tags are fine).
+  const isMashupTitle = (title: string) => /\//.test(title);
+
+  return (results as (iTunesTrack & { wrapperType?: string })[])
     .filter((r) => r.wrapperType === "track" && r.previewUrl)
+    .filter((r) => !artistName || r.artistName === artistName || r.artistName.includes(artistName))
+    .filter((r) => !isMashupTitle(r.trackName))
     .slice(0, limit);
 }
 
