@@ -1114,22 +1114,37 @@ export default function Game() {
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Leave Game?</AlertDialogTitle>
+                <AlertDialogTitle>{challenge ? "Leave Challenge?" : "Leave Game?"}</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Are you sure you want to quit? Your current progress will be lost.
+                  {challenge
+                    ? `This ends the challenge — your current score (${soloScore} pts) will be recorded as your final score. You won't be able to play this challenge again.`
+                    : "Are you sure you want to quit? Your current progress will be lost."}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Keep Playing</AlertDialogCancel>
                 <AlertDialogAction
-                  onClick={() => {
+                  onClick={async () => {
+                    if (challenge) {
+                      await submitChallengeAttempt(
+                        challenge.code,
+                        soloScore,
+                        roundResults.filter(Boolean).length
+                      );
+                      trackEvent("challenge_complete", {
+                        challenge_code: challenge.code,
+                        score: soloScore,
+                        correct_count: roundResults.filter(Boolean).length,
+                        source: "left_early",
+                      });
+                    }
                     cleanupGame();
                     resetSoloGame();
-                    navigate("/solo");
+                    navigate(challenge ? `/c/${challenge.code}` : "/solo");
                   }}
                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 >
-                  Leave Game
+                  {challenge ? "Leave Challenge" : "Leave Game"}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
