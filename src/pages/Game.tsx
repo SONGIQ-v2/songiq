@@ -1126,11 +1126,16 @@ export default function Game() {
                 <AlertDialogAction
                   onClick={async () => {
                     if (challenge) {
-                      await submitChallengeAttempt(
-                        challenge.code,
-                        soloScore,
-                        roundResults.filter(Boolean).length
-                      );
+                      const pid = playerId ?? (await initializeAuth());
+                      if (pid) {
+                        await submitChallengeAttempt(
+                          challenge.code,
+                          pid,
+                          playerName || getSavedUsername() || "A music fan",
+                          soloScore,
+                          roundResults.filter(Boolean).length
+                        );
+                      }
                       trackEvent("challenge_complete", {
                         challenge_code: challenge.code,
                         score: soloScore,
