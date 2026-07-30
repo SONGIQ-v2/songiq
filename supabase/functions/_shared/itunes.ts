@@ -101,37 +101,45 @@ export function buildRoundPlanFromPool(
 // bugs). Format: "__artist:<id>"
 export const ARTIST_TERM_PREFIX = "__artist:";
 
-// Fetch an artist's top songs by their exact iTunes artist ID.
-export async function lookupArtistSongs(artistId: string, limit: number): Promise<iTunesTrack[]> {
+type ArtistLookupResult =
+  | (iTunesTrack & { wrapperType?: string })
+  | { wrapperType: "artist"; artistName: string };
+
+async function fetchArtistLookupResults(artistId: string, limit: number): Promise<ArtistLookupResult[]> {
   const url = `https://itunes.apple.com/lookup?id=${encodeURIComponent(artistId)}&entity=song&limit=${limit + 1}`;
   const response = await fetch(url);
   const data = await response.json();
-  const results = (data.results ?? []) as ((iTunesTrack & { wrapperType?: string }) | { wrapperType: "artist"; artistName: string })[];
+  return (data.results ?? []) as ArtistLookupResult[];
+}
 
-  // Once an artist's real catalog runs out, the Lookup API pads remaining
-  // results with DJ mashup/compilation tracks that credit them as one of
-  // several artists in a combined string (e.g. "Steve Angello & Adele").
-  // The artist's own record (included in this same response) gives us their
-  // exact display name to filter with.
-  const artistRecord = results.find((r) => r.wrapperType === "artist") as { artistName?: string } | undefined;
-  const artistName = artistRecord?.artistName;
+// Fetch an artist's top songs by their exact iTunes artist ID.
+export async function lookupArtistSongs(artistId: string, limit: number): Promise<iTunesTrack[]> {
+  const results = await fetchArtistLookupResults(artistId, limit);
+  return (results as (iTunesTrack & { wrapperType?: string })[])
+    .filter((r) => r.wrapperType === "track" && r.previewUrl)
+    .slice(0, limit);
+}
 
+// Used only for single-artist spotlight playlists (see fetchPlaylistPool) to
+// drop the DJ mashup/compilation junk the Lookup API pads results with once
+// an artist's real catalog runs out. Not applied to __artist: terms mixed
+// into a broader genre playlist (e.g. Nigerian Gospel) — there, a plain
+// "(feat. X)" credit on another artist's song is legitimate genre content,
+// not junk to filter out.
+function keepGenuineArtistTracks(pool: iTunesTrack[], artistName: string): iTunesTrack[] {
   // A track only counts as "theirs" if the artist is actually credited on
   // it — either solely, or as a genuine joint-billed collaboration (e.g.
   // "Calvin Harris & Rihanna"). A plain "(feat. X)" credit on someone
   // else's track doesn't count — X isn't in artistName there at all.
-  // The junk mashups above ALSO put the artist's name in a combined
-  // artistName string, so that alone doesn't distinguish them — the real
-  // tell is the track title: mashups splice multiple different songs
-  // together with "/", where a genuine collab or solo remix has one
-  // clean title (remix/edit tags are fine).
+  // The junk mashups ALSO put the artist's name in a combined artistName
+  // string, so that alone doesn't distinguish them — the real tell is the
+  // track title: mashups splice multiple different songs together with
+  // "/", where a genuine collab or solo remix has one clean title
+  // (remix/edit tags are fine).
   const isMashupTitle = (title: string) => /\//.test(title);
-
-  return (results as (iTunesTrack & { wrapperType?: string })[])
-    .filter((r) => r.wrapperType === "track" && r.previewUrl)
-    .filter((r) => !artistName || r.artistName === artistName || r.artistName.includes(artistName))
-    .filter((r) => !isMashupTitle(r.trackName))
-    .slice(0, limit);
+  return pool.filter(
+    (t) => (t.artistName === artistName || t.artistName.includes(artistName)) && !isMashupTitle(t.trackName)
+  );
 }
 
 // Playlists whose first "search term" carries this prefix are chart-driven:
@@ -195,7 +203,13 @@ export async function fetchPlaylistPool(
   // (200, its hard cap) instead of the multi-term averaging formula below,
   // which is tuned for blending many different artists' search results.
   if (searchTerms.length === 1 && searchTerms[0].startsWith(ARTIST_TERM_PREFIX)) {
-    const pool = await lookupArtistSongs(searchTerms[0].slice(ARTIST_TERM_PREFIX.length), 200);
+    const artistId = searchTerms[0].slice(ARTIST_TERM_PREFIX.length);
+    const results = await fetchArtistLookupResults(artistId, 200);
+    const rawPool = (results as (iTunesTrack & { wrapperType?: string })[])
+      .filter((r) => r.wrapperType === "track" && r.previewUrl)
+      .slice(0, 200);
+    const artistRecord = results.find((r) => r.wrapperType === "artist") as { artistName?: string } | undefined;
+    const pool = artistRecord?.artistName ? keepGenuineArtistTracks(rawPool, artistRecord.artistName) : rawPool;
     const image = pool[0]?.artworkUrl100?.replace("100x100", "600x600") ?? "";
     console.log(`[iTunes] Artist spotlight: ${pool.length} playable tracks`);
     return { pool, image };
