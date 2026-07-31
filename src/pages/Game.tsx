@@ -1114,10 +1114,14 @@ export default function Game() {
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>{challenge ? "Leave Challenge?" : "Leave Game?"}</AlertDialogTitle>
+                <AlertDialogTitle>
+                  {challenge && !daily ? "Leave Challenge?" : daily ? "Leave Daily Challenge?" : "Leave Game?"}
+                </AlertDialogTitle>
                 <AlertDialogDescription>
-                  {challenge
+                  {challenge && !daily
                     ? `This ends the challenge — your current score (${soloScore} pts) will be recorded as your final score. You won't be able to play this challenge again.`
+                    : daily
+                    ? `This ends today's challenge — your current score (${soloScore} pts) will be recorded as your final score. You won't be able to play today's challenge again.`
                     : "Are you sure you want to quit? Your current progress will be lost."}
                 </AlertDialogDescription>
               </AlertDialogHeader>
@@ -1125,7 +1129,7 @@ export default function Game() {
                 <AlertDialogCancel>Keep Playing</AlertDialogCancel>
                 <AlertDialogAction
                   onClick={async () => {
-                    if (challenge) {
+                    if (challenge && !daily) {
                       const pid = playerId ?? (await initializeAuth());
                       if (pid) {
                         await submitChallengeAttempt(
@@ -1142,14 +1146,32 @@ export default function Game() {
                         correct_count: roundResults.filter(Boolean).length,
                         source: "left_early",
                       });
+                    } else if (daily) {
+                      const pid = playerId ?? (await initializeAuth());
+                      if (pid) {
+                        await submitDailyAttempt(
+                          daily.date,
+                          pid,
+                          playerName || getSavedUsername() || "A music fan",
+                          soloScore,
+                          roundResults.filter(Boolean).length
+                        );
+                      }
+                      trackEvent("daily_challenge_complete", {
+                        daily_number: daily.number,
+                        daily_date: daily.date,
+                        score: soloScore,
+                        correct_count: roundResults.filter(Boolean).length,
+                        source: "left_early",
+                      });
                     }
                     cleanupGame();
                     resetSoloGame();
-                    navigate(challenge ? `/c/${challenge.code}` : "/solo");
+                    navigate(challenge && !daily ? `/c/${challenge.code}` : daily ? "/daily" : "/solo");
                   }}
                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 >
-                  {challenge ? "Leave Challenge" : "Leave Game"}
+                  {challenge && !daily ? "Leave Challenge" : daily ? "Leave Daily" : "Leave Game"}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
