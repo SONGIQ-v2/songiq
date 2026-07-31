@@ -121,25 +121,22 @@ export async function lookupArtistSongs(artistId: string, limit: number): Promis
 }
 
 // Used only for single-artist spotlight playlists (see fetchPlaylistPool) to
-// drop the DJ mashup/compilation junk the Lookup API pads results with once
-// an artist's real catalog runs out. Not applied to __artist: terms mixed
-// into a broader genre playlist (e.g. Nigerian Gospel) — there, a plain
-// "(feat. X)" credit on another artist's song is legitimate genre content,
-// not junk to filter out.
-function keepGenuineArtistTracks(pool: iTunesTrack[], artistName: string): iTunesTrack[] {
-  // A track only counts as "theirs" if the artist is actually credited on
-  // it — either solely, or as a genuine joint-billed collaboration (e.g.
-  // "Calvin Harris & Rihanna"). A plain "(feat. X)" credit on someone
-  // else's track doesn't count — X isn't in artistName there at all.
-  // The junk mashups ALSO put the artist's name in a combined artistName
-  // string, so that alone doesn't distinguish them — the real tell is the
-  // track title: mashups splice multiple different songs together with
-  // "/", where a genuine collab or solo remix has one clean title
-  // (remix/edit tags are fine).
+// keep only songs the artist actually authored. Not applied to __artist:
+// terms mixed into a broader genre playlist (e.g. Nigerian Gospel) — there,
+// a plain "(feat. X)" credit on another artist's song is legitimate genre
+// content, not junk to filter out.
+function keepAuthoredTracks(pool: iTunesTrack[], artistName: string): iTunesTrack[] {
+  // The artist must be first-billed — solo, or "Artist Featuring X" / "Artist,
+  // X & Y" — to count as the author. Second-billed joint credits (e.g.
+  // "Calvin Harris & Rihanna") are someone else's song, even though the
+  // artist's name is genuinely in there. The Lookup API also pads results
+  // with DJ mashup/compilation tracks that credit the artist jointly; the
+  // tell there is the title, which splices multiple different songs
+  // together with "/" (remix/edit tags on one song are fine).
+  const isAuthoredBy = (an: string) =>
+    an === artistName || an.startsWith(`${artistName} `) || an.startsWith(`${artistName},`);
   const isMashupTitle = (title: string) => /\//.test(title);
-  return pool.filter(
-    (t) => (t.artistName === artistName || t.artistName.includes(artistName)) && !isMashupTitle(t.trackName)
-  );
+  return pool.filter((t) => isAuthoredBy(t.artistName) && !isMashupTitle(t.trackName));
 }
 
 // Playlists whose first "search term" carries this prefix are chart-driven:
@@ -209,7 +206,7 @@ export async function fetchPlaylistPool(
       .filter((r) => r.wrapperType === "track" && r.previewUrl)
       .slice(0, 200);
     const artistRecord = results.find((r) => r.wrapperType === "artist") as { artistName?: string } | undefined;
-    const pool = artistRecord?.artistName ? keepGenuineArtistTracks(rawPool, artistRecord.artistName) : rawPool;
+    const pool = artistRecord?.artistName ? keepAuthoredTracks(rawPool, artistRecord.artistName) : rawPool;
     const image = pool[0]?.artworkUrl100?.replace("100x100", "600x600") ?? "";
     console.log(`[iTunes] Artist spotlight: ${pool.length} playable tracks`);
     return { pool, image };
