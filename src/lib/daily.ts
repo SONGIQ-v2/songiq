@@ -30,6 +30,11 @@ export interface DailyStats {
   last_played: string | null;
 }
 
+/** DailyStats plus the honest current streak (0 once it's actually lapsed). */
+export interface DailyLeaderboardStats extends DailyStats {
+  effective_streak: number;
+}
+
 export const DAILY_URL = "https://songiq.io/daily";
 
 /** The most recent generated challenge (normally today's). */
@@ -118,15 +123,15 @@ export async function fetchMyDailyRank(
 }
 
 /** All-time board: longest active streaks first. */
-export async function fetchDailyStatsLeaderboard(): Promise<DailyStats[]> {
+export async function fetchDailyStatsLeaderboard(): Promise<DailyLeaderboardStats[]> {
   const { data, error } = await (supabase as any)
-    .from("daily_stats")
+    .from("daily_stats_leaderboard")
     .select("*")
-    .order("current_streak", { ascending: false })
+    .order("effective_streak", { ascending: false })
     .order("total_score", { ascending: false })
     .limit(50);
   if (error || !data) return [];
-  return data as DailyStats[];
+  return data as DailyLeaderboardStats[];
 }
 
 export async function fetchMyDailyStats(playerId: string): Promise<DailyStats | null> {

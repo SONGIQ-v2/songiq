@@ -24,6 +24,7 @@ import {
   type DailyChallenge,
   type DailyAttempt,
   type DailyStats,
+  type DailyLeaderboardStats,
 } from "@/lib/daily";
 
 const HOW_TO_PLAY = [
@@ -54,7 +55,7 @@ const Index = () => {
 
   const [daily, setDaily] = useState<DailyChallenge | null>(null);
   const [dailyBoard, setDailyBoard] = useState<DailyBoardRow[]>([]);
-  const [overallBoard, setOverallBoard] = useState<DailyStats[]>([]);
+  const [overallBoard, setOverallBoard] = useState<DailyLeaderboardStats[]>([]);
   const [dailyTab, setDailyTab] = useState<"today" | "overall">("today");
   const [myStreak, setMyStreak] = useState(0);
   const [playerId, setPlayerId] = useState<string | null>(null);
@@ -366,10 +367,10 @@ const Index = () => {
                               </span>
                             </TableCell>
                             <TableCell className="text-center">
-                              {isStreakActive(row) ? (
+                              {row.effective_streak > 0 ? (
                                 <span className="inline-flex items-center gap-1 text-kente-green font-semibold">
                                   <Flame className="w-3.5 h-3.5" />
-                                  {row.current_streak}
+                                  {row.effective_streak}
                                 </span>
                               ) : (
                                 <span className="text-muted-foreground">—</span>

@@ -23,6 +23,7 @@ import {
   type DailyChallenge,
   type DailyAttempt,
   type DailyStats,
+  type DailyLeaderboardStats,
 } from "@/lib/daily";
 
 export default function Daily() {
@@ -33,11 +34,12 @@ export default function Daily() {
   const [daily, setDaily] = useState<DailyChallenge | null>(null);
   const [attempts, setAttempts] = useState<DailyAttempt[]>([]);
   const [totalPlayers, setTotalPlayers] = useState(0);
-  const [allTime, setAllTime] = useState<DailyStats[]>([]);
+  const [allTime, setAllTime] = useState<DailyLeaderboardStats[]>([]);
   const [myStats, setMyStats] = useState<DailyStats | null>(null);
   const [myAttempt, setMyAttempt] = useState<DailyAttempt | null>(null);
   const [myRank, setMyRank] = useState<number | null>(null);
   const [tab, setTab] = useState<"today" | "alltime">("today");
+  const [streakSortBy, setStreakSortBy] = useState<"streak" | "score">("streak");
   const [name, setName] = useState("");
 
   useEffect(() => {
@@ -72,6 +74,14 @@ export default function Daily() {
   }, [initializeAuth]);
 
   const myStreak = isStreakActive(myStats) ? myStats?.current_streak ?? 0 : 0;
+
+  // allTime already arrives sorted by streak (the default); only re-sort
+  // client-side when the player switches to Total Score, to avoid a
+  // round-trip for what's just a re-ordering of the same 50 rows.
+  const sortedAllTime =
+    streakSortBy === "score"
+      ? [...allTime].sort((a, b) => b.total_score - a.total_score)
+      : allTime;
 
   const handlePlay = () => {
     if (!daily) return;
@@ -264,33 +274,57 @@ export default function Daily() {
                 Streaks appear once people start playing daily.
               </p>
             ) : (
-              <div className="space-y-1.5">
-                {allTime.map((s, i) => (
-                  <div
-                    key={s.player_id}
-                    className={`flex items-center justify-between px-3 py-1.5 rounded-lg text-sm ${
-                      s.player_id === playerId
-                        ? "bg-primary/15 border border-primary/40"
-                        : "bg-card/50"
+              <>
+                <div className="flex justify-end gap-1.5 mb-2">
+                  <button
+                    onClick={() => setStreakSortBy("streak")}
+                    className={`text-xs font-semibold px-2 py-1 rounded-md transition-colors ${
+                      streakSortBy === "streak"
+                        ? "bg-primary/15 text-primary"
+                        : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
-                    <span className="font-semibold text-foreground flex items-center gap-1.5 min-w-0">
-                      <PlayerAvatar variant="icon-only" size="xs" name={s.player_name} avatarIndex={1} playerId={s.player_id} />
-                      <span className="truncate">
-                        #{i + 1} {s.player_name}
-                        {s.player_id === playerId && <span className="text-primary text-xs"> (you)</span>}
+                    Sort: Streak
+                  </button>
+                  <button
+                    onClick={() => setStreakSortBy("score")}
+                    className={`text-xs font-semibold px-2 py-1 rounded-md transition-colors ${
+                      streakSortBy === "score"
+                        ? "bg-primary/15 text-primary"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Sort: Total Score
+                  </button>
+                </div>
+                <div className="space-y-1.5">
+                  {sortedAllTime.map((s, i) => (
+                    <div
+                      key={s.player_id}
+                      className={`flex items-center justify-between px-3 py-1.5 rounded-lg text-sm ${
+                        s.player_id === playerId
+                          ? "bg-primary/15 border border-primary/40"
+                          : "bg-card/50"
+                      }`}
+                    >
+                      <span className="font-semibold text-foreground flex items-center gap-1.5 min-w-0">
+                        <PlayerAvatar variant="icon-only" size="xs" name={s.player_name} avatarIndex={1} playerId={s.player_id} />
+                        <span className="truncate">
+                          #{i + 1} {s.player_name}
+                          {s.player_id === playerId && <span className="text-primary text-xs"> (you)</span>}
+                        </span>
                       </span>
-                    </span>
-                    <span className="font-bold text-gold ml-2 flex items-center gap-1">
-                      <Flame className="w-3.5 h-3.5" />
-                      {isStreakActive(s) ? s.current_streak : 0}
-                      <span className="text-muted-foreground font-normal text-xs ml-1">
-                        · {s.total_score} pts
+                      <span className="font-bold text-gold ml-2 flex items-center gap-1">
+                        <Flame className="w-3.5 h-3.5" />
+                        {s.effective_streak}
+                        <span className="text-muted-foreground font-normal text-xs ml-1">
+                          · {s.total_score} pts
+                        </span>
                       </span>
-                    </span>
-                  </div>
-                ))}
-              </div>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
           </div>
 
