@@ -732,6 +732,39 @@ export type Database = {
       }
     }
     Views: {
+      daily_stats_leaderboard: {
+        Row: {
+          best_streak: number | null
+          current_streak: number | null
+          effective_streak: number | null
+          last_played: string | null
+          player_id: string | null
+          player_name: string | null
+          plays: number | null
+          total_score: number | null
+        }
+        Insert: {
+          best_streak?: number | null
+          current_streak?: number | null
+          effective_streak?: never
+          last_played?: string | null
+          player_id?: string | null
+          player_name?: string | null
+          plays?: number | null
+          total_score?: number | null
+        }
+        Update: {
+          best_streak?: number | null
+          current_streak?: number | null
+          effective_streak?: never
+          last_played?: string | null
+          player_id?: string | null
+          player_name?: string | null
+          plays?: number | null
+          total_score?: number | null
+        }
+        Relationships: []
+      }
       game_rounds_public: {
         Row: {
           artist_name: string | null
