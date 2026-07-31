@@ -132,11 +132,21 @@ function keepAuthoredTracks(pool: iTunesTrack[], artistName: string): iTunesTrac
   // artist's name is genuinely in there. The Lookup API also pads results
   // with DJ mashup/compilation tracks that credit the artist jointly; the
   // tell there is the title, which splices multiple different songs
-  // together with "/" (remix/edit tags on one song are fine).
+  // together with "/".
   const isAuthoredBy = (an: string) =>
     an === artistName || an.startsWith(`${artistName} `) || an.startsWith(`${artistName},`);
   const isMashupTitle = (title: string) => /\//.test(title);
-  return pool.filter((t) => isAuthoredBy(t.artistName) && !isMashupTitle(t.trackName));
+  // Alternate mixes/edits (club remixes, radio edits, extended mixes) are
+  // still credited solely to the artist, but are near-duplicate clutter of
+  // a song already in the pool under its plain title — drop any title with
+  // a "(...)"/"[...]" tag naming one, keeping only the plain version.
+  const isAltMixTitle = (title: string) =>
+    /\((?:[^)]*\b(?:remix|mix|mixed|edit|dub|dubb|rmx|vip)\b[^)]*)\)|\[(?:[^\]]*\b(?:remix|mix|mixed|edit|dub|dubb|rmx|vip)\b[^\]]*)\]/i.test(
+      title
+    );
+  return pool.filter(
+    (t) => isAuthoredBy(t.artistName) && !isMashupTitle(t.trackName) && !isAltMixTitle(t.trackName)
+  );
 }
 
 // Playlists whose first "search term" carries this prefix are chart-driven:
