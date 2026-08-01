@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { PlaylistCard } from "@/components/PlaylistCard";
+import { DoubleTapHint } from "@/components/DoubleTapHint";
 import { useAppleMusic } from "@/hooks/useAppleMusic";
 import {
   Dialog,
@@ -240,7 +241,7 @@ export default function RoomLobby() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleStartGame = async () => {
+  const handleStartGame = async (playlistId: string = selectedCategory) => {
     setIsStarting(true);
     // Update room settings before starting
     if (room) {
@@ -251,13 +252,13 @@ export default function RoomLobby() {
     }
     trackEvent("multiplayer_game_start", {
       room_code: room?.room_code,
-      category: selectedCategory,
-      playlist_name: getPlaylistById(selectedCategory)?.name,
+      category: playlistId,
+      playlist_name: getPlaylistById(playlistId)?.name,
       rounds: selectedRounds,
       time_per_round: selectedTime,
       player_count: players.length,
     });
-    await startGame(selectedCategory);
+    await startGame(playlistId);
     setIsStarting(false);
   };
 
@@ -449,6 +450,7 @@ export default function RoomLobby() {
                       <Music className="w-4 h-4 text-primary" />
                       Select Playlist
                     </label>
+                    <DoubleTapHint />
                     <div className="flex flex-wrap gap-2 mb-4">
                       {PLAYLIST_CATEGORIES.map((cat) => (
                         <button
@@ -480,6 +482,9 @@ export default function RoomLobby() {
                             if (room) {
                               await supabase.from("game_rooms").update({ category: playlist.id }).eq("id", room.id);
                             }
+                          }}
+                          onDoubleClick={() => {
+                            if (canStart && !isStarting) handleStartGame(playlist.id);
                           }}
                         />
                       ))}
@@ -547,7 +552,7 @@ export default function RoomLobby() {
                     variant="gold"
                     size="lg"
                     className="w-full"
-                    onClick={handleStartGame}
+                    onClick={() => handleStartGame()}
                     disabled={!canStart || isStarting}
                   >
                     <Play className="w-5 h-5 mr-2" />

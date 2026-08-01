@@ -1,13 +1,19 @@
+import { useRef } from "react";
 import { motion, type Variants } from "framer-motion";
 import { Music, Mic2 } from "lucide-react";
 import type { Playlist } from "@/lib/playlists";
 import { cn } from "@/lib/utils";
+
+const DOUBLE_TAP_MS = 350;
 
 interface PlaylistCardProps {
   playlist: Playlist;
   imageUrl?: string;
   isSelected: boolean;
   onClick: () => void;
+  /** Fires on a second tap/click within DOUBLE_TAP_MS — lets a caller skip
+   *  straight to "start" without scrolling to a separate button. */
+  onDoubleClick?: () => void;
   featured?: boolean;
   variants?: Variants;
   className?: string;
@@ -18,15 +24,31 @@ export const PlaylistCard = ({
   imageUrl,
   isSelected,
   onClick,
+  onDoubleClick,
   featured = false,
   variants,
   className,
 }: PlaylistCardProps) => {
   const displayImage = imageUrl || playlist.image;
+  const lastTapRef = useRef(0);
+
+  // Native dblclick is unreliable on touch (mobile Safari in particular
+  // doesn't fire it from two taps), so double-tap is detected manually off
+  // the same click/tap event every browser fires consistently.
+  const handleTap = () => {
+    onClick();
+    const now = Date.now();
+    if (onDoubleClick && now - lastTapRef.current < DOUBLE_TAP_MS) {
+      lastTapRef.current = 0;
+      onDoubleClick();
+    } else {
+      lastTapRef.current = now;
+    }
+  };
 
   return (
     <motion.button
-      onClick={onClick}
+      onClick={handleTap}
       variants={variants}
       className={cn(
         "relative w-full overflow-hidden rounded-xl border-2 transition-all duration-300",

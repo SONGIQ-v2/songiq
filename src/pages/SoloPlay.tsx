@@ -5,6 +5,7 @@ import { Helmet } from "react-helmet-async";
 import { Starfield } from "@/components/Starfield";
 import { Header } from "@/components/Header";
 import { PlaylistCard } from "@/components/PlaylistCard";
+import { DoubleTapHint } from "@/components/DoubleTapHint";
 import { Button } from "@/components/ui/button";
 import { PLAYLISTS, PLAYLIST_CATEGORIES, getPlaylistById, type PlaylistCategory } from "@/lib/playlists";
 import { cn } from "@/lib/utils";
@@ -68,14 +69,16 @@ const SoloPlay = () => {
     fetchPlaylistImages();
   }, [getPlaylistTracks]);
 
-  const handlePlay = () => {
-    setCategory(selectedPlaylistId);
+  const startQuiz = (playlistId: string) => {
+    setCategory(playlistId);
     trackEvent("solo_game_start", {
-      playlist_id: selectedPlaylistId,
-      playlist_name: getPlaylistById(selectedPlaylistId)?.name,
+      playlist_id: playlistId,
+      playlist_name: getPlaylistById(playlistId)?.name,
     });
     navigate("/solo/game");
   };
+
+  const handlePlay = () => startQuiz(selectedPlaylistId);
 
   return (
     <div className="min-h-screen relative overflow-hidden">
@@ -132,6 +135,8 @@ const SoloPlay = () => {
             ))}
           </motion.div>
 
+          <DoubleTapHint />
+
           {/* Playlists Grid */}
           <motion.div
             key={activeCategory}
@@ -148,6 +153,10 @@ const SoloPlay = () => {
                 imageUrl={playlistImages[playlist.id]}
                 isSelected={selectedPlaylistId === playlist.id}
                 onClick={() => setSelectedPlaylistId(playlist.id)}
+                onDoubleClick={() => {
+                  setSelectedPlaylistId(playlist.id);
+                  startQuiz(playlist.id);
+                }}
               />
             ))}
           </motion.div>
