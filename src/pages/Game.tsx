@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Helmet } from "react-helmet-async";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Volume2, VolumeX, Music2, X, Share2, Play, Star, Flame } from "lucide-react";
+import { Volume2, VolumeX, Music2, X, Share2, Play, Star, Flame, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { Starfield } from "@/components/Starfield";
 import { RoundIndicator } from "@/components/RoundIndicator";
@@ -181,15 +181,29 @@ export default function Game() {
   // reliably on every device.
   const ensureFirstClip = async (track: AppleMusicTrack | undefined) => {
     if (!track?.previewUrl) return;
-    if (prefetchedUrlsRef.current.has(track.previewUrl)) return;
-    const download = prefetchAudio(track.previewUrl).then((ok) => {
-      if (ok) prefetchedUrlsRef.current.add(track.previewUrl);
-      return ok;
+    if (!prefetchedUrlsRef.current.has(track.previewUrl)) {
+      const download = prefetchAudio(track.previewUrl).then((ok) => {
+        if (ok) prefetchedUrlsRef.current.add(track.previewUrl);
+        return ok;
+      });
+      await Promise.race([
+        download,
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000)),
+      ]);
+    }
+    // Priming an actual <audio> element (not just warming the HTTP cache)
+    // matters here: without this, tapping "Tap to Play" constructed a brand
+    // new element from scratch and had to wait through load→canplay before
+    // sound started — a ~1s gap even with the file already cached. Rounds
+    // 2+ never had this gap because the countdown screen already does this
+    // same priming; round 1 just skipped it since there's no countdown before it.
+    const { audio, ready } = preloadAudio(track.previewUrl, {
+      timeoutMs: 2500,
+      volume: isMuted ? 0 : 0.7,
     });
-    await Promise.race([
-      download,
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000)),
-    ]);
+    await ready;
+    preloadedAudioRef.current = audio;
+    preloadedForUrlRef.current = track.previewUrl;
   };
 
   // Load tracks on mount
@@ -704,6 +718,18 @@ export default function Game() {
           >
             <Play className="w-5 h-5 mr-2" />
             Tap to Play
+          </Button>
+          <Button
+            variant="ghost"
+            size="lg"
+            className="w-full mt-2"
+            onClick={() => {
+              cleanupGame();
+              navigate(challenge && !daily ? `/c/${challenge.code}` : daily ? "/daily" : "/solo");
+            }}
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Go Back
           </Button>
         </motion.div>
       </div>
