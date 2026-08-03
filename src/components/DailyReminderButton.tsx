@@ -38,10 +38,17 @@ export function DailyReminderButton({ className = "" }: { className?: string }) 
 
   if (state === "ios") {
     return (
-      <p className={`text-xs text-muted-foreground flex items-center justify-center gap-1.5 ${className}`}>
-        <Share className="w-3.5 h-3.5" />
-        For daily reminders: Share → Add to Home Screen, then enable them here
-      </p>
+      <div className={`bg-primary/10 border border-primary/30 rounded-xl px-4 py-3 text-left ${className}`}>
+        <p className="text-sm font-semibold text-foreground flex items-center gap-1.5 mb-2">
+          <Share className="w-4 h-4 text-primary" />
+          Get daily reminders on iPhone
+        </p>
+        <ol className="text-xs text-muted-foreground space-y-1 list-decimal list-inside">
+          <li>Tap the Share icon in Safari's toolbar</li>
+          <li>Scroll down and tap "Add to Home Screen"</li>
+          <li>Open SongIQ from your home screen, then tap the button here again</li>
+        </ol>
+      </div>
     );
   }
 
