@@ -21,6 +21,12 @@ interface iTunesSearchResponse {
 // Karaoke/tribute/cover junk that pollutes iTunes text search results
 const JUNK_PATTERN = /karaoke|tribute|made famous|originally performed|cover version|in the style of|type beat|glee cast/i;
 
+// Artists confirmed on inspection to be unrelated to any playlist here — they
+// only turn up because they feature one of our search terms on an otherwise
+// unrelated song (e.g. Ragheb Alama, a Lebanese pop artist, surfaced by a
+// Naija Throwback search for "seyi shay" via his "Yalla Habibi" feature).
+const EXCLUDED_ARTIST_PATTERN = /ragheb alama/i;
+
 // Search iTunes for tracks (only those with playable previews, no karaoke junk)
 export async function searchTracks(query: string, limit: number = 50): Promise<iTunesTrack[]> {
   const url = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=song&limit=${limit}`;
@@ -30,7 +36,8 @@ export async function searchTracks(query: string, limit: number = 50): Promise<i
     (track) =>
       track.previewUrl &&
       !JUNK_PATTERN.test(track.artistName) &&
-      !JUNK_PATTERN.test(track.collectionName || "")
+      !JUNK_PATTERN.test(track.collectionName || "") &&
+      !EXCLUDED_ARTIST_PATTERN.test(track.artistName)
   );
 }
 
