@@ -721,6 +721,15 @@ export const PLAYLISTS: Playlist[] = [
     image: "",
     searchTerms: ["__artist:591899010"],
   },
+  {
+    id: "artist-olamide",
+    category: "africa",
+    isArtist: true,
+    name: "Olamide",
+    description: "Olamide, top to bottom",
+    image: "",
+    searchTerms: ["__artist:389401008"],
+  },
 ];
 // Get a playlist by ID
 export function getPlaylistById(id: string): Playlist | undefined {
