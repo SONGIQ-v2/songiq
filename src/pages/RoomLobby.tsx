@@ -77,6 +77,7 @@ export default function RoomLobby() {
   const [editName, setEditName] = useState("");
   const [playlistImages, setPlaylistImages] = useState<Record<string, string>>({});
   const [activeCategory, setActiveCategory] = useState<"all" | PlaylistCategory>("all");
+  const [artistsOnly, setArtistsOnly] = useState(false);
   const [factIndex, setFactIndex] = useState(0);
   const [showFactsModal, setShowFactsModal] = useState(false);
 
@@ -455,7 +456,10 @@ export default function RoomLobby() {
                       {PLAYLIST_CATEGORIES.map((cat) => (
                         <button
                           key={cat.id}
-                          onClick={() => setActiveCategory(cat.id)}
+                          onClick={() => {
+                            setActiveCategory(cat.id);
+                            setArtistsOnly(false);
+                          }}
                           className={cn(
                             "px-3 py-1.5 rounded-full text-xs font-medium uppercase tracking-wide transition-all border",
                             activeCategory === cat.id
@@ -467,11 +471,40 @@ export default function RoomLobby() {
                         </button>
                       ))}
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      {(activeCategory === "all"
+                    {(() => {
+                      const categoryPlaylists = activeCategory === "all"
                         ? PLAYLISTS
-                        : PLAYLISTS.filter((p) => p.category === activeCategory)
-                      ).map((playlist) => (
+                        : PLAYLISTS.filter((p) => p.category === activeCategory);
+                      const hasArtistsInCategory = categoryPlaylists.some((p) => p.isArtist);
+                      const gridPlaylists = artistsOnly
+                        ? categoryPlaylists.filter((p) => p.isArtist)
+                        : categoryPlaylists;
+                      return (
+                        <>
+                          {hasArtistsInCategory && (
+                            <div className="flex gap-2 mb-3">
+                              <button
+                                onClick={() => setArtistsOnly(false)}
+                                className={cn(
+                                  "px-3 py-1 rounded-full text-xs font-semibold transition-colors",
+                                  !artistsOnly ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground"
+                                )}
+                              >
+                                All
+                              </button>
+                              <button
+                                onClick={() => setArtistsOnly(true)}
+                                className={cn(
+                                  "px-3 py-1 rounded-full text-xs font-semibold transition-colors",
+                                  artistsOnly ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground"
+                                )}
+                              >
+                                Artists
+                              </button>
+                            </div>
+                          )}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {gridPlaylists.map((playlist) => (
                         <PlaylistCard
                           key={playlist.id}
                           playlist={playlist}
@@ -489,6 +522,9 @@ export default function RoomLobby() {
                         />
                       ))}
                     </div>
+                        </>
+                      );
+                    })()}
                   </div>
 
                   {/* Number of Songs + Time per Song — one row, visually separated from the playlist picker above */}

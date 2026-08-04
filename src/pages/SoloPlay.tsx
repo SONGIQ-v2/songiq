@@ -21,14 +21,20 @@ const SoloPlay = () => {
   const [playlistImages, setPlaylistImages] = useState<Record<string, string>>({});
   const [loadingImages, setLoadingImages] = useState(true);
   const [activeCategory, setActiveCategory] = useState<"all" | PlaylistCategory>("all");
+  // Sub-filter within the active main category — not a category of its own.
+  const [artistsOnly, setArtistsOnly] = useState(false);
   const { setCategory } = useGameStore();
   const { getPlaylistTracks } = useAppleMusic();
   const shouldReduceMotion = useReducedMotion();
   const { container, pop, fade } = getMotionVariants(!!shouldReduceMotion);
 
-  const visiblePlaylists = activeCategory === "all"
+  const categoryPlaylists = activeCategory === "all"
     ? PLAYLISTS
     : PLAYLISTS.filter((p) => p.category === activeCategory);
+  const hasArtistsInCategory = categoryPlaylists.some((p) => p.isArtist);
+  const visiblePlaylists = artistsOnly
+    ? categoryPlaylists.filter((p) => p.isArtist)
+    : categoryPlaylists;
 
   // Fetch playlist images on mount
   useEffect(() => {
@@ -122,7 +128,10 @@ const SoloPlay = () => {
             {PLAYLIST_CATEGORIES.map((cat) => (
               <button
                 key={cat.id}
-                onClick={() => setActiveCategory(cat.id)}
+                onClick={() => {
+                  setActiveCategory(cat.id);
+                  setArtistsOnly(false);
+                }}
                 className={cn(
                   "px-4 py-2 rounded-full text-sm font-medium uppercase tracking-wide transition-all border",
                   activeCategory === cat.id
@@ -134,6 +143,30 @@ const SoloPlay = () => {
               </button>
             ))}
           </motion.div>
+
+          {/* Sub-filter: only artist spotlights within the active category */}
+          {hasArtistsInCategory && (
+            <motion.div className="flex justify-center gap-2 mb-6" variants={fade}>
+              <button
+                onClick={() => setArtistsOnly(false)}
+                className={cn(
+                  "px-3 py-1 rounded-full text-xs font-semibold transition-colors",
+                  !artistsOnly ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                All
+              </button>
+              <button
+                onClick={() => setArtistsOnly(true)}
+                className={cn(
+                  "px-3 py-1 rounded-full text-xs font-semibold transition-colors",
+                  artistsOnly ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Artists
+              </button>
+            </motion.div>
+          )}
 
           <DoubleTapHint />
 
