@@ -10,6 +10,7 @@ export interface iTunesTrack {
   previewUrl: string;
   trackTimeMillis: number;
   primaryGenreName: string;
+  releaseDate?: string;
 }
 
 interface iTunesSearchResponse {
@@ -190,6 +191,44 @@ export async function fetchChartPool(
   return { pool: unique, image };
 }
 
+// An era playlist (e.g. Naija Throwback) can carry one extra search term of
+// the form "__yearrange:<minYear|empty>:<maxYear>" to restrict its pool to a
+// release-year window — e.g. "__yearrange:2004:2020" or "__yearrange::2005"
+// for no lower bound. Not a real search term: extracted and removed from the
+// list before searching, then applied as a post-filter on the merged pool.
+export const YEAR_RANGE_TERM_PREFIX = "__yearrange:";
+
+interface YearRange {
+  minYear: number | null;
+  maxYear: number;
+}
+
+function extractYearRange(searchTerms: string[]): { yearRange: YearRange | null; terms: string[] } {
+  const idx = searchTerms.findIndex((t) => t.startsWith(YEAR_RANGE_TERM_PREFIX));
+  if (idx === -1) return { yearRange: null, terms: searchTerms };
+
+  const terms = [...searchTerms.slice(0, idx), ...searchTerms.slice(idx + 1)];
+  const [minStr, maxStr] = searchTerms[idx].slice(YEAR_RANGE_TERM_PREFIX.length).split(":");
+  const maxYear = parseInt(maxStr, 10);
+  if (!Number.isFinite(maxYear)) return { yearRange: null, terms };
+  const minYear = minStr ? parseInt(minStr, 10) : null;
+  return {
+    yearRange: { minYear: minYear !== null && Number.isFinite(minYear) ? minYear : null, maxYear },
+    terms,
+  };
+}
+
+// A track with no releaseDate can't be verified as in-window, so it's
+// dropped rather than assumed eligible.
+function withinYearRange(track: iTunesTrack, range: YearRange): boolean {
+  if (!track.releaseDate) return false;
+  const year = new Date(track.releaseDate).getUTCFullYear();
+  if (!Number.isFinite(year)) return false;
+  if (year > range.maxYear) return false;
+  if (range.minYear !== null && year < range.minYear) return false;
+  return true;
+}
+
 /**
  * Build a playlist's full track pool: parallel iTunes searches across the
  * playlist's artist terms, deduplicated. Returns the whole pool (typically
@@ -200,6 +239,9 @@ export async function fetchPlaylistPool(
   searchTerms: string[],
   targetSize: number = 50
 ): Promise<{ pool: iTunesTrack[]; image: string }> {
+  const { yearRange, terms: termsWithoutYearRange } = extractYearRange(searchTerms);
+  searchTerms = termsWithoutYearRange;
+
   // Chart-driven playlist? Route to the Most Played feed.
   if (searchTerms[0]?.startsWith(CHART_TERM_PREFIX)) {
     return fetchChartPool(searchTerms[0].slice(CHART_TERM_PREFIX.length));
@@ -227,8 +269,12 @@ export async function fetchPlaylistPool(
     : searchTerms;
 
   // Ensure each term returns enough candidates that dedup + preview filtering
-  // still leaves a healthy pool.
-  const tracksPerTerm = Math.max(3, Math.ceil((targetSize * 2) / usedTerms.length));
+  // still leaves a healthy pool. A year-range playlist needs a much deeper
+  // fetch per term since most of an artist's top results get discarded by
+  // the release-year filter below.
+  const tracksPerTerm = yearRange
+    ? Math.max(20, Math.ceil((targetSize * 4) / usedTerms.length))
+    : Math.max(3, Math.ceil((targetSize * 2) / usedTerms.length));
 
   const results = await Promise.allSettled(
     usedTerms.map((term) =>
@@ -247,9 +293,13 @@ export async function fetchPlaylistPool(
     }
   }
 
-  const pool = allTracks.filter(
+  let pool = allTracks.filter(
     (track, index, self) => index === self.findIndex((t) => t.trackId === track.trackId)
   );
+
+  if (yearRange) {
+    pool = pool.filter((t) => withinYearRange(t, yearRange));
+  }
 
   const image = pool.length > 0
     ? pool[0].artworkUrl100.replace("100x100", "600x600")
