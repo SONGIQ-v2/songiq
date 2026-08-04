@@ -130,6 +130,10 @@ export default function Game() {
   const [challengeAttempts, setChallengeAttempts] = useState<ChallengeAttempt[] | null>(null);
   const [dailyResult, setDailyResult] = useState<{ rank: number; total: number; streak: number } | null>(null);
   const [dailyPromo, setDailyPromo] = useState<{ number: number; categoryName: string; totalPlayed: number } | null>(null);
+  // Separate from the Apple Music hook's `error` (which only covers thrown
+  // fetch exceptions) — this also covers a *successful* fetch that simply
+  // came back with fewer tracks than a round needs.
+  const [loadError, setLoadError] = useState<string | null>(null);
   // Solo Play never collects a name up front — prompt for one only when
   // they try to share, so the result/challenge isn't attributed to
   // "A music fan".
@@ -261,6 +265,7 @@ export default function Game() {
     }
 
     console.log("Loading tracks for playlist:", playlist.name);
+    setLoadError(null);
     const result = await getPlaylistTracks(
       playlist.searchTerms,
       playlist.name,
@@ -290,6 +295,11 @@ export default function Game() {
         required: TOTAL_ROUNDS,
         musicError,
       });
+      // Without this, gameState (and the screen) is left exactly as it was
+      // before this call — e.g. still showing the previous game's results
+      // screen after Play Again, looking like the click did nothing.
+      setGameState("loading");
+      setLoadError("Couldn't load enough songs for this playlist. Please try again.");
     }
   };
 
@@ -440,6 +450,10 @@ export default function Game() {
   }, [gameState, handleNextRound]);
 
   const handlePlayAgain = () => {
+    // Without this, a failed refetch leaves gameState (and the screen)
+    // exactly as it was — still showing the just-finished results, making
+    // the click look like it did nothing.
+    setGameState("loading");
     resetSoloGame();
     setCurrentRound(1);
     loadTracks();
@@ -672,20 +686,36 @@ export default function Game() {
   }, [cleanupGame]);
 
   if (gameState === "loading") {
+    const loadFailure = loadError || musicError;
     return (
-      <div className="min-h-screen bg-background relative overflow-hidden flex items-center justify-center">
+      <div className="min-h-screen bg-background relative overflow-hidden flex items-center justify-center p-4">
         <Starfield />
-        <div className="text-center z-10">
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-            className="w-16 h-16 mx-auto mb-4"
-          >
-            <Music2 className="w-full h-full text-gold" />
-          </motion.div>
-          <p className="text-xl text-foreground/80">Loading {playlist?.name || "tracks"}...</p>
-          {musicError && (
-            <p className="text-red-400 mt-4">{musicError}</p>
+        <div className="text-center z-10 max-w-sm w-full">
+          {loadFailure ? (
+            <>
+              <Music2 className="w-16 h-16 text-gold mx-auto mb-4" />
+              <p className="text-xl text-foreground/80 mb-2">Couldn't load {playlist?.name || "tracks"}</p>
+              <p className="text-red-400 mb-6">{loadFailure}</p>
+              <div className="flex gap-3">
+                <Button variant="outline" className="flex-1" onClick={() => navigate("/solo")}>
+                  Categories
+                </Button>
+                <Button variant="gold" className="flex-1" onClick={handlePlayAgain}>
+                  Try Again
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                className="w-16 h-16 mx-auto mb-4"
+              >
+                <Music2 className="w-full h-full text-gold" />
+              </motion.div>
+              <p className="text-xl text-foreground/80">Loading {playlist?.name || "tracks"}...</p>
+            </>
           )}
         </div>
       </div>
