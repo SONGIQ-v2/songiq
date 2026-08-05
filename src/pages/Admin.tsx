@@ -11,7 +11,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { Lock, LinkIcon, RefreshCw, Users, Trophy, Radio, Flame } from "lucide-react";
+import { Lock, LinkIcon, RefreshCw, Users, Trophy, Radio, Flame, Calendar, Target, ListMusic } from "lucide-react";
 import { Starfield } from "@/components/Starfield";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,11 +30,17 @@ interface ReportData {
   connected: boolean;
   eventCounts?: { event: string; count: number }[];
   dailyTotals?: { date: string; count: number }[];
+  topPlaylists?: { playlist: string; plays: number }[];
   stats?: {
     playersWithStreak: number;
     challengesCreated: number;
     roomsCreated: number;
     activeRoomsNow: number;
+    dailyPlaysToday: number;
+    dailyAvgScoreToday: number;
+    topStreakPlayer: { name: string; streak: number } | null;
+    uniquePlayersEver: number;
+    challengeCompletionRatePct: number;
   };
 }
 
@@ -45,12 +51,23 @@ function formatGa4Date(d: string) {
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-function StatTile({ icon: Icon, label, value }: { icon: typeof Users; label: string; value: number | string }) {
+function StatTile({
+  icon: Icon,
+  label,
+  value,
+  sublabel,
+}: {
+  icon: typeof Users;
+  label: string;
+  value: number | string;
+  sublabel?: string;
+}) {
   return (
     <div className="text-center p-4 rounded-xl bg-card/50 border border-border/50">
       <Icon className="w-4 h-4 text-primary mx-auto mb-1.5" />
       <p className="text-2xl font-bold text-foreground">{value}</p>
       <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
+      {sublabel && <p className="text-xs text-primary mt-0.5 truncate">{sublabel}</p>}
     </div>
   );
 }
@@ -152,7 +169,7 @@ export default function Admin() {
       </Helmet>
       <Starfield />
 
-      <main className="relative z-10 max-w-3xl mx-auto px-4 pt-16 pb-12">
+      <main className="relative z-10 max-w-[1400px] mx-auto px-4 pt-16 pb-12">
         {session === "loading" ? null : !isAdmin ? (
           <div className="max-w-sm mx-auto raised-panel p-8 mt-16">
             <Lock className="w-8 h-8 text-primary mx-auto mb-4" />
@@ -248,12 +265,26 @@ export default function Admin() {
                 ) : (
                   <div className="space-y-6">
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      <StatTile icon={Flame} label="Players with a streak" value={report.stats?.playersWithStreak ?? 0} />
+                      <StatTile icon={Calendar} label="Daily Challenge plays today" value={report.stats?.dailyPlaysToday ?? 0} />
+                      <StatTile icon={Target} label="Avg Daily score today" value={report.stats?.dailyAvgScoreToday ?? 0} />
+                      <StatTile
+                        icon={Flame}
+                        label="Highest active streak"
+                        value={report.stats?.topStreakPlayer?.streak ?? 0}
+                        sublabel={report.stats?.topStreakPlayer?.name}
+                      />
+                      <StatTile icon={Users} label="Unique players ever" value={report.stats?.uniquePlayersEver ?? 0} />
                       <StatTile icon={LinkIcon} label="Challenges created" value={report.stats?.challengesCreated ?? 0} />
+                      <StatTile
+                        icon={Trophy}
+                        label="Challenge completion rate"
+                        value={`${report.stats?.challengeCompletionRatePct ?? 0}%`}
+                      />
                       <StatTile icon={Users} label="Rooms created" value={report.stats?.roomsCreated ?? 0} />
                       <StatTile icon={Radio} label="Active rooms now" value={report.stats?.activeRoomsNow ?? 0} />
                     </div>
 
+                    <div className="grid lg:grid-cols-2 gap-6">
                     <div className="raised-panel p-5">
                       <p className="text-sm font-semibold text-foreground mb-4 flex items-center gap-1.5">
                         <Trophy className="w-4 h-4 text-primary" /> Events by type
@@ -317,6 +348,29 @@ export default function Admin() {
                         </ResponsiveContainer>
                       </div>
                     </div>
+                    </div>
+
+                    {report.topPlaylists && report.topPlaylists.length > 0 && (
+                      <div className="raised-panel p-5">
+                        <p className="text-sm font-semibold text-foreground mb-4 flex items-center gap-1.5">
+                          <ListMusic className="w-4 h-4 text-primary" /> Most-played playlists
+                        </p>
+                        <div className="space-y-1.5">
+                          {report.topPlaylists.map((p, i) => (
+                            <div
+                              key={p.playlist}
+                              className="flex items-center justify-between px-3 py-1.5 rounded-lg text-sm bg-card/50"
+                            >
+                              <span className="font-semibold text-foreground flex items-center gap-2 min-w-0">
+                                <span className="text-muted-foreground w-5">#{i + 1}</span>
+                                <span className="truncate">{p.playlist}</span>
+                              </span>
+                              <span className="font-bold text-gold shrink-0">{p.plays}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </>

@@ -74,6 +74,34 @@ async function accessTokenFromRefreshToken(refreshToken: string): Promise<string
   return data.access_token as string;
 }
 
+// Every event trackEvent() actually fires (src/lib/analytics.ts call sites).
+// GA4 also auto-collects its own events (page_view, session_start, click,
+// scroll, first_visit, etc.) alongside these -- this list is how the
+// dashboard shows only what SongIQ deliberately tracks, not Google's noise.
+const CUSTOM_EVENT_NAMES = [
+  "solo_game_start",
+  "solo_game_complete",
+  "daily_challenge_start",
+  "daily_challenge_complete",
+  "challenge_accept",
+  "challenge_create",
+  "challenge_complete",
+  "multiplayer_room_create",
+  "multiplayer_room_join",
+  "multiplayer_game_start",
+  "multiplayer_game_complete",
+  "room_link_copy",
+  "share_result",
+  "push_subscribe",
+];
+
+const customEventsFilter = {
+  filter: {
+    fieldName: "eventName",
+    inListFilter: { values: CUSTOM_EVENT_NAMES },
+  },
+};
+
 async function runGA4Report(accessToken: string, startDate: string, endDate: string) {
   const call = (body: unknown) =>
     fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${GA4_PROPERTY_ID}:runReport`, {
@@ -90,6 +118,7 @@ async function runGA4Report(accessToken: string, startDate: string, endDate: str
       dateRanges: [{ startDate, endDate }],
       dimensions: [{ name: "eventName" }],
       metrics: [{ name: "eventCount" }],
+      dimensionFilter: customEventsFilter,
       orderBys: [{ metric: { metricName: "eventCount" }, desc: true }],
       limit: 50,
     }),
@@ -97,6 +126,7 @@ async function runGA4Report(accessToken: string, startDate: string, endDate: str
       dateRanges: [{ startDate, endDate }],
       dimensions: [{ name: "date" }],
       metrics: [{ name: "eventCount" }],
+      dimensionFilter: customEventsFilter,
       orderBys: [{ dimension: { dimensionName: "date" } }],
     }),
   ]);
@@ -111,6 +141,41 @@ async function runGA4Report(accessToken: string, startDate: string, endDate: str
   }));
 
   return { eventCounts, dailyTotals };
+}
+
+// playlist_name is only sent on these two events (src/pages/SoloPlay.tsx,
+// RoomLobby.tsx) -- requires the customEvent:playlist_name dimension to
+// already be registered in GA4 Admin -> Custom Definitions, or this comes
+// back empty.
+async function runTopPlaylists(accessToken: string, startDate: string, endDate: string) {
+  const res = await fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${GA4_PROPERTY_ID}:runReport`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      dateRanges: [{ startDate, endDate }],
+      dimensions: [{ name: "customEvent:playlist_name" }],
+      metrics: [{ name: "eventCount" }],
+      dimensionFilter: {
+        filter: {
+          fieldName: "eventName",
+          inListFilter: { values: ["solo_game_start", "multiplayer_game_start"] },
+        },
+      },
+      orderBys: [{ metric: { metricName: "eventCount" }, desc: true }],
+      limit: 10,
+    }),
+  });
+  if (!res.ok) throw new Error(`GA4 top-playlists report failed: ${await res.text()}`);
+  const data = await res.json();
+  return (data.rows ?? []).map((r: { dimensionValues: { value: string }[]; metricValues: { value: string }[] }) => ({
+    playlist: r.dimensionValues[0].value || "(not set)",
+    plays: Number(r.metricValues[0].value),
+  }));
+}
+
+/** "Today" by Lagos time, matching daily_challenges.challenge_date elsewhere in the app. */
+function lagosToday(): string {
+  return new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
 serve(async (req) => {
@@ -176,30 +241,73 @@ serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const { eventCounts, dailyTotals } = await runGA4Report(
-        accessToken,
-        startDate || "7daysAgo",
-        endDate || "today"
-      );
+      const reportStart = startDate || "7daysAgo";
+      const reportEnd = endDate || "today";
+      const [{ eventCounts, dailyTotals }, topPlaylists] = await Promise.all([
+        runGA4Report(accessToken, reportStart, reportEnd),
+        runTopPlaylists(accessToken, reportStart, reportEnd).catch((e) => {
+          // Missing/unregistered custom dimension shouldn't break the rest
+          // of the dashboard -- just comes back empty.
+          console.error("[admin-analytics] Top playlists failed:", e);
+          return [];
+        }),
+      ]);
 
-      const [{ count: streakCount }, { count: challengeCount }, { count: roomCount }, { count: activeRoomCount }] =
-        await Promise.all([
-          supabase.from("daily_stats").select("*", { count: "exact", head: true }),
-          supabase.from("challenges").select("*", { count: "exact", head: true }),
-          supabase.from("game_rooms").select("*", { count: "exact", head: true }),
-          supabase.from("game_rooms").select("*", { count: "exact", head: true }).in("status", ["waiting", "playing"]),
-        ]);
+      const today = lagosToday();
+      const [
+        { count: streakCount },
+        { count: challengeCount },
+        { count: challengeAttemptCount },
+        { count: roomCount },
+        { count: activeRoomCount },
+        { count: dailyPlaysToday },
+        { data: dailyScoresToday },
+        { data: topStreakRow },
+        { data: uniquePlayers },
+      ] = await Promise.all([
+        supabase.from("daily_stats").select("*", { count: "exact", head: true }),
+        supabase.from("challenges").select("*", { count: "exact", head: true }),
+        supabase.from("challenge_attempts").select("*", { count: "exact", head: true }),
+        supabase.from("game_rooms").select("*", { count: "exact", head: true }),
+        supabase.from("game_rooms").select("*", { count: "exact", head: true }).in("status", ["waiting", "playing"]),
+        supabase.from("daily_attempts").select("*", { count: "exact", head: true }).eq("challenge_date", today),
+        supabase.from("daily_attempts").select("score").eq("challenge_date", today),
+        supabase
+          .from("daily_stats_leaderboard")
+          .select("player_name, effective_streak")
+          .order("effective_streak", { ascending: false })
+          .order("total_score", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        supabase.rpc("count_unique_players"),
+      ]);
+
+      const dailyAvgScoreToday =
+        dailyScoresToday && dailyScoresToday.length > 0
+          ? Math.round(dailyScoresToday.reduce((sum: number, r: { score: number }) => sum + r.score, 0) / dailyScoresToday.length)
+          : 0;
 
       return new Response(
         JSON.stringify({
           connected: true,
           eventCounts,
           dailyTotals,
+          topPlaylists,
           stats: {
             playersWithStreak: streakCount ?? 0,
             challengesCreated: challengeCount ?? 0,
             roomsCreated: roomCount ?? 0,
             activeRoomsNow: activeRoomCount ?? 0,
+            dailyPlaysToday: dailyPlaysToday ?? 0,
+            dailyAvgScoreToday,
+            topStreakPlayer: topStreakRow
+              ? { name: topStreakRow.player_name, streak: topStreakRow.effective_streak }
+              : null,
+            uniquePlayersEver: (uniquePlayers as number | null) ?? 0,
+            challengeCompletionRatePct:
+              challengeCount && challengeCount > 0
+                ? Math.round(((challengeAttemptCount ?? 0) / challengeCount) * 100)
+                : 0,
           },
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
