@@ -839,6 +839,7 @@ export type Database = {
     }
     Functions: {
       advance_game_round: { Args: { _room_id: string }; Returns: Json }
+      count_unique_players: { Args: never; Returns: number }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
