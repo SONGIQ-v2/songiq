@@ -103,7 +103,7 @@ export default function Admin() {
     setConnecting(true);
     (async () => {
       const { error } = await supabase.functions.invoke("admin-analytics", {
-        body: { action: "connect", code },
+        body: { action: "connect", code, redirectUri: `${window.location.origin}/anonymous` },
       });
       window.history.replaceState({}, "", "/anonymous");
       if (error) setReportError(error.message ?? "Failed to connect Google Analytics");

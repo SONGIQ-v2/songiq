@@ -18,7 +18,6 @@ const corsHeaders = {
 const GA4_CLIENT_ID = Deno.env.get("GA4_CLIENT_ID")!;
 const GA4_CLIENT_SECRET = Deno.env.get("GA4_CLIENT_SECRET")!;
 const GA4_PROPERTY_ID = Deno.env.get("GA4_PROPERTY_ID")!;
-const GA4_REDIRECT_URI = Deno.env.get("GA4_REDIRECT_URI")!; // must exactly match the OAuth client's authorized redirect URI
 
 function serviceClient() {
   return createClient(
@@ -39,7 +38,11 @@ async function requireAdmin(req: Request): Promise<{ ok: true } | { ok: false; s
   return { ok: true };
 }
 
-async function exchangeCodeForTokens(code: string) {
+async function exchangeCodeForTokens(code: string, redirectUri: string) {
+  // redirect_uri here must exactly match what the frontend sent Google in
+  // the initial auth request -- it varies (localhost while testing,
+  // songiq.io in production), so it's passed through per-request rather
+  // than fixed as a secret.
   const res = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -48,7 +51,7 @@ async function exchangeCodeForTokens(code: string) {
       client_secret: GA4_CLIENT_SECRET,
       code,
       grant_type: "authorization_code",
-      redirect_uri: GA4_REDIRECT_URI,
+      redirect_uri: redirectUri,
     }),
   });
   if (!res.ok) throw new Error(`Token exchange failed: ${await res.text()}`);
@@ -122,12 +125,13 @@ serve(async (req) => {
       });
     }
 
-    const { action, code, startDate, endDate } = await req.json();
+    const { action, code, redirectUri, startDate, endDate } = await req.json();
     const supabase = serviceClient();
 
     if (action === "connect") {
       if (!code) throw new Error("Missing authorization code");
-      const tokens = await exchangeCodeForTokens(code);
+      if (!redirectUri) throw new Error("Missing redirectUri");
+      const tokens = await exchangeCodeForTokens(code, redirectUri);
       if (!tokens.refresh_token) {
         // Google only issues a refresh token on first consent (or when
         // prompt=consent is forced) -- surfaced clearly so the frontend can
