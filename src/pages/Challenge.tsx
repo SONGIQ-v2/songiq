@@ -37,8 +37,8 @@ function Leaderboard({ entries }: { entries: BoardEntry[] }) {
       <p className="text-muted-foreground mb-3 text-center text-sm">
         Leaderboard — First Attempt Counts
       </p>
-      <div className="space-y-2">
-        {entries.slice(0, 8).map((e, i) => (
+      <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
+        {entries.map((e, i) => (
           <div
             key={`${e.name}-${i}`}
             className={`flex items-center justify-between px-3 py-2 rounded-lg ${

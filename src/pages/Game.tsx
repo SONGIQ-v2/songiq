@@ -1006,8 +1006,8 @@ export default function Game() {
                         ? `You're #${myRank} of ${board.length} on this challenge`
                         : "Challenge leaderboard"}
                     </p>
-                    <div className="space-y-1.5">
-                      {board.slice(0, 5).map((e, i) => (
+                    <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
+                      {board.map((e, i) => (
                         <div
                           key={`${e.name}-${i}`}
                           className={`flex items-center justify-between px-3 py-1.5 rounded-lg text-sm ${
