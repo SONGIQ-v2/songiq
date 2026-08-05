@@ -479,6 +479,24 @@ export type Database = {
           },
         ]
       }
+      google_oauth_tokens: {
+        Row: {
+          id: number
+          refresh_token: string
+          updated_at: string
+        }
+        Insert: {
+          id?: number
+          refresh_token: string
+          updated_at?: string
+        }
+        Update: {
+          id?: number
+          refresh_token?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       player_answers: {
         Row: {
           answer: string
