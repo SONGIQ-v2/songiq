@@ -105,7 +105,7 @@ export default function Admin() {
       const { error } = await supabase.functions.invoke("admin-analytics", {
         body: { action: "connect", code },
       });
-      window.history.replaceState({}, "", "/admin");
+      window.history.replaceState({}, "", "/anonymous");
       if (error) setReportError(error.message ?? "Failed to connect Google Analytics");
       setConnecting(false);
       fetchReport(range);
@@ -133,7 +133,7 @@ export default function Admin() {
       setReportError("VITE_GA4_CLIENT_ID isn't set — add it to the environment first.");
       return;
     }
-    const redirectUri = `${window.location.origin}/admin`;
+    const redirectUri = `${window.location.origin}/anonymous`;
     const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
     url.searchParams.set("client_id", clientId);
     url.searchParams.set("redirect_uri", redirectUri);

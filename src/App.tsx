@@ -40,7 +40,7 @@ const App = () => (
           <Route path="/room/:code/game" element={<MultiplayerGame />} />
           <Route path="/c/:code" element={<ChallengePage />} />
           <Route path="/daily" element={<Daily />} />
-          <Route path="/admin" element={<Admin />} />
+          <Route path="/anonymous" element={<Admin />} />
           <Route path="/guess-the-song-game" element={<GuessTheSongGame />} />
           <Route path="/guess-the-artist-game" element={<GuessTheArtistGame />} />
           <Route path="/song-quiz-online" element={<SongQuizOnline />} />
