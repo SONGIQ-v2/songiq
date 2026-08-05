@@ -162,7 +162,20 @@ serve(async (req) => {
         });
       }
 
-      const accessToken = await accessTokenFromRefreshToken(tokenRow.refresh_token);
+      let accessToken: string;
+      try {
+        accessToken = await accessTokenFromRefreshToken(tokenRow.refresh_token);
+      } catch (e) {
+        // A stored refresh token can go bad (Testing-mode 7-day expiry,
+        // scope changed since it was issued, access revoked, etc.) --
+        // treated the same as never having connected, so the frontend
+        // always has a "Connect" button to fall back to instead of a
+        // dead-end error.
+        console.error("[admin-analytics] Stored refresh token is invalid:", e);
+        return new Response(JSON.stringify({ connected: false, reason: "token_expired" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       const { eventCounts, dailyTotals } = await runGA4Report(
         accessToken,
         startDate || "7daysAgo",

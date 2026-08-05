@@ -206,6 +206,20 @@ export default function Admin() {
                 </Button>
                 {reportError && <p className="text-red-400 text-sm mt-4">{reportError}</p>}
               </div>
+            ) : reportError && !report ? (
+              // The report call itself failed (not just "not connected yet")
+              // -- always offer a way forward instead of a dead end.
+              <div className="raised-panel p-8 text-center">
+                <p className="text-red-400 text-sm mb-6">{reportError}</p>
+                <div className="flex gap-3 justify-center">
+                  <Button variant="outline" onClick={() => fetchReport(range)}>
+                    Try Again
+                  </Button>
+                  <Button variant="gold" onClick={handleConnectGoogle}>
+                    Reconnect Google Analytics
+                  </Button>
+                </div>
+              </div>
             ) : (
               <>
                 <div className="flex gap-2 mb-6">
