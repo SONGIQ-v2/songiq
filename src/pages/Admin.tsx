@@ -34,7 +34,10 @@ interface ReportData {
   stats?: {
     playersWithStreak: number;
     challengesCreated: number;
+    challengesCreatedInRange: number;
     roomsCreated: number;
+    roomsCreatedInRange: number;
+    soloGamesPlayedInRange: number;
     activeRoomsNow: number;
     dailyPlaysToday: number;
     dailyAvgScoreToday: number;
@@ -98,7 +101,7 @@ export default function Admin() {
     setReportError(null);
     const startDate = DATE_RANGES.find((r) => r.key === rangeKey)?.startDate ?? "7daysAgo";
     const { data, error } = await supabase.functions.invoke("admin-analytics", {
-      body: { action: "report", startDate, endDate: "today" },
+      body: { action: "report", startDate, endDate: "today", rangeKey },
     });
     if (error) {
       setReportError(error.message ?? "Failed to load report");
@@ -274,13 +277,29 @@ export default function Admin() {
                         sublabel={report.stats?.topStreakPlayer?.name}
                       />
                       <StatTile icon={Users} label="Unique players ever" value={report.stats?.uniquePlayersEver ?? 0} />
-                      <StatTile icon={LinkIcon} label="Challenges created" value={report.stats?.challengesCreated ?? 0} />
+                      <StatTile
+                        icon={Trophy}
+                        label="Solo games played"
+                        value={report.stats?.soloGamesPlayedInRange ?? 0}
+                        sublabel="in selected range"
+                      />
+                      <StatTile
+                        icon={LinkIcon}
+                        label="Challenges created"
+                        value={report.stats?.challengesCreatedInRange ?? 0}
+                        sublabel={`${report.stats?.challengesCreated ?? 0} all-time`}
+                      />
                       <StatTile
                         icon={Trophy}
                         label="Challenge completion rate"
                         value={`${report.stats?.challengeCompletionRatePct ?? 0}%`}
                       />
-                      <StatTile icon={Users} label="Rooms created" value={report.stats?.roomsCreated ?? 0} />
+                      <StatTile
+                        icon={Users}
+                        label="Rooms created"
+                        value={report.stats?.roomsCreatedInRange ?? 0}
+                        sublabel={`${report.stats?.roomsCreated ?? 0} all-time`}
+                      />
                       <StatTile icon={Radio} label="Active rooms now" value={report.stats?.activeRoomsNow ?? 0} />
                     </div>
 

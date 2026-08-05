@@ -178,6 +178,17 @@ function lagosToday(): string {
   return new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
+/** created_at cutoff matching the dashboard's date-range selector. */
+function rangeCutoffISO(rangeKey: string | undefined): string {
+  if (rangeKey === "today") {
+    // Midnight Lagos time, same day boundary as lagosToday().
+    const lagosMidnight = new Date(`${lagosToday()}T00:00:00+01:00`);
+    return lagosMidnight.toISOString();
+  }
+  const days = rangeKey === "30d" ? 30 : 7; // default: 7d
+  return new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -190,7 +201,7 @@ serve(async (req) => {
       });
     }
 
-    const { action, code, redirectUri, startDate, endDate } = await req.json();
+    const { action, code, redirectUri, startDate, endDate, rangeKey } = await req.json();
     const supabase = serviceClient();
 
     if (action === "connect") {
@@ -254,11 +265,14 @@ serve(async (req) => {
       ]);
 
       const today = lagosToday();
+      const rangeCutoff = rangeCutoffISO(rangeKey);
       const [
         { count: streakCount },
         { count: challengeCount },
+        { count: challengeCountInRange },
         { count: challengeAttemptCount },
         { count: roomCount },
+        { count: roomCountInRange },
         { count: activeRoomCount },
         { count: dailyPlaysToday },
         { data: dailyScoresToday },
@@ -267,8 +281,10 @@ serve(async (req) => {
       ] = await Promise.all([
         supabase.from("daily_stats").select("*", { count: "exact", head: true }),
         supabase.from("challenges").select("*", { count: "exact", head: true }),
+        supabase.from("challenges").select("*", { count: "exact", head: true }).gte("created_at", rangeCutoff),
         supabase.from("challenge_attempts").select("*", { count: "exact", head: true }),
         supabase.from("game_rooms").select("*", { count: "exact", head: true }),
+        supabase.from("game_rooms").select("*", { count: "exact", head: true }).gte("created_at", rangeCutoff),
         supabase.from("game_rooms").select("*", { count: "exact", head: true }).in("status", ["waiting", "playing"]),
         supabase.from("daily_attempts").select("*", { count: "exact", head: true }).eq("challenge_date", today),
         supabase.from("daily_attempts").select("score").eq("challenge_date", today),
@@ -287,6 +303,11 @@ serve(async (req) => {
           ? Math.round(dailyScoresToday.reduce((sum: number, r: { score: number }) => sum + r.score, 0) / dailyScoresToday.length)
           : 0;
 
+      // Solo games aren't recorded server-side at all (no table -- only
+      // Daily/Challenge attempts are) -- GA4's solo_game_complete count,
+      // already scoped to the selected range, is the only source for this.
+      const soloGamesPlayedInRange = eventCounts.find((e: { event: string }) => e.event === "solo_game_complete")?.count ?? 0;
+
       return new Response(
         JSON.stringify({
           connected: true,
@@ -296,7 +317,10 @@ serve(async (req) => {
           stats: {
             playersWithStreak: streakCount ?? 0,
             challengesCreated: challengeCount ?? 0,
+            challengesCreatedInRange: challengeCountInRange ?? 0,
             roomsCreated: roomCount ?? 0,
+            roomsCreatedInRange: roomCountInRange ?? 0,
+            soloGamesPlayedInRange,
             activeRoomsNow: activeRoomCount ?? 0,
             dailyPlaysToday: dailyPlaysToday ?? 0,
             dailyAvgScoreToday,
