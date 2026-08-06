@@ -133,6 +133,24 @@ export type Database = {
         }
         Relationships: []
       }
+      creation_log: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: number
+        }
+        Insert: {
+          created_at: string
+          event_type: string
+          id?: never
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: never
+        }
+        Relationships: []
+      }
       daily_attempts: {
         Row: {
           challenge_date: string
