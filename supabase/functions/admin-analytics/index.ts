@@ -173,6 +173,23 @@ async function runTopPlaylists(accessToken: string, startDate: string, endDate: 
   }));
 }
 
+// Unique visitors for the selected date range -- activeUsers counts anyone
+// who triggered at least one event (page_view included), which is the
+// natural definition of "visitor"; no custom-event filter needed here.
+async function runVisitorCount(accessToken: string, startDate: string, endDate: string): Promise<number> {
+  const res = await fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${GA4_PROPERTY_ID}:runReport`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      dateRanges: [{ startDate, endDate }],
+      metrics: [{ name: "activeUsers" }],
+    }),
+  });
+  if (!res.ok) throw new Error(`GA4 visitor-count report failed: ${await res.text()}`);
+  const data = await res.json();
+  return Number(data.rows?.[0]?.metricValues?.[0]?.value ?? 0);
+}
+
 // Solo games have no DB table (only Daily/Challenge attempts do), so GA4 is
 // the only source, even for "all-time" -- queried with a fixed wide range
 // rather than the selected date range, since aggregated GA4 report data
@@ -275,7 +292,7 @@ serve(async (req) => {
       }
       const reportStart = startDate || "7daysAgo";
       const reportEnd = endDate || "today";
-      const [{ eventCounts, dailyTotals }, topPlaylists, soloGamesPlayedAllTime] = await Promise.all([
+      const [{ eventCounts, dailyTotals }, topPlaylists, soloGamesPlayedAllTime, visitorsInRange] = await Promise.all([
         runGA4Report(accessToken, reportStart, reportEnd),
         runTopPlaylists(accessToken, reportStart, reportEnd).catch((e) => {
           // Missing/unregistered custom dimension shouldn't break the rest
@@ -285,6 +302,10 @@ serve(async (req) => {
         }),
         runSoloGamesAllTime(accessToken).catch((e) => {
           console.error("[admin-analytics] Solo games all-time failed:", e);
+          return 0;
+        }),
+        runVisitorCount(accessToken, reportStart, reportEnd).catch((e) => {
+          console.error("[admin-analytics] Visitor count failed:", e);
           return 0;
         }),
       ]);
@@ -353,6 +374,7 @@ serve(async (req) => {
             roomsCreatedInRange: roomCountInRange ?? 0,
             soloGamesPlayedInRange,
             soloGamesPlayedAllTime,
+            visitorsInRange,
             activeRoomsNow: activeRoomCount ?? 0,
             dailyPlaysToday: dailyPlaysToday ?? 0,
             dailyAvgScoreToday,

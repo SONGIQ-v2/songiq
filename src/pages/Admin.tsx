@@ -11,7 +11,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { Lock, LinkIcon, RefreshCw, Users, Trophy, Radio, Flame, Calendar, Target, ListMusic } from "lucide-react";
+import { Lock, LinkIcon, RefreshCw, Users, Trophy, Radio, Flame, Calendar, Target, ListMusic, Eye } from "lucide-react";
 import { Starfield } from "@/components/Starfield";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,6 +39,7 @@ interface ReportData {
     roomsCreatedInRange: number;
     soloGamesPlayedInRange: number;
     soloGamesPlayedAllTime: number;
+    visitorsInRange: number;
     activeRoomsNow: number;
     dailyPlaysToday: number;
     dailyAvgScoreToday: number;
@@ -278,6 +279,7 @@ export default function Admin() {
                         sublabel={report.stats?.topStreakPlayer?.name}
                       />
                       <StatTile icon={Users} label="Unique players ever" value={report.stats?.uniquePlayersEver ?? 0} />
+                      <StatTile icon={Eye} label="Visitors" value={report.stats?.visitorsInRange ?? 0} sublabel="in selected range" />
                       <StatTile
                         icon={Trophy}
                         label="Solo games played"
