@@ -266,6 +266,12 @@ serve(async (req) => {
 
       const today = lagosToday();
       const rangeCutoff = rangeCutoffISO(rangeKey);
+      // game_rooms/challenges get purged by cleanup-stale-rooms (rooms within
+      // 2h/1h/15m, challenges after 30 days) -- a plain COUNT(*) on either,
+      // with or without a date filter, only ever reflects whatever hasn't
+      // been purged yet. creation_log is a permanent, insert-only record of
+      // every creation, so every count below (all-time and in-range) reads
+      // from it instead.
       const [
         { count: streakCount },
         { count: challengeCount },
@@ -280,11 +286,11 @@ serve(async (req) => {
         { data: uniquePlayers },
       ] = await Promise.all([
         supabase.from("daily_stats").select("*", { count: "exact", head: true }),
-        supabase.from("challenges").select("*", { count: "exact", head: true }),
-        supabase.from("challenges").select("*", { count: "exact", head: true }).gte("created_at", rangeCutoff),
+        supabase.from("creation_log").select("*", { count: "exact", head: true }).eq("event_type", "challenge"),
+        supabase.from("creation_log").select("*", { count: "exact", head: true }).eq("event_type", "challenge").gte("created_at", rangeCutoff),
         supabase.from("challenge_attempts").select("*", { count: "exact", head: true }),
-        supabase.from("game_rooms").select("*", { count: "exact", head: true }),
-        supabase.from("game_rooms").select("*", { count: "exact", head: true }).gte("created_at", rangeCutoff),
+        supabase.from("creation_log").select("*", { count: "exact", head: true }).eq("event_type", "room"),
+        supabase.from("creation_log").select("*", { count: "exact", head: true }).eq("event_type", "room").gte("created_at", rangeCutoff),
         supabase.from("game_rooms").select("*", { count: "exact", head: true }).in("status", ["waiting", "playing"]),
         supabase.from("daily_attempts").select("*", { count: "exact", head: true }).eq("challenge_date", today),
         supabase.from("daily_attempts").select("score").eq("challenge_date", today),
