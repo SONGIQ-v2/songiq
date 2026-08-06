@@ -173,6 +173,27 @@ async function runTopPlaylists(accessToken: string, startDate: string, endDate: 
   }));
 }
 
+// Solo games have no DB table (only Daily/Challenge attempts do), so GA4 is
+// the only source, even for "all-time" -- queried with a fixed wide range
+// rather than the selected date range, since aggregated GA4 report data
+// (unlike user-level data) isn't subject to the property's retention window.
+async function runSoloGamesAllTime(accessToken: string): Promise<number> {
+  const res = await fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${GA4_PROPERTY_ID}:runReport`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      dateRanges: [{ startDate: "2020-01-01", endDate: "today" }],
+      metrics: [{ name: "eventCount" }],
+      dimensionFilter: {
+        filter: { fieldName: "eventName", stringFilter: { value: "solo_game_complete" } },
+      },
+    }),
+  });
+  if (!res.ok) throw new Error(`GA4 solo-games-all-time report failed: ${await res.text()}`);
+  const data = await res.json();
+  return Number(data.rows?.[0]?.metricValues?.[0]?.value ?? 0);
+}
+
 /** "Today" by Lagos time, matching daily_challenges.challenge_date elsewhere in the app. */
 function lagosToday(): string {
   return new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -254,13 +275,17 @@ serve(async (req) => {
       }
       const reportStart = startDate || "7daysAgo";
       const reportEnd = endDate || "today";
-      const [{ eventCounts, dailyTotals }, topPlaylists] = await Promise.all([
+      const [{ eventCounts, dailyTotals }, topPlaylists, soloGamesPlayedAllTime] = await Promise.all([
         runGA4Report(accessToken, reportStart, reportEnd),
         runTopPlaylists(accessToken, reportStart, reportEnd).catch((e) => {
           // Missing/unregistered custom dimension shouldn't break the rest
           // of the dashboard -- just comes back empty.
           console.error("[admin-analytics] Top playlists failed:", e);
           return [];
+        }),
+        runSoloGamesAllTime(accessToken).catch((e) => {
+          console.error("[admin-analytics] Solo games all-time failed:", e);
+          return 0;
         }),
       ]);
 
@@ -327,6 +352,7 @@ serve(async (req) => {
             roomsCreated: roomCount ?? 0,
             roomsCreatedInRange: roomCountInRange ?? 0,
             soloGamesPlayedInRange,
+            soloGamesPlayedAllTime,
             activeRoomsNow: activeRoomCount ?? 0,
             dailyPlaysToday: dailyPlaysToday ?? 0,
             dailyAvgScoreToday,

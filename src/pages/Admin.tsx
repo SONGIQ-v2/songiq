@@ -38,6 +38,7 @@ interface ReportData {
     roomsCreated: number;
     roomsCreatedInRange: number;
     soloGamesPlayedInRange: number;
+    soloGamesPlayedAllTime: number;
     activeRoomsNow: number;
     dailyPlaysToday: number;
     dailyAvgScoreToday: number;
@@ -281,7 +282,7 @@ export default function Admin() {
                         icon={Trophy}
                         label="Solo games played"
                         value={report.stats?.soloGamesPlayedInRange ?? 0}
-                        sublabel="in selected range"
+                        sublabel={`${report.stats?.soloGamesPlayedAllTime ?? 0} all-time`}
                       />
                       <StatTile
                         icon={LinkIcon}
