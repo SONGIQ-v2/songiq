@@ -775,6 +775,15 @@ export const PLAYLISTS: Playlist[] = [
     image: "",
     searchTerms: ["__artist:605800394"],
   },
+  {
+    id: "artist-michael-jackson",
+    category: "pop",
+    isArtist: true,
+    name: "Michael Jackson",
+    description: "The King of Pop — every hit",
+    image: "",
+    searchTerms: ["__artist:32940"],
+  },
 ];
 // Get a playlist by ID
 export function getPlaylistById(id: string): Playlist | undefined {
