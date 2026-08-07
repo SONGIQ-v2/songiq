@@ -27,12 +27,33 @@ const JUNK_PATTERN = /karaoke|tribute|made famous|originally performed|cover ver
 // Naija Throwback search for "seyi shay" via his "Yalla Habibi" feature).
 const EXCLUDED_ARTIST_PATTERN = /ragheb alama/i;
 
+// iTunes/Apple endpoints return a plain-text "Rate limit exceeded" body (not
+// JSON) when throttling us -- calling response.json() directly on that
+// crashes with a SyntaxError instead of failing gracefully. Checks
+// response.ok and Content-Type first and returns null on anything
+// unexpected, so callers fall back to an empty result instead of throwing.
+async function safeFetchJson<T = unknown>(url: string, init?: RequestInit): Promise<T | null> {
+  const response = await fetch(url, init);
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!response.ok || !contentType.includes("application/json")) {
+    console.error(
+      `[iTunes] Non-JSON/error response (status ${response.status}, content-type "${contentType}") for ${url} -- likely rate-limited`
+    );
+    return null;
+  }
+  try {
+    return (await response.json()) as T;
+  } catch (e) {
+    console.error(`[iTunes] JSON parse failed for ${url}:`, e);
+    return null;
+  }
+}
+
 // Search iTunes for tracks (only those with playable previews, no karaoke junk)
 export async function searchTracks(query: string, limit: number = 50): Promise<iTunesTrack[]> {
   const url = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=song&limit=${limit}`;
-  const response = await fetch(url);
-  const data: iTunesSearchResponse = await response.json();
-  return data.results.filter(
+  const data = await safeFetchJson<iTunesSearchResponse>(url);
+  return (data?.results ?? []).filter(
     (track) =>
       track.previewUrl &&
       !JUNK_PATTERN.test(track.artistName) &&
@@ -115,9 +136,8 @@ type ArtistLookupResult =
 
 async function fetchArtistLookupResults(artistId: string, limit: number): Promise<ArtistLookupResult[]> {
   const url = `https://itunes.apple.com/lookup?id=${encodeURIComponent(artistId)}&entity=song&limit=${limit + 1}`;
-  const response = await fetch(url);
-  const data = await response.json();
-  return (data.results ?? []) as ArtistLookupResult[];
+  const data = await safeFetchJson<{ results: ArtistLookupResult[] }>(url);
+  return data?.results ?? [];
 }
 
 // Fetch an artist's top songs by their exact iTunes artist ID.
@@ -167,8 +187,7 @@ export async function fetchChartPool(
   storefront: string
 ): Promise<{ pool: iTunesTrack[]; image: string }> {
   const feedUrl = `https://rss.marketingtools.apple.com/api/v2/${storefront}/music/most-played/100/songs.json`;
-  const feedRes = await fetch(feedUrl, { redirect: "follow" });
-  const feed = await feedRes.json();
+  const feed = await safeFetchJson<{ feed?: { results?: { id?: string }[] } }>(feedUrl, { redirect: "follow" });
   const ids: string[] = (feed?.feed?.results ?? [])
     .map((r: { id?: string }) => r.id)
     .filter(Boolean);
@@ -178,11 +197,10 @@ export async function fetchChartPool(
   for (let i = 0; i < ids.length; i += 50) {
     const batch = ids.slice(i, i + 50).join(",");
     try {
-      const res = await fetch(
+      const data = await safeFetchJson<{ results: iTunesTrack[] }>(
         `https://itunes.apple.com/lookup?id=${batch}&country=${storefront.toUpperCase()}`
       );
-      const data = await res.json();
-      for (const t of (data.results ?? []) as iTunesTrack[]) {
+      for (const t of data?.results ?? []) {
         if (t.previewUrl && t.trackId) pool.push(t);
       }
     } catch (e) {
