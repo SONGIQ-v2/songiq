@@ -102,37 +102,57 @@ export async function playWithUnmute(
  * the "playing" event (fires once frames actually render) against a short
  * watchdog timeout, so a caller can tell "confirmed playing" apart from
  * "resolved but stalled" or "rejected/errored" instead of assuming success.
+ *
+ * A stall on the first attempt gets one silent retry -- force a fresh
+ * audio.load() and try again -- before reporting failure. A brief network
+ * hiccup (a dropped packet, a momentary stall) often clears on its own, and
+ * the browser doesn't always recover from a wedged request by itself; a
+ * fresh load usually succeeds instantly if the hiccup already passed. This
+ * doesn't help a connection that's simply slow throughout -- only a
+ * transient blip -- so a second stall is reported as-is.
  */
 export async function playWithWatchdog(
   audio: HTMLAudioElement,
   desiredVolume: number,
   watchdogMs: number = 4000
 ): Promise<{ stalled: boolean; error?: unknown }> {
-  try {
-    await playWithUnmute(audio, desiredVolume);
-  } catch (error) {
-    return { stalled: true, error };
-  }
-
-  return new Promise((resolve) => {
-    let done = false;
-    const finish = (stalled: boolean) => {
-      if (done) return;
-      done = true;
-      audio.removeEventListener("playing", onPlaying);
-      audio.removeEventListener("error", onError);
-      resolve(stalled ? { stalled: true, error: audio.error ?? undefined } : { stalled: false });
-    };
-    const onPlaying = () => finish(false);
-    const onError = () => finish(true);
-    // "playing" may have already fired before these listeners attached
-    // (fast/cached playback) -- treat "not paused" as confirmed already.
-    if (!audio.paused) {
-      finish(false);
-      return;
+  const attempt = async (): Promise<{ stalled: boolean; error?: unknown }> => {
+    try {
+      await playWithUnmute(audio, desiredVolume);
+    } catch (error) {
+      return { stalled: true, error };
     }
-    audio.addEventListener("playing", onPlaying, { once: true });
-    audio.addEventListener("error", onError, { once: true });
-    setTimeout(() => finish(true), watchdogMs);
-  });
+
+    return new Promise((resolve) => {
+      let done = false;
+      const finish = (stalled: boolean) => {
+        if (done) return;
+        done = true;
+        audio.removeEventListener("playing", onPlaying);
+        audio.removeEventListener("error", onError);
+        resolve(stalled ? { stalled: true, error: audio.error ?? undefined } : { stalled: false });
+      };
+      const onPlaying = () => finish(false);
+      const onError = () => finish(true);
+      // "playing" may have already fired before these listeners attached
+      // (fast/cached playback) -- treat "not paused" as confirmed already.
+      if (!audio.paused) {
+        finish(false);
+        return;
+      }
+      audio.addEventListener("playing", onPlaying, { once: true });
+      audio.addEventListener("error", onError, { once: true });
+      setTimeout(() => finish(true), watchdogMs);
+    });
+  };
+
+  const first = await attempt();
+  if (!first.stalled) return first;
+
+  try {
+    audio.load();
+  } catch {
+    // ignore -- still worth trying to play again below
+  }
+  return attempt();
 }

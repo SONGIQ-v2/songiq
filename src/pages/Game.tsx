@@ -191,10 +191,19 @@ export default function Game() {
         if (ok) prefetchedUrlsRef.current.add(track.previewUrl);
         return ok;
       });
-      await Promise.race([
+      const first = await Promise.race([
         download,
         new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000)),
       ]);
+      if (first === null) {
+        // Still downloading after 8s -- likely a slow connection. Rather
+        // than starting the round with an unconfirmed clip (which can play
+        // silently, per the mid-round stall case), tell the player and keep
+        // waiting on this same in-flight download instead of giving up.
+        setSlowConnection(true);
+        await download;
+        setSlowConnection(false);
+      }
     }
     // Priming an actual <audio> element (not just warming the HTTP cache)
     // matters here: without this, tapping "Tap to Play" constructed a brand
@@ -660,6 +669,23 @@ export default function Game() {
         audio.volume = desiredVolume;
       }
       audioRef.current = audio;
+
+      // Keep watching for the whole round, not just the initial start --
+      // a healthy connection can still run dry mid-clip (buffer underrun),
+      // silently pausing with no sound until enough rebuffers. "waiting"
+      // fires whenever that happens; "playing" fires both on first start
+      // and every time it resumes, so the same handler covers both.
+      const onWaiting = () => {
+        setSlowConnection(true);
+        setIsPlaying(false);
+      };
+      const onPlaying = () => {
+        setSlowConnection(false);
+        setIsPlaying(true);
+      };
+      audio.addEventListener("waiting", onWaiting);
+      audio.addEventListener("playing", onPlaying);
+
       playWithWatchdog(audio, desiredVolume).then(({ stalled, error }) => {
         if (!stalled) return;
         setSlowConnection(true);
@@ -672,6 +698,16 @@ export default function Game() {
           error: (error as Error)?.message ?? String(error),
         }, (error as Error)?.stack);
       });
+
+      return () => {
+        audio.removeEventListener("waiting", onWaiting);
+        audio.removeEventListener("playing", onPlaying);
+        if (audioRef.current === audio) {
+          audio.pause();
+          audio.src = '';
+          audioRef.current = null;
+        }
+      };
     }
 
     return () => {
@@ -726,6 +762,25 @@ export default function Game() {
                 <Music2 className="w-full h-full text-gold" />
               </motion.div>
               <p className="text-xl text-foreground/80">Loading {playlist?.name || "tracks"}...</p>
+              {slowConnection && (
+                <>
+                  <p className="mt-3 flex items-center justify-center gap-1.5 text-sm text-muted-foreground">
+                    <WifiOff className="w-3.5 h-3.5 shrink-0" />
+                    Slow connection — still loading
+                  </p>
+                  <Button
+                    variant="ghost"
+                    className="mt-4"
+                    onClick={() => {
+                      cleanupGame();
+                      navigate(challenge && !daily ? `/c/${challenge.code}` : daily ? "/daily" : "/solo");
+                    }}
+                  >
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Cancel
+                  </Button>
+                </>
+              )}
             </>
           )}
         </div>

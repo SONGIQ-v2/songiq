@@ -50,6 +50,11 @@ export default function MultiplayerGame() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [slowConnection, setSlowConnection] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  // Tracks which element the waiting/playing listeners below are currently
+  // attached to, so they can be detached from the right element when a new
+  // round's audio replaces it (the element itself persists across
+  // between_rounds/pre_game/playing transitions within the same round).
+  const audioListenersRef = useRef<{ audio: HTMLAudioElement; onWaiting: () => void; onPlaying: () => void } | null>(null);
   
   // Per-round correctness for the share card, fetched once the game ends
   const [myResults, setMyResults] = useState<boolean[]>([]);
@@ -218,6 +223,11 @@ export default function MultiplayerGame() {
       if (!sameTrack) {
         setSlowConnection(false);
         if (existing) existing.pause();
+        if (audioListenersRef.current) {
+          audioListenersRef.current.audio.removeEventListener("waiting", audioListenersRef.current.onWaiting);
+          audioListenersRef.current.audio.removeEventListener("playing", audioListenersRef.current.onPlaying);
+          audioListenersRef.current = null;
+        }
         warmAudioUrl(currentRound.preview_url);
         const { audio, ready } = preloadAudio(currentRound.preview_url, {
           timeoutMs: 2500,
@@ -231,6 +241,22 @@ export default function MultiplayerGame() {
             error: String((e as ErrorEvent)?.message ?? "audio error"),
           });
         };
+        // Keep watching for the whole round, not just the initial start --
+        // a healthy connection can still run dry mid-clip (buffer
+        // underrun), silently pausing with no sound until it rebuffers.
+        // "waiting" fires whenever that happens; "playing" fires both on
+        // first start and every time it resumes, so one handler covers both.
+        const onWaiting = () => {
+          setSlowConnection(true);
+          setIsPlaying(false);
+        };
+        const onPlaying = () => {
+          setSlowConnection(false);
+          setIsPlaying(true);
+        };
+        audio.addEventListener("waiting", onWaiting);
+        audio.addEventListener("playing", onPlaying);
+        audioListenersRef.current = { audio, onWaiting, onPlaying };
         audioRef.current = audio;
         await ready;
       }
