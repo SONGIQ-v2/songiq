@@ -11,7 +11,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { Lock, LinkIcon, RefreshCw, Users, Trophy, Radio, Flame, Calendar, Target, ListMusic, Eye } from "lucide-react";
+import { Lock, LinkIcon, RefreshCw, Users, Trophy, Radio, Flame, Calendar, Target, ListMusic, Eye, Globe, MapPin, Share2 } from "lucide-react";
 import { Starfield } from "@/components/Starfield";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +31,9 @@ interface ReportData {
   eventCounts?: { event: string; count: number }[];
   dailyTotals?: { date: string; count: number }[];
   topPlaylists?: { playlist: string; plays: number }[];
+  topCountries?: { name: string; visitors: number }[];
+  topCities?: { name: string; visitors: number }[];
+  trafficSources?: { source: string; sessions: number }[];
   stats?: {
     playersWithStreak: number;
     challengesCreated: number;
@@ -393,6 +396,74 @@ export default function Admin() {
                         </div>
                       </div>
                     )}
+
+                    <div className="grid lg:grid-cols-3 gap-6">
+                      {report.topCountries && report.topCountries.length > 0 && (
+                        <div className="raised-panel p-5">
+                          <p className="text-sm font-semibold text-foreground mb-4 flex items-center gap-1.5">
+                            <Globe className="w-4 h-4 text-primary" /> Top countries
+                          </p>
+                          <div className="space-y-1.5">
+                            {report.topCountries.map((c, i) => (
+                              <div
+                                key={c.name}
+                                className="flex items-center justify-between px-3 py-1.5 rounded-lg text-sm bg-card/50"
+                              >
+                                <span className="font-semibold text-foreground flex items-center gap-2 min-w-0">
+                                  <span className="text-muted-foreground w-5">#{i + 1}</span>
+                                  <span className="truncate">{c.name}</span>
+                                </span>
+                                <span className="font-bold text-gold shrink-0">{c.visitors}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {report.topCities && report.topCities.length > 0 && (
+                        <div className="raised-panel p-5">
+                          <p className="text-sm font-semibold text-foreground mb-4 flex items-center gap-1.5">
+                            <MapPin className="w-4 h-4 text-primary" /> Top cities
+                          </p>
+                          <div className="space-y-1.5">
+                            {report.topCities.map((c, i) => (
+                              <div
+                                key={c.name}
+                                className="flex items-center justify-between px-3 py-1.5 rounded-lg text-sm bg-card/50"
+                              >
+                                <span className="font-semibold text-foreground flex items-center gap-2 min-w-0">
+                                  <span className="text-muted-foreground w-5">#{i + 1}</span>
+                                  <span className="truncate">{c.name}</span>
+                                </span>
+                                <span className="font-bold text-gold shrink-0">{c.visitors}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {report.trafficSources && report.trafficSources.length > 0 && (
+                        <div className="raised-panel p-5">
+                          <p className="text-sm font-semibold text-foreground mb-4 flex items-center gap-1.5">
+                            <Share2 className="w-4 h-4 text-primary" /> Traffic sources
+                          </p>
+                          <div className="space-y-1.5">
+                            {report.trafficSources.map((s, i) => (
+                              <div
+                                key={s.source}
+                                className="flex items-center justify-between px-3 py-1.5 rounded-lg text-sm bg-card/50"
+                              >
+                                <span className="font-semibold text-foreground flex items-center gap-2 min-w-0">
+                                  <span className="text-muted-foreground w-5">#{i + 1}</span>
+                                  <span className="truncate">{s.source}</span>
+                                </span>
+                                <span className="font-bold text-gold shrink-0">{s.sessions}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </>

@@ -190,6 +190,59 @@ async function runVisitorCount(accessToken: string, startDate: string, endDate: 
   return Number(data.rows?.[0]?.metricValues?.[0]?.value ?? 0);
 }
 
+// Top countries/cities by unique visitor for the selected date range.
+async function runTopLocations(
+  accessToken: string,
+  dimension: "country" | "city",
+  startDate: string,
+  endDate: string
+): Promise<{ name: string; visitors: number }[]> {
+  const res = await fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${GA4_PROPERTY_ID}:runReport`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      dateRanges: [{ startDate, endDate }],
+      dimensions: [{ name: dimension }],
+      metrics: [{ name: "activeUsers" }],
+      orderBys: [{ metric: { metricName: "activeUsers" }, desc: true }],
+      limit: 10,
+    }),
+  });
+  if (!res.ok) throw new Error(`GA4 ${dimension} report failed: ${await res.text()}`);
+  const data = await res.json();
+  return (data.rows ?? []).map((r: { dimensionValues: { value: string }[]; metricValues: { value: string }[] }) => ({
+    name: r.dimensionValues[0].value || "(not set)",
+    visitors: Number(r.metricValues[0].value),
+  }));
+}
+
+// Traffic sources (Direct, Organic Search, Referral, Social, etc.) --
+// GA4's own default channel grouping, keyed by sessions rather than users
+// since a channel is a property of how a visit arrived, not the visitor.
+async function runTrafficSources(
+  accessToken: string,
+  startDate: string,
+  endDate: string
+): Promise<{ source: string; sessions: number }[]> {
+  const res = await fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${GA4_PROPERTY_ID}:runReport`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      dateRanges: [{ startDate, endDate }],
+      dimensions: [{ name: "sessionDefaultChannelGroup" }],
+      metrics: [{ name: "sessions" }],
+      orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
+      limit: 10,
+    }),
+  });
+  if (!res.ok) throw new Error(`GA4 traffic-sources report failed: ${await res.text()}`);
+  const data = await res.json();
+  return (data.rows ?? []).map((r: { dimensionValues: { value: string }[]; metricValues: { value: string }[] }) => ({
+    source: r.dimensionValues[0].value || "(not set)",
+    sessions: Number(r.metricValues[0].value),
+  }));
+}
+
 // Solo games have no DB table (only Daily/Challenge attempts do), so GA4 is
 // the only source, even for "all-time" -- queried with a fixed wide range
 // rather than the selected date range, since aggregated GA4 report data
@@ -292,7 +345,15 @@ serve(async (req) => {
       }
       const reportStart = startDate || "7daysAgo";
       const reportEnd = endDate || "today";
-      const [{ eventCounts, dailyTotals }, topPlaylists, soloGamesPlayedAllTime, visitorsInRange] = await Promise.all([
+      const [
+        { eventCounts, dailyTotals },
+        topPlaylists,
+        soloGamesPlayedAllTime,
+        visitorsInRange,
+        topCountries,
+        topCities,
+        trafficSources,
+      ] = await Promise.all([
         runGA4Report(accessToken, reportStart, reportEnd),
         runTopPlaylists(accessToken, reportStart, reportEnd).catch((e) => {
           // Missing/unregistered custom dimension shouldn't break the rest
@@ -307,6 +368,18 @@ serve(async (req) => {
         runVisitorCount(accessToken, reportStart, reportEnd).catch((e) => {
           console.error("[admin-analytics] Visitor count failed:", e);
           return 0;
+        }),
+        runTopLocations(accessToken, "country", reportStart, reportEnd).catch((e) => {
+          console.error("[admin-analytics] Top countries failed:", e);
+          return [];
+        }),
+        runTopLocations(accessToken, "city", reportStart, reportEnd).catch((e) => {
+          console.error("[admin-analytics] Top cities failed:", e);
+          return [];
+        }),
+        runTrafficSources(accessToken, reportStart, reportEnd).catch((e) => {
+          console.error("[admin-analytics] Traffic sources failed:", e);
+          return [];
         }),
       ]);
 
@@ -366,6 +439,9 @@ serve(async (req) => {
           eventCounts,
           dailyTotals,
           topPlaylists,
+          topCountries,
+          topCities,
+          trafficSources,
           stats: {
             playersWithStreak: streakCount ?? 0,
             challengesCreated: challengeCount ?? 0,
