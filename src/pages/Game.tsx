@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Helmet } from "react-helmet-async";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Volume2, VolumeX, Music2, X, Share2, Play, Star, Flame, ArrowLeft, WifiOff } from "lucide-react";
+import { Music2, X, Share2, Play, Star, Flame, ArrowLeft, WifiOff } from "lucide-react";
 import { toast } from "sonner";
 import { Starfield } from "@/components/Starfield";
 import { RoundIndicator } from "@/components/RoundIndicator";
@@ -12,6 +12,8 @@ import { TimerBar } from "@/components/TimerBar";
 import { Button } from "@/components/ui/button";
 import { DailyReminderButton } from "@/components/DailyReminderButton";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
+import { VolumeControl } from "@/components/VolumeControl";
+import { useVolume } from "@/hooks/useVolume";
 import { CARD_SPRING } from "@/lib/motion";
 import {
   AlertDialog,
@@ -120,7 +122,7 @@ export default function Game() {
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [timeLeft, setTimeLeft] = useState(ROUND_TIME);
   const [roundStartTime, setRoundStartTime] = useState<number>(0);
-  const [isMuted, setIsMuted] = useState(false);
+  const [volume, setVolume] = useVolume();
   const [isPlaying, setIsPlaying] = useState(false);
   const [slowConnection, setSlowConnection] = useState(false);
   const [playlistName, setPlaylistName] = useState("");
@@ -219,7 +221,7 @@ export default function Game() {
     // same priming; round 1 just skipped it since there's no countdown before it.
     const { audio, ready } = preloadAudio(track.previewUrl, {
       timeoutMs: 2500,
-      volume: isMuted ? 0 : 0.7,
+      volume,
     });
     await ready;
     preloadedAudioRef.current = audio;
@@ -663,7 +665,7 @@ export default function Game() {
     warmAudioUrl(nextTrack.previewUrl);
     const { audio } = preloadAudio(nextTrack.previewUrl, {
       timeoutMs: 2500,
-      volume: isMuted ? 0 : 0.7,
+      volume,
     });
     // Discard any previously preloaded audio.
     if (preloadedAudioRef.current) {
@@ -672,7 +674,7 @@ export default function Game() {
     }
     preloadedAudioRef.current = audio;
     preloadedForUrlRef.current = nextTrack.previewUrl;
-  }, [gameState, currentRound, tracks, isMuted]);
+  }, [gameState, currentRound, tracks, volume]);
 
   // Audio handling
   useEffect(() => {
@@ -686,7 +688,7 @@ export default function Game() {
     setSlowConnection(false);
 
     if (currentTrack?.previewUrl && gameState === "playing") {
-      const desiredVolume = isMuted ? 0 : 0.7;
+      const desiredVolume = volume;
       // Reuse the preloaded element if it matches the current track.
       let audio: HTMLAudioElement;
       const preloaded = preloadedAudioRef.current;
@@ -754,9 +756,9 @@ export default function Game() {
 
   useEffect(() => {
     if (audioRef.current) {
-      audioRef.current.volume = isMuted ? 0 : 0.7;
+      audioRef.current.volume = volume;
     }
-  }, [isMuted]);
+  }, [volume]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -1347,15 +1349,7 @@ export default function Game() {
               {soloScore}
             </motion.p>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label={isMuted ? "Unmute audio" : "Mute audio"}
-            onClick={() => setIsMuted(!isMuted)}
-            className="text-foreground/60 hover:text-foreground"
-          >
-            {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-          </Button>
+          <VolumeControl volume={volume} onVolumeChange={setVolume} />
         </div>
       </div>
 

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { motion, AnimatePresence } from "framer-motion";
-import { Volume2, VolumeX, Music2, Trophy, X, AlertTriangle, LogOut, UserCircle, Share2, Star, WifiOff } from "lucide-react";
+import { Music2, Trophy, X, AlertTriangle, LogOut, UserCircle, Share2, Star, WifiOff } from "lucide-react";
 import { toast } from "sonner";
 import { Starfield } from "@/components/Starfield";
 import songiqLogo from "@/assets/songiq-logo.png";
@@ -14,6 +14,8 @@ import { Leaderboard } from "@/components/Leaderboard";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { Podium } from "@/components/Podium";
 import { Button } from "@/components/ui/button";
+import { VolumeControl } from "@/components/VolumeControl";
+import { useVolume } from "@/hooks/useVolume";
 import { logError, logWarn, logInfo } from "@/lib/clientLogger";
 import { warmAudioUrl, preloadAudio, playWithWatchdog } from "@/lib/audioPreload";
 import { CARD_SPRING } from "@/lib/motion";
@@ -46,7 +48,7 @@ const TERMINATION_COUNTDOWN = 10; // 10 seconds
 export default function MultiplayerGame() {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
-  const [isMuted, setIsMuted] = useState(false);
+  const [volume, setVolume] = useVolume();
   const [isPlaying, setIsPlaying] = useState(false);
   const [slowConnection, setSlowConnection] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -216,7 +218,7 @@ export default function MultiplayerGame() {
       if (!currentRound?.preview_url) return;
       if (gameStatus !== "playing" && gameStatus !== "between_rounds" && gameStatus !== "pre_game") return;
 
-      const desiredVolume = isMuted ? 0 : 0.7;
+      const desiredVolume = volume;
       const existing = audioRef.current;
       const sameTrack = existing && existing.src === currentRound.preview_url;
 
@@ -298,9 +300,9 @@ export default function MultiplayerGame() {
 
   useEffect(() => {
     if (audioRef.current) {
-      audioRef.current.volume = isMuted ? 0 : 0.7;
+      audioRef.current.volume = volume;
     }
-  }, [isMuted]);
+  }, [volume]);
 
   // Stop playing when answered
   useEffect(() => {
@@ -880,15 +882,7 @@ export default function MultiplayerGame() {
                   {players.find((p) => p.player_id === playerId)?.score || 0}
                 </p>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label={isMuted ? "Unmute audio" : "Mute audio"}
-                onClick={() => setIsMuted(!isMuted)}
-                className="text-foreground/60 hover:text-foreground"
-              >
-                {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-              </Button>
+              <VolumeControl volume={volume} onVolumeChange={setVolume} />
             </div>
           </div>
 
