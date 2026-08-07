@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { motion, AnimatePresence } from "framer-motion";
-import { Volume2, VolumeX, Music2, Trophy, X, AlertTriangle, LogOut, UserCircle, Share2, Star } from "lucide-react";
+import { Volume2, VolumeX, Music2, Trophy, X, AlertTriangle, LogOut, UserCircle, Share2, Star, WifiOff } from "lucide-react";
 import { toast } from "sonner";
 import { Starfield } from "@/components/Starfield";
 import songiqLogo from "@/assets/songiq-logo.png";
@@ -15,7 +15,7 @@ import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { Podium } from "@/components/Podium";
 import { Button } from "@/components/ui/button";
 import { logError, logWarn, logInfo } from "@/lib/clientLogger";
-import { warmAudioUrl, preloadAudio, playWithUnmute } from "@/lib/audioPreload";
+import { warmAudioUrl, preloadAudio, playWithWatchdog } from "@/lib/audioPreload";
 import { CARD_SPRING } from "@/lib/motion";
 import {
   AlertDialog,
@@ -48,6 +48,7 @@ export default function MultiplayerGame() {
   const navigate = useNavigate();
   const [isMuted, setIsMuted] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [slowConnection, setSlowConnection] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   
   // Per-round correctness for the share card, fetched once the game ends
@@ -215,6 +216,7 @@ export default function MultiplayerGame() {
       const sameTrack = existing && existing.src === currentRound.preview_url;
 
       if (!sameTrack) {
+        setSlowConnection(false);
         if (existing) existing.pause();
         warmAudioUrl(currentRound.preview_url);
         const { audio, ready } = preloadAudio(currentRound.preview_url, {
@@ -237,19 +239,21 @@ export default function MultiplayerGame() {
 
       // Only start playback once the round is actually live
       if (gameStatus === "playing" && audioRef.current) {
-        try {
-          await playWithUnmute(audioRef.current, desiredVolume);
+        setSlowConnection(false);
+        const { stalled, error } = await playWithWatchdog(audioRef.current, desiredVolume);
+        if (!stalled) {
           setIsPlaying(true);
           console.log("Audio playing for round:", roundNumber);
-        } catch (err) {
-          console.error("Error playing audio:", err);
+        } else {
+          console.error("Error playing audio:", error);
           setIsPlaying(false);
+          setSlowConnection(true);
           logError("audio.play_failed", "Failed to start multiplayer audio playback", {
             roundNumber,
             roundId: currentRound?.id,
             preview_url: currentRound?.preview_url,
-            error: (err as Error)?.message,
-          }, (err as Error)?.stack);
+            error: (error as Error)?.message ?? String(error),
+          }, (error as Error)?.stack);
         }
       }
     };
@@ -893,6 +897,20 @@ export default function MultiplayerGame() {
                 </div>
               )}
             </motion.div>
+
+            <AnimatePresence>
+              {slowConnection && gameStatus === "playing" && (
+                <motion.div
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="mb-6 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-card border border-border text-xs text-muted-foreground"
+                >
+                  <WifiOff className="w-3.5 h-3.5 shrink-0" />
+                  Slow connection — audio may be delayed
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Song info (shown after answer) */}
             <AnimatePresence>

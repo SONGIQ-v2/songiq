@@ -94,3 +94,45 @@ export async function playWithUnmute(
     audio.volume = desiredVolume;
   }
 }
+
+/**
+ * Play audio and confirm it actually starts producing sound, not just that
+ * play() resolved. On a slow connection, play() can resolve while the
+ * element then stalls indefinitely with no sound and no error -- this races
+ * the "playing" event (fires once frames actually render) against a short
+ * watchdog timeout, so a caller can tell "confirmed playing" apart from
+ * "resolved but stalled" or "rejected/errored" instead of assuming success.
+ */
+export async function playWithWatchdog(
+  audio: HTMLAudioElement,
+  desiredVolume: number,
+  watchdogMs: number = 4000
+): Promise<{ stalled: boolean; error?: unknown }> {
+  try {
+    await playWithUnmute(audio, desiredVolume);
+  } catch (error) {
+    return { stalled: true, error };
+  }
+
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (stalled: boolean) => {
+      if (done) return;
+      done = true;
+      audio.removeEventListener("playing", onPlaying);
+      audio.removeEventListener("error", onError);
+      resolve(stalled ? { stalled: true, error: audio.error ?? undefined } : { stalled: false });
+    };
+    const onPlaying = () => finish(false);
+    const onError = () => finish(true);
+    // "playing" may have already fired before these listeners attached
+    // (fast/cached playback) -- treat "not paused" as confirmed already.
+    if (!audio.paused) {
+      finish(false);
+      return;
+    }
+    audio.addEventListener("playing", onPlaying, { once: true });
+    audio.addEventListener("error", onError, { once: true });
+    setTimeout(() => finish(true), watchdogMs);
+  });
+}

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Helmet } from "react-helmet-async";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Volume2, VolumeX, Music2, X, Share2, Play, Star, Flame, ArrowLeft } from "lucide-react";
+import { Volume2, VolumeX, Music2, X, Share2, Play, Star, Flame, ArrowLeft, WifiOff } from "lucide-react";
 import { toast } from "sonner";
 import { Starfield } from "@/components/Starfield";
 import { RoundIndicator } from "@/components/RoundIndicator";
@@ -37,7 +37,7 @@ import { useGameStore } from "@/lib/gameStore";
 import { PLAYLISTS, getPlaylistById } from "@/lib/playlists";
 import { calculatePoints } from "@/lib/spotify";
 import { logError, logWarn, logInfo } from "@/lib/clientLogger";
-import { warmAudioUrl, preloadAudio, playWithUnmute, prefetchAudio } from "@/lib/audioPreload";
+import { warmAudioUrl, preloadAudio, playWithWatchdog, prefetchAudio } from "@/lib/audioPreload";
 import { buildShareText, shareResult } from "@/lib/shareCard";
 import { shareResultImage } from "@/lib/shareImage";
 import { trackEvent } from "@/lib/analytics";
@@ -122,6 +122,7 @@ export default function Game() {
   const [roundStartTime, setRoundStartTime] = useState<number>(0);
   const [isMuted, setIsMuted] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [slowConnection, setSlowConnection] = useState(false);
   const [playlistName, setPlaylistName] = useState("");
   const [countdown, setCountdown] = useState(COUNTDOWN_TIME);
   const [questionType, setQuestionType] = useState<QuestionType>("artist");
@@ -587,11 +588,17 @@ export default function Game() {
       // Give round 1's stream a head start before using bandwidth
       await new Promise((r) => setTimeout(r, 3000));
       if (bgPreloadCancelRef.current) return;
-      // Round 1 streams normally; queue rounds 2..N into the HTTP cache
+      // Round 1 streams normally; queue rounds 2..N into the HTTP cache.
+      // Bounded per track (matches ensureFirstClip's own timeout) -- on a
+      // very slow connection, one pathologically slow download shouldn't
+      // block every later round from getting its own head start.
       for (const track of tracks.slice(1, TOTAL_ROUNDS)) {
         if (bgPreloadCancelRef.current) return;
         if (!track.previewUrl || prefetchedUrlsRef.current.has(track.previewUrl)) continue;
-        const ok = await prefetchAudio(track.previewUrl);
+        const ok = await Promise.race([
+          prefetchAudio(track.previewUrl),
+          new Promise<false>((resolve) => setTimeout(() => resolve(false), 8000)),
+        ]);
         if (ok) prefetchedUrlsRef.current.add(track.previewUrl);
       }
     })();
@@ -634,6 +641,8 @@ export default function Game() {
       audioRef.current = null;
     }
 
+    setSlowConnection(false);
+
     if (currentTrack?.previewUrl && gameState === "playing") {
       const desiredVolume = isMuted ? 0 : 0.7;
       // Reuse the preloaded element if it matches the current track.
@@ -651,15 +660,17 @@ export default function Game() {
         audio.volume = desiredVolume;
       }
       audioRef.current = audio;
-      playWithUnmute(audio, desiredVolume).catch((err) => {
-        console.error(err);
+      playWithWatchdog(audio, desiredVolume).then(({ stalled, error }) => {
+        if (!stalled) return;
+        setSlowConnection(true);
+        console.error(error);
         logError("solo.audio_play_failed", "Solo audio playback failed", {
           round: currentRound,
           trackId: currentTrack.trackId,
           trackName: currentTrack.trackName,
           previewUrl: currentTrack.previewUrl,
-          error: (err as Error)?.message,
-        }, (err as Error)?.stack);
+          error: (error as Error)?.message ?? String(error),
+        }, (error as Error)?.stack);
       });
     }
 
@@ -1314,6 +1325,20 @@ export default function Game() {
             )}
           </AnimatePresence>
         </div>
+
+        <AnimatePresence>
+          {slowConnection && gameState === "playing" && (
+            <motion.div
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="mb-6 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-card border border-border text-xs text-muted-foreground"
+            >
+              <WifiOff className="w-3.5 h-3.5 shrink-0" />
+              Slow connection — audio may be delayed
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Song info (shown after answer) */}
         <AnimatePresence>
