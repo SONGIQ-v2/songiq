@@ -151,6 +151,12 @@ export default function Game() {
   // Clips already downloaded into the browser's HTTP cache
   const prefetchedUrlsRef = useRef<Set<string>>(new Set());
   const bgPreloadCancelRef = useRef(false);
+  // True whenever the live round's own audio hasn't started playing yet --
+  // the background prefetch queue below reads this to pause (and cancel
+  // whatever it's mid-download on) so the live round always gets the
+  // connection to itself when it matters, instead of competing with
+  // downloads for rounds that aren't even on screen yet.
+  const liveAudioBusyRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const countdownRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -585,13 +591,30 @@ export default function Game() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameState]);
 
+  // Keep liveAudioBusyRef in sync with the state the background queue below
+  // needs to read synchronously -- true whenever a round is live but its
+  // audio hasn't been confirmed playing yet.
+  useEffect(() => {
+    liveAudioBusyRef.current = gameState === "playing" && !isPlaying;
+  }, [gameState, isPlaying]);
+
   // Background queue: while the game plays, download the remaining rounds'
   // clips one at a time into in-memory object URLs, so every later round
   // starts instantly regardless of connection speed. Solo-only — the device
-  // already knows all tracks, so there's nothing to keep secret.
+  // already knows all tracks, so there's nothing to keep secret. Pauses
+  // (and cancels whatever's mid-download) whenever the live round's own
+  // audio needs the connection, so background prefetching for rounds that
+  // aren't even on screen yet never competes with what the player is
+  // actually waiting to hear right now.
   useEffect(() => {
     if (tracks.length === 0) return;
     bgPreloadCancelRef.current = false;
+
+    const waitUntilSafe = async () => {
+      while (!bgPreloadCancelRef.current && liveAudioBusyRef.current) {
+        await new Promise((r) => setTimeout(r, 300));
+      }
+    };
 
     (async () => {
       // Give round 1's stream a head start before using bandwidth
@@ -604,10 +627,20 @@ export default function Game() {
       for (const track of tracks.slice(1, TOTAL_ROUNDS)) {
         if (bgPreloadCancelRef.current) return;
         if (!track.previewUrl || prefetchedUrlsRef.current.has(track.previewUrl)) continue;
-        const ok = await Promise.race([
-          prefetchAudio(track.previewUrl),
-          new Promise<false>((resolve) => setTimeout(() => resolve(false), 8000)),
-        ]);
+
+        await waitUntilSafe();
+        if (bgPreloadCancelRef.current) return;
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        // Also cancel early if the live round suddenly needs the
+        // connection, not just at the 8s budget.
+        const busyCheckId = setInterval(() => {
+          if (liveAudioBusyRef.current) controller.abort();
+        }, 300);
+        const ok = await prefetchAudio(track.previewUrl, controller.signal);
+        clearTimeout(timeoutId);
+        clearInterval(busyCheckId);
         if (ok) prefetchedUrlsRef.current.add(track.previewUrl);
       }
     })();
@@ -764,7 +797,7 @@ export default function Game() {
               <p className="text-xl text-foreground/80">Loading {playlist?.name || "tracks"}...</p>
               {slowConnection && (
                 <>
-                  <p className="mt-3 flex items-center justify-center gap-1.5 text-sm text-muted-foreground">
+                  <p className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-destructive/15 border border-destructive/40 text-sm text-destructive">
                     <WifiOff className="w-3.5 h-3.5 shrink-0" />
                     Slow connection — still loading
                   </p>
@@ -1387,7 +1420,7 @@ export default function Game() {
               initial={{ opacity: 0, y: -6 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
-              className="mb-6 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-card border border-border text-xs text-muted-foreground"
+              className="mb-6 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-destructive/15 border border-destructive/40 text-xs font-semibold text-destructive"
             >
               <WifiOff className="w-3.5 h-3.5 shrink-0" />
               Slow connection — audio may be delayed

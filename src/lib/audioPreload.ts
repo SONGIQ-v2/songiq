@@ -65,9 +65,9 @@ export function preloadAudio(
  * Apple's audio/x-m4p content type. Returns false on failure; playback then
  * falls back to streaming.
  */
-export async function prefetchAudio(url: string): Promise<boolean> {
+export async function prefetchAudio(url: string, signal?: AbortSignal): Promise<boolean> {
   try {
-    const res = await fetch(url, { mode: "cors", cache: "force-cache" });
+    const res = await fetch(url, { mode: "cors", cache: "force-cache", signal });
     if (!res.ok) return false;
     await res.arrayBuffer(); // consume fully so the cache entry is complete
     return true;

@@ -930,7 +930,7 @@ export default function MultiplayerGame() {
                   initial={{ opacity: 0, y: -6 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
-                  className="mb-6 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-card border border-border text-xs text-muted-foreground"
+                  className="mb-6 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-destructive/15 border border-destructive/40 text-xs font-semibold text-destructive"
                 >
                   <WifiOff className="w-3.5 h-3.5 shrink-0" />
                   Slow connection — audio may be delayed
