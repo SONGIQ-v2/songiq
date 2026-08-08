@@ -196,6 +196,7 @@ export type Database = {
           created_at: string
           number: number
           plan: Json
+          points_settled_at: string | null
           time_per_round: number
         }
         Insert: {
@@ -204,6 +205,7 @@ export type Database = {
           created_at?: string
           number: number
           plan: Json
+          points_settled_at?: string | null
           time_per_round?: number
         }
         Update: {
@@ -212,6 +214,7 @@ export type Database = {
           created_at?: string
           number?: number
           plan?: Json
+          points_settled_at?: string | null
           time_per_round?: number
         }
         Relationships: []
@@ -515,6 +518,33 @@ export type Database = {
         }
         Relationships: []
       }
+      play_sessions: {
+        Row: {
+          created_at: string
+          id: number
+          mode: string
+          player_id: string
+          player_name: string | null
+          seconds: number
+        }
+        Insert: {
+          created_at?: string
+          id?: never
+          mode: string
+          player_id: string
+          player_name?: string | null
+          seconds: number
+        }
+        Update: {
+          created_at?: string
+          id?: never
+          mode?: string
+          player_id?: string
+          player_name?: string | null
+          seconds?: number
+        }
+        Relationships: []
+      }
       player_answers: {
         Row: {
           answer: string
@@ -569,6 +599,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      player_points: {
+        Row: {
+          games: number
+          player_id: string
+          player_name: string | null
+          points: number
+          updated_at: string
+        }
+        Insert: {
+          games?: number
+          player_id: string
+          player_name?: string | null
+          points?: number
+          updated_at?: string
+        }
+        Update: {
+          games?: number
+          player_id?: string
+          player_name?: string | null
+          points?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       playlist_cache: {
         Row: {
@@ -856,6 +910,15 @@ export type Database = {
       }
     }
     Functions: {
+      add_player_points: {
+        Args: {
+          p_count_game?: boolean
+          p_name: string
+          p_player_id: string
+          p_points: number
+        }
+        Returns: undefined
+      }
       advance_game_round: { Args: { _room_id: string }; Returns: Json }
       count_unique_players: { Args: never; Returns: number }
       delete_email: {
@@ -868,6 +931,25 @@ export type Database = {
         Returns: number
       }
       get_vapid_public_key: { Args: never; Returns: string }
+      global_leaderboard: {
+        Args: { p_player?: string; p_range?: string; p_sort?: string }
+        Returns: {
+          is_caller: boolean
+          minutes: number
+          player_id: string
+          player_name: string
+          points: number
+          rank: number
+          streak: number
+        }[]
+      }
+      minutes_played_stats: {
+        Args: { p_cutoff?: string }
+        Returns: {
+          minutes: number
+          mode: string
+        }[]
+      }
       move_to_dlq: {
         Args: {
           dlq_name: string
@@ -886,7 +968,21 @@ export type Database = {
           read_ct: number
         }[]
       }
+      record_game_session: {
+        Args: {
+          p_mode: string
+          p_name: string
+          p_rounds: number
+          p_score: number
+          p_seconds: number
+        }
+        Returns: {
+          points_earned: number
+          total_points: number
+        }[]
+      }
       server_time_ms: { Args: never; Returns: number }
+      settle_daily_bonus: { Args: never; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
