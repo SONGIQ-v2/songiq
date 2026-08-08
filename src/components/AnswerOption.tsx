@@ -33,6 +33,7 @@ export const AnswerOption = memo(({
       disabled={disabled}
       className={cn(
         "answer-option h-full min-h-[100px] flex-col justify-center",
+        !isRevealed && isSelected && "locked",
         isRevealed && isSelected && isCorrect && "correct",
         isRevealed && isSelected && !isCorrect && "incorrect",
         isRevealed && !isSelected && isCorrect && "correct opacity-70"

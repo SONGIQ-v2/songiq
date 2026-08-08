@@ -85,6 +85,8 @@ export default function MultiplayerGame() {
     isFinalizingResults,
     nextQuestionType,
     currentQuestionType,
+    revealActive,
+    roundAnswers,
     submitAnswer,
     leaveRoom,
     playAgain,
@@ -900,7 +902,7 @@ export default function MultiplayerGame() {
               animate={{ scale: 1, opacity: 1 }}
               className="relative mb-8"
             >
-              {hasAnswered && currentRound ? (
+              {revealActive && currentRound ? (
                 <div className="w-48 h-48 rounded-2xl overflow-hidden shadow-2xl">
                   <img
                     src={currentRound.artwork_url || "/placeholder.svg"}
@@ -932,9 +934,9 @@ export default function MultiplayerGame() {
               )}
             </AnimatePresence>
 
-            {/* Song info (shown after answer) */}
+            {/* Song info — held back until the round's reveal window */}
             <AnimatePresence>
-              {hasAnswered && currentRound && isCorrect !== null && (
+              {revealActive && currentRound && (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -943,8 +945,12 @@ export default function MultiplayerGame() {
                 >
                   <h2 className="text-xl font-bold text-foreground">{currentRound.track_name}</h2>
                   <p className="text-foreground/60">{currentRound.artist_name}</p>
-                  <div className={`mt-2 text-lg font-bold ${isCorrect ? "text-green-500" : "text-red-500"}`}>
-                    {isCorrect ? "Correct! 🎉" : "Wrong!"}
+                  <div
+                    className={`mt-2 text-lg font-bold ${
+                      isCorrect === true ? "text-green-500" : hasAnswered ? "text-red-500" : "text-muted-foreground"
+                    }`}
+                  >
+                    {isCorrect === true ? "Correct! 🎉" : hasAnswered ? "Wrong!" : "Time's up ⏰"}
                   </div>
                 </motion.div>
               )}
@@ -957,8 +963,10 @@ export default function MultiplayerGame() {
               </span>
             </div>
 
-            {/* Answer options - 2x2 grid */}
-            <div className="w-full max-w-2xl grid grid-cols-2 gap-3">
+            {/* Answer options - 2x2 grid. Grading is deferred: nothing turns
+                green/red until the round's reveal window, when everyone's
+                picks also appear as avatars on the cards they chose. */}
+            <div className="w-full max-w-2xl grid grid-cols-2 gap-4">
               {currentRound?.options.map((option, index) => {
                 const correctAnswer = currentQuestionType === "Guess the Song" ? currentRound.track_name : currentRound.artist_name;
                 const normalize = (v: string | null | undefined) => (v ?? "").trim().toLowerCase();
@@ -968,31 +976,57 @@ export default function MultiplayerGame() {
                 const optionIsCorrect = optionIsSelected
                   ? isCorrect === true
                   : hasCorrectAnswer && normalize(option) === normalize(correctAnswer);
-                const shouldRevealOption = hasAnswered && isCorrect !== null && (hasCorrectAnswer || optionIsSelected);
+                const shouldRevealOption = revealActive && (hasCorrectAnswer || optionIsSelected);
+                const pickers = revealActive ? roundAnswers[option] ?? [] : [];
 
                 return (
-                  <AnswerOption
-                    key={`${roundNumber}-${index}`}
-                    option={option}
-                    index={index}
-                    isSelected={optionIsSelected}
-                    isCorrect={optionIsCorrect}
-                    isRevealed={shouldRevealOption}
-                    disabled={hasAnswered}
-                    onClick={() => handleAnswer(option)}
-                  />
+                  <div key={`${roundNumber}-${index}`} className="relative">
+                    <AnswerOption
+                      option={option}
+                      index={index}
+                      isSelected={optionIsSelected}
+                      isCorrect={optionIsCorrect}
+                      isRevealed={shouldRevealOption}
+                      disabled={hasAnswered}
+                      onClick={() => handleAnswer(option)}
+                    />
+                    {pickers.length > 0 && (
+                      <div className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 z-10 flex -space-x-1.5">
+                        {pickers.map((pid, i) => {
+                          const picker = players.find((p) => p.player_id === pid);
+                          if (!picker) return null;
+                          return (
+                            <motion.div
+                              key={pid}
+                              initial={{ scale: 0, y: 6 }}
+                              animate={{ scale: 1, y: 0 }}
+                              transition={{ ...CARD_SPRING, delay: i * 0.06 }}
+                            >
+                              <PlayerAvatar
+                                variant="icon-only"
+                                size="2xs"
+                                name={picker.player_name}
+                                avatarIndex={picker.avatar_index}
+                                playerId={pid}
+                              />
+                            </motion.div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>
 
-            {/* Waiting indicator after answering */}
-            {hasAnswered && (
+            {/* Waiting indicator after answering, until the reveal */}
+            {hasAnswered && !revealActive && (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 className="mt-6 text-muted-foreground"
               >
-                Waiting for other players...
+                Answer locked in 🔒 Waiting for other players...
               </motion.div>
             )}
           </div>

@@ -285,6 +285,14 @@
     border-color: hsl(var(--gold));
   }
 
+  /* Selected but not yet graded — the "locked in" state shown while
+     waiting for the round's reveal */
+  .answer-option.locked {
+    border-color: hsl(var(--gold));
+    background: hsl(var(--gold) / 0.12);
+    box-shadow: var(--shadow-card), var(--shadow-inset-highlight), 0 0 12px hsl(var(--gold) / 0.35);
+  }
+
   .answer-option.correct {
     background: hsl(150 60% 25%);
     border-color: hsl(var(--kente-green));

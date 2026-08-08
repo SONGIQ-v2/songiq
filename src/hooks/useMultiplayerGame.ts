@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useGameStore } from "@/lib/gameStore";
 import { useAppleMusic, type AppleMusicTrack } from "@/hooks/useAppleMusic";
@@ -50,7 +50,11 @@ export interface RoundData {
 
 const DEFAULT_ROUND_TIME = 20000; // fallback 20 seconds per round
 const BETWEEN_ROUNDS_TIME = 5000; // gap before each round; must match advance_game_round()
-const REVEAL_MS = 2000; // after an early all-answered end, keep showing graded feedback
+// Kahoot-style reveal window after every round end (early or natural):
+// grading + everyone's picks show on the answer cards for this long before
+// the between-rounds countdown. Purely client-side — the server schedules
+// the next round 5s after the advance call, which this window delays.
+const REVEAL_MS = 3000;
 const PRE_GAME_SECONDS = 5;
 const QUESTION_TYPES = ["Guess the Artist", "Guess the Song"] as const;
 type QuestionType = typeof QUESTION_TYPES[number];
@@ -90,6 +94,14 @@ export function useMultiplayerGame(roomCode: string) {
   const [isFinalizingResults, setIsFinalizingResults] = useState(false);
   const [nextQuestionType, setNextQuestionType] = useState<QuestionType>("Guess the Artist");
   const [currentQuestionType, setCurrentQuestionType] = useState<QuestionType>("Guess the Artist");
+  // True during the post-round reveal window: grading + everyone's picks
+  // show on the answer cards. gameStatus stays "playing" so the page keeps
+  // rendering the round screen.
+  const [revealActive, setRevealActive] = useState(false);
+  // Who picked what this round (option text -> player_ids), for the reveal.
+  // Fed live by the player_answers broadcast, reconciled by a fetch at
+  // reveal start in case a broadcast was dropped.
+  const [roundAnswers, setRoundAnswers] = useState<Record<string, string[]>>({});
 
   // The round the ticker derives all timing from (ref so the 100ms tick
   // always sees the latest round without re-creating the interval)
@@ -101,6 +113,15 @@ export function useMultiplayerGame(roomCode: string) {
   const timeUpHandledRef = useRef<string | null>(null);
   // Round id for which this client has already requested advancement
   const advanceRequestedForRef = useRef<string | null>(null);
+  // Own server-graded result, held back until the reveal so a player can't
+  // tell right from wrong the moment they answer (the ticker flushes this
+  // into isCorrect when the reveal window opens)
+  const pendingGradeRef = useRef<{ roundId: string; isCorrect: boolean } | null>(null);
+  // Round id whose reveal reconciliation fetch has run
+  const revealFetchedForRef = useRef<string | null>(null);
+  // Scores as they stood when the round started — displayed during the
+  // round so live server-side score updates can't leak who answered right
+  const scoreSnapshotRef = useRef<Map<string, number>>(new Map());
 
   // Player delta state: source-of-truth map + throttled flush to React state
   const playersMapRef = useRef<Map<string, MultiplayerPlayer>>(new Map());
@@ -242,7 +263,9 @@ export function useMultiplayerGame(roomCode: string) {
             if (answerData) {
               setHasAnswered(true);
               setSelectedAnswer(answerData.answer);
-              setIsCorrect(answerData.is_correct);
+              // Held back like a fresh answer — the ticker flushes it into
+              // isCorrect once the round's reveal window opens
+              pendingGradeRef.current = { roundId: round.id, isCorrect: answerData.is_correct };
             }
           }
         } else {
@@ -325,6 +348,7 @@ export function useMultiplayerGame(roomCode: string) {
         const answer = record as unknown as {
           player_id: string;
           round_id: string;
+          answer: string;
           points_earned: number;
           is_correct: boolean;
         };
@@ -336,9 +360,19 @@ export function useMultiplayerGame(roomCode: string) {
               : p
           )
         );
-        // If this is our own answer, use the server-graded result as the source of truth
+        // Collect the pick for the reveal (empty answer = timed out, skip)
+        if ((answer.answer ?? "").trim()) {
+          setRoundAnswers((prev) => {
+            const list = prev[answer.answer] ?? [];
+            if (list.includes(answer.player_id)) return prev;
+            return { ...prev, [answer.answer]: [...list, answer.player_id] };
+          });
+        }
+        // Our own server-graded result: held back until the reveal window
+        // (the ticker flushes it into isCorrect) so answering never gives
+        // instant right/wrong feedback.
         if (answer.player_id === playerId) {
-          setIsCorrect(answer.is_correct);
+          pendingGradeRef.current = { roundId: answer.round_id, isCorrect: answer.is_correct };
         }
       }
     }
@@ -398,14 +432,24 @@ export function useMultiplayerGame(roomCode: string) {
       const start = new Date(round.started_at).getTime();
       const naturalEnd = start + ROUND_TIME;
       const endedAtMs = round.ended_at ? new Date(round.ended_at).getTime() : null;
-      // If the round ended early (everyone answered), keep the graded reveal
-      // on screen briefly before moving on.
-      const effectiveEnd = endedAtMs !== null ? Math.min(naturalEnd, endedAtMs + REVEAL_MS) : naturalEnd;
+      const roundEnd = endedAtMs !== null ? Math.min(naturalEnd, endedAtMs) : naturalEnd;
+      // Every round end (early or natural) is followed by the reveal window,
+      // then the between-rounds countdown.
+      const revealEnd = roundEnd + REVEAL_MS;
+
+      // Held-back own grade becomes visible once the round is over
+      const flushPendingGrade = () => {
+        if (pendingGradeRef.current && pendingGradeRef.current.roundId === round.id) {
+          setIsCorrect(pendingGradeRef.current.isCorrect);
+          pendingGradeRef.current = null;
+        }
+      };
 
       if (now < start) {
         // Counting down to this round's start
         const secs = Math.max(1, Math.ceil((start - now) / 1000));
         setTimeLeft(ROUND_TIME);
+        setRevealActive(false);
         if (round.round_number === 1) {
           setPreGameCountdown(secs);
           setGameStatus("pre_game");
@@ -413,23 +457,41 @@ export function useMultiplayerGame(roomCode: string) {
           setBetweenRoundsCountdown(secs);
           setGameStatus("between_rounds");
         }
-      } else if (now < effectiveEnd) {
-        // Round is live
+      } else if (now < roundEnd) {
+        // Round is live — no grading visible yet
         if (lastResetRoundRef.current !== round.id) {
           lastResetRoundRef.current = round.id;
           setHasAnswered(false);
           setSelectedAnswer(null);
           setIsCorrect(null);
+          setRoundAnswers({});
+          pendingGradeRef.current = null;
+          // Freeze displayed scores at their pre-round values so live
+          // server-side score updates can't leak correctness mid-round
+          scoreSnapshotRef.current = new Map(
+            Array.from(playersMapRef.current.values()).map((p) => [p.player_id, p.score])
+          );
           setPlayers((prev) => prev.map((p) => ({ ...p, roundScore: 0, hasAnswered: false })));
         }
         setTimeLeft(Math.max(0, naturalEnd - now));
         setPreGameCountdown(0);
         setBetweenRoundsCountdown(0);
+        setRevealActive(false);
         setGameStatus("playing");
+      } else if (now < revealEnd) {
+        // Reveal window: same round screen, everyone's picks + grading shown
+        setTimeLeft(0);
+        setPreGameCountdown(0);
+        setBetweenRoundsCountdown(0);
+        flushPendingGrade();
+        setRevealActive(true);
+        setGameStatus((prev) => (prev === "results" || prev === "terminated" ? prev : "playing"));
       } else {
         // Round over; waiting for the next round (or the finish)
         setTimeLeft(0);
-        const overMs = now - effectiveEnd;
+        setRevealActive(false);
+        flushPendingGrade();
+        const overMs = now - revealEnd;
         setBetweenRoundsCountdown(Math.max(0, Math.ceil((BETWEEN_ROUNDS_TIME - overMs) / 1000)));
         setGameStatus((prev) => (prev === "results" || prev === "terminated" ? prev : "between_rounds"));
       }
@@ -490,6 +552,31 @@ export function useMultiplayerGame(roomCode: string) {
       }
     })();
   }, [gameStatus, currentRound?.id, room?.id, hasAnswered, playerId, roundNumber]);
+
+  // Reveal reconciliation: broadcasts normally fill roundAnswers live, but
+  // one fetch at reveal start covers any that were dropped.
+  useEffect(() => {
+    if (!revealActive || !currentRound) return;
+    if (revealFetchedForRef.current === currentRound.id) return;
+    revealFetchedForRef.current = currentRound.id;
+
+    (async () => {
+      const { data, error } = await supabase
+        .from("player_answers")
+        .select("answer, player_id")
+        .eq("round_id", currentRound.id);
+      if (error || !data) return;
+      setRoundAnswers((prev) => {
+        const merged = { ...prev };
+        for (const row of data) {
+          if (!(row.answer ?? "").trim()) continue; // timed out, no pick
+          const list = merged[row.answer] ?? [];
+          if (!list.includes(row.player_id)) merged[row.answer] = [...list, row.player_id];
+        }
+        return merged;
+      });
+    })();
+  }, [revealActive, currentRound?.id]);
 
   // ---- Server-side round advancement ----
   // When the current round is over, ask the server for the next round (or the
@@ -656,7 +743,10 @@ export function useMultiplayerGame(roomCode: string) {
 
       if (insertErr) throw insertErr;
 
-      if (typeof inserted?.is_correct === "boolean") setIsCorrect(inserted.is_correct);
+      // Hold the grade back — the ticker reveals it when the round ends
+      if (typeof inserted?.is_correct === "boolean") {
+        pendingGradeRef.current = { roundId: currentRound.id, isCorrect: inserted.is_correct };
+      }
     } catch (err) {
       console.error("Error submitting answer:", err);
       logError("multiplayer.submit_answer_failed", "Failed to submit multiplayer answer", {
@@ -859,6 +949,11 @@ export function useMultiplayerGame(roomCode: string) {
     lastResetRoundRef.current = null;
     timeUpHandledRef.current = null;
     advanceRequestedForRef.current = null;
+    setRevealActive(false);
+    setRoundAnswers({});
+    pendingGradeRef.current = null;
+    revealFetchedForRef.current = null;
+    scoreSnapshotRef.current = new Map();
   }, [room, playerId, isHost]);
 
   // Leave room
@@ -919,9 +1014,26 @@ export function useMultiplayerGame(roomCode: string) {
 
   const isTerminated = gameStatus === "terminated";
 
+  // While a round is live (before its reveal), show scores frozen at their
+  // pre-round values with round scores hidden — the server updates
+  // room_players.score the instant an answer is graded, and a live jump in
+  // the leaderboard would reveal right/wrong before the reveal window.
+  // hasAnswered stays visible (the ✓ indicators are correctness-neutral).
+  const visiblePlayers = useMemo(() => {
+    if (gameStatus !== "playing" || revealActive) return players;
+    const frozen = players.map((p) => ({
+      ...p,
+      score: scoreSnapshotRef.current.get(p.player_id) ?? p.score,
+      roundScore: 0,
+    }));
+    frozen.sort((a, b) => b.score - a.score);
+    // Static ranks mid-round; rank-change animations play at the reveal
+    return frozen.map((p, i) => ({ ...p, previousRank: i + 1, currentRank: i + 1 }));
+  }, [players, gameStatus, revealActive]);
+
   return {
     room,
-    players,
+    players: visiblePlayers,
     loading,
     error,
     gameStatus,
@@ -937,6 +1049,8 @@ export function useMultiplayerGame(roomCode: string) {
     isFinalizingResults,
     nextQuestionType,
     currentQuestionType,
+    revealActive,
+    roundAnswers,
     startGame,
     submitAnswer,
     toggleReady,
