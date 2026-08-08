@@ -61,6 +61,8 @@ export default function MultiplayerGame() {
   // Per-round correctness for the share card, fetched once the game ends
   const [myResults, setMyResults] = useState<boolean[]>([]);
   const challengeCodeRef = useRef<string | null>(null);
+  // Points earned this game + running total, for the results screen chip
+  const [pointsResult, setPointsResult] = useState<{ earned: number; total: number } | null>(null);
 
   // Inactivity state
   const [showInactivityWarning, setShowInactivityWarning] = useState(false);
@@ -349,6 +351,20 @@ export default function MultiplayerGame() {
         player_count: players.length,
       });
 
+      // Points earned this game (awarded server-side by the room-finish
+      // trigger): base score/100 + 5 per opponent outscored — computable from
+      // the final standings; the running total comes from player_points.
+      if (me) {
+        const beaten = players.filter((p) => p.player_id !== playerId && p.score < me.score).length;
+        const earned = Math.round(me.score / 100) + 5 * beaten;
+        const { data: pointsRow } = await (supabase as any)
+          .from("player_points")
+          .select("points")
+          .eq("player_id", playerId)
+          .maybeSingle();
+        setPointsResult({ earned, total: Number(pointsRow?.points ?? earned) });
+      }
+
       // Snapshot the rounds as a challenge link (before Play Again deletes
       // them), so sharing can hand out a replay of the exact same songs.
       if (!challengeCodeRef.current) {
@@ -585,6 +601,19 @@ export default function MultiplayerGame() {
                 </p>
               )}
             </div>
+
+            {pointsResult && (
+              <motion.button
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+                onClick={() => navigate("/leaderboard")}
+                className="mb-6 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gold/15 border border-gold/40 text-sm font-semibold text-gold"
+              >
+                🏅 +{pointsResult.earned} Points
+                <span className="text-gold/70 font-normal">· {pointsResult.total} total</span>
+              </motion.button>
+            )}
 
             <div className="flex flex-col sm:flex-row gap-4 mb-6">
               <Button variant="gold" size="lg" className="w-full sm:flex-1" onClick={handleShare}>

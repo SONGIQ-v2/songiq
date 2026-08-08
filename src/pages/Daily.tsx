@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { DailyReminderButton } from "@/components/DailyReminderButton";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { Input } from "@/components/ui/input";
+import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import songiqLogo from "@/assets/songiq-logo.png";
 import { useGameStore } from "@/lib/gameStore";
 import { getSavedUsername, saveUsername, type Challenge } from "@/lib/challenges";
@@ -216,24 +217,24 @@ export default function Daily() {
             </div>
           )}
 
-          {/* Leaderboard tabs */}
-          <div className="flex gap-2 mb-3">
+          {/* Leaderboard tabs — same filled-strip style as the global leaderboard */}
+          <div className="flex rounded-xl bg-card/60 border border-border p-1 mb-3">
             <button
               onClick={() => setTab("today")}
-              className={`flex-1 py-2 rounded-xl text-sm font-bold border-2 transition-all ${
+              className={`flex-1 py-2.5 rounded-lg text-xs font-bold uppercase tracking-[0.15em] transition-all ${
                 tab === "today"
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-border/50 bg-card/50 text-muted-foreground"
+                  ? "bg-primary text-primary-foreground shadow-lg"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               Today
             </button>
             <button
               onClick={() => setTab("alltime")}
-              className={`flex-1 py-2 rounded-xl text-sm font-bold border-2 transition-all ${
+              className={`flex-1 py-2.5 rounded-lg text-xs font-bold uppercase tracking-[0.15em] transition-all ${
                 tab === "alltime"
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-border/50 bg-card/50 text-muted-foreground"
+                  ? "bg-primary text-primary-foreground shadow-lg"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               Streaks
@@ -247,27 +248,37 @@ export default function Daily() {
                   No one has played yet — be first!
                 </p>
               ) : (
-                <div className="space-y-1.5">
-                  {attempts.map((a, i) => (
-                    <div
-                      key={a.player_id}
-                      className={`flex items-center justify-between px-3 py-1.5 rounded-lg text-sm ${
-                        a.player_id === playerId
-                          ? "bg-primary/15 border border-primary/40"
-                          : "bg-card/50"
-                      }`}
-                    >
-                      <span className="font-semibold text-foreground flex items-center gap-1.5 min-w-0">
-                        <PlayerAvatar variant="icon-only" size="xs" name={a.player_name} avatarIndex={1} playerId={a.player_id} />
-                        <span className="truncate">
-                          #{i + 1} {a.player_name}
-                          {a.player_id === playerId && <span className="text-primary text-xs"> (you)</span>}
-                        </span>
-                      </span>
-                      <span className="font-bold text-gold ml-2">{a.score}</span>
-                    </div>
-                  ))}
-                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-border/40 hover:bg-transparent">
+                      <TableHead className="w-10 text-[11px] font-bold uppercase tracking-[0.15em] text-primary">#</TableHead>
+                      <TableHead className="text-[11px] font-bold uppercase tracking-[0.15em] text-primary">Name</TableHead>
+                      <TableHead className="text-right text-[11px] font-bold uppercase tracking-[0.15em] text-primary">Score</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {attempts.map((a, i) => (
+                      <TableRow
+                        key={a.player_id}
+                        className={`border-border/30 ${
+                          a.player_id === playerId ? "bg-primary/10" : i % 2 === 0 ? "bg-card/40" : ""
+                        }`}
+                      >
+                        <TableCell className="py-3 font-bold text-muted-foreground">{i + 1}</TableCell>
+                        <TableCell className="py-3">
+                          <span className="flex items-center gap-2.5 min-w-0">
+                            <PlayerAvatar variant="icon-only" size="xs" name={a.player_name} avatarIndex={1} playerId={a.player_id} />
+                            <span className="truncate font-bold text-foreground">
+                              {a.player_name}
+                              {a.player_id === playerId && <span className="text-primary text-xs font-normal"> (you)</span>}
+                            </span>
+                          </span>
+                        </TableCell>
+                        <TableCell className="py-3 text-right font-bold text-gold text-[1.1rem]">{a.score}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               )
             ) : allTime.length === 0 ? (
               <p className="text-muted-foreground text-sm text-center py-4">
@@ -278,52 +289,66 @@ export default function Daily() {
                 <div className="flex justify-end gap-1.5 mb-2">
                   <button
                     onClick={() => setStreakSortBy("streak")}
-                    className={`text-xs font-semibold px-2 py-1 rounded-md transition-colors ${
+                    className={`text-[11px] font-bold uppercase tracking-wider px-2.5 py-1.5 rounded-md transition-colors ${
                       streakSortBy === "streak"
                         ? "bg-primary/15 text-primary"
                         : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
-                    Sort: Streak
+                    Streak
                   </button>
                   <button
                     onClick={() => setStreakSortBy("score")}
-                    className={`text-xs font-semibold px-2 py-1 rounded-md transition-colors ${
+                    className={`text-[11px] font-bold uppercase tracking-wider px-2.5 py-1.5 rounded-md transition-colors ${
                       streakSortBy === "score"
                         ? "bg-primary/15 text-primary"
                         : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
-                    Sort: Total Score
+                    Total Score
                   </button>
                 </div>
-                <div className="space-y-1.5">
-                  {sortedAllTime.map((s, i) => (
-                    <div
-                      key={s.player_id}
-                      className={`flex items-center justify-between px-3 py-1.5 rounded-lg text-sm ${
-                        s.player_id === playerId
-                          ? "bg-primary/15 border border-primary/40"
-                          : "bg-card/50"
-                      }`}
-                    >
-                      <span className="font-semibold text-foreground flex items-center gap-1.5 min-w-0">
-                        <PlayerAvatar variant="icon-only" size="xs" name={s.player_name} avatarIndex={1} playerId={s.player_id} />
-                        <span className="truncate">
-                          #{i + 1} {s.player_name}
-                          {s.player_id === playerId && <span className="text-primary text-xs"> (you)</span>}
-                        </span>
-                      </span>
-                      <span className="font-bold text-gold ml-2 flex items-center gap-1">
-                        <Flame className="w-3.5 h-3.5" />
-                        {s.effective_streak}
-                        <span className="text-muted-foreground font-normal text-xs ml-1">
-                          · {s.total_score} pts
-                        </span>
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-border/40 hover:bg-transparent">
+                      <TableHead className="w-10 text-[11px] font-bold uppercase tracking-[0.15em] text-primary">#</TableHead>
+                      <TableHead className="text-[11px] font-bold uppercase tracking-[0.15em] text-primary">Name</TableHead>
+                      <TableHead className="text-center text-[11px] font-bold uppercase tracking-[0.15em] text-primary">Streak</TableHead>
+                      <TableHead className="text-right text-[11px] font-bold uppercase tracking-[0.15em] text-primary">Score</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {sortedAllTime.map((s, i) => (
+                      <TableRow
+                        key={s.player_id}
+                        className={`border-border/30 ${
+                          s.player_id === playerId ? "bg-primary/10" : i % 2 === 0 ? "bg-card/40" : ""
+                        }`}
+                      >
+                        <TableCell className="py-3 font-bold text-muted-foreground">{i + 1}</TableCell>
+                        <TableCell className="py-3">
+                          <span className="flex items-center gap-2.5 min-w-0">
+                            <PlayerAvatar variant="icon-only" size="xs" name={s.player_name} avatarIndex={1} playerId={s.player_id} />
+                            <span className="truncate font-bold text-foreground">
+                              {s.player_name}
+                              {s.player_id === playerId && <span className="text-primary text-xs font-normal"> (you)</span>}
+                            </span>
+                          </span>
+                        </TableCell>
+                        <TableCell className="py-3 text-center">
+                          {s.effective_streak > 0 ? (
+                            <span className="inline-flex items-center gap-1 font-semibold text-foreground">
+                              🔥 {s.effective_streak}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">0</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="py-3 text-right font-bold text-gold text-[1.1rem]">{s.total_score}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </>
             )}
           </div>

@@ -11,7 +11,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { Lock, LinkIcon, RefreshCw, Users, Trophy, Radio, Flame, Calendar, Target, ListMusic, Eye, Globe, MapPin, Share2 } from "lucide-react";
+import { Lock, LinkIcon, RefreshCw, Users, Trophy, Radio, Flame, Calendar, Target, ListMusic, Eye, Globe, MapPin, Share2, Clock } from "lucide-react";
 import { Starfield } from "@/components/Starfield";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,6 +43,9 @@ interface ReportData {
     soloGamesPlayedInRange: number;
     soloGamesPlayedAllTime: number;
     visitorsInRange: number;
+    minutesPlayedInRange: number;
+    minutesPlayedAllTime: number;
+    minutesByMode: { mode: string; minutes: number }[];
     activeRoomsNow: number;
     dailyPlaysToday: number;
     dailyAvgScoreToday: number;
@@ -99,7 +102,13 @@ export default function Admin() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  const isAdmin = session && session !== "loading" && !session.user.is_anonymous;
+  // Requires the email-password provider, not just "not anonymous" -- once
+  // players can link Google accounts, they'd otherwise pass this check too.
+  const isAdmin =
+    session &&
+    session !== "loading" &&
+    !session.user.is_anonymous &&
+    (session.user.app_metadata?.providers as string[] | undefined)?.includes("email");
 
   const fetchReport = useCallback(async (rangeKey: DateRangeKey) => {
     setLoadingReport(true);
@@ -284,6 +293,12 @@ export default function Admin() {
                       <StatTile icon={Users} label="Unique players ever" value={report.stats?.uniquePlayersEver ?? 0} />
                       <StatTile icon={Eye} label="Visitors" value={report.stats?.visitorsInRange ?? 0} sublabel="in selected range" />
                       <StatTile
+                        icon={Clock}
+                        label="Minutes played"
+                        value={report.stats?.minutesPlayedInRange ?? 0}
+                        sublabel={`${report.stats?.minutesPlayedAllTime ?? 0} all-time`}
+                      />
+                      <StatTile
                         icon={Trophy}
                         label="Solo games played"
                         value={report.stats?.soloGamesPlayedInRange ?? 0}
@@ -398,6 +413,25 @@ export default function Admin() {
                     )}
 
                     <div className="grid lg:grid-cols-3 gap-6">
+                      {report.stats?.minutesByMode && report.stats.minutesByMode.length > 0 && (
+                        <div className="raised-panel p-5">
+                          <p className="text-sm font-semibold text-foreground mb-4 flex items-center gap-1.5">
+                            <Clock className="w-4 h-4 text-primary" /> Time played by mode
+                          </p>
+                          <div className="space-y-1.5">
+                            {report.stats.minutesByMode.map((m) => (
+                              <div
+                                key={m.mode}
+                                className="flex items-center justify-between px-3 py-1.5 rounded-lg text-sm bg-card/50"
+                              >
+                                <span className="font-semibold text-foreground capitalize">{m.mode}</span>
+                                <span className="font-bold text-gold shrink-0">{m.minutes}m</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       {report.topCountries && report.topCountries.length > 0 && (
                         <div className="raised-panel p-5">
                           <p className="text-sm font-semibold text-foreground mb-4 flex items-center gap-1.5">

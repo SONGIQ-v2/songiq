@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { motion, useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Starfield } from "@/components/Starfield";
@@ -63,6 +63,15 @@ const Index = () => {
 
   const [battlefield] = useState<Playlist[]>(pickBattlefield);
   const [battlefieldImages, setBattlefieldImages] = useState<Record<string, string>>({});
+
+  // Client-side navigation to /#how-to-play (Header nav) doesn't scroll to
+  // the hash on its own -- react-router leaves that to us
+  const location = useLocation();
+  useEffect(() => {
+    if (!location.hash) return;
+    const el = document.getElementById(location.hash.slice(1));
+    if (el) el.scrollIntoView({ behavior: "smooth" });
+  }, [location.hash]);
 
   useEffect(() => {
     (async () => {
@@ -248,7 +257,7 @@ const Index = () => {
           </motion.section>
 
           {/* How It Works Section */}
-          <motion.section className="mb-16" variants={container(0.08)}>
+          <motion.section id="how-to-play" className="mb-16 scroll-mt-24" variants={container(0.08)}>
             <motion.h2 variants={fade} className="font-display text-2xl md:text-3xl text-center mb-8">
               How to Play
             </motion.h2>
@@ -274,68 +283,70 @@ const Index = () => {
 
               {(dailyBoard.length > 0 || overallBoard.length > 0) && (
                 <motion.div variants={pop} className="raised-panel p-4">
-                  <div className="flex gap-2 mb-4">
+                  <div className="flex rounded-xl bg-card/60 border border-border p-1 mb-4">
                     <button
                       onClick={() => setDailyTab("today")}
                       className={cn(
-                        "flex-1 py-2 rounded-xl text-sm font-bold border-2 transition-all",
+                        "flex-1 py-2.5 rounded-lg text-xs font-bold uppercase tracking-[0.15em] transition-all",
                         dailyTab === "today"
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "border-border/50 bg-card/50 text-muted-foreground"
+                          ? "bg-primary text-primary-foreground shadow-lg"
+                          : "text-muted-foreground hover:text-foreground"
                       )}
                     >
-                      Today's Leaderboard
+                      Today
                     </button>
                     <button
                       onClick={() => setDailyTab("overall")}
                       className={cn(
-                        "flex-1 py-2 rounded-xl text-sm font-bold border-2 transition-all",
+                        "flex-1 py-2.5 rounded-lg text-xs font-bold uppercase tracking-[0.15em] transition-all",
                         dailyTab === "overall"
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "border-border/50 bg-card/50 text-muted-foreground"
+                          ? "bg-primary text-primary-foreground shadow-lg"
+                          : "text-muted-foreground hover:text-foreground"
                       )}
                     >
-                      Overall Leaderboard
+                      Overall
                     </button>
                   </div>
 
                   {dailyTab === "today" ? (
                     <Table>
                       <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-14">Rank</TableHead>
-                          <TableHead>Player</TableHead>
-                          <TableHead className="text-center">Streak</TableHead>
-                          <TableHead className="text-right">Score</TableHead>
+                        <TableRow className="border-border/40 hover:bg-transparent">
+                          <TableHead className="w-14 text-[11px] font-bold uppercase tracking-[0.15em] text-primary">Rank</TableHead>
+                          <TableHead className="text-[11px] font-bold uppercase tracking-[0.15em] text-primary">Name</TableHead>
+                          <TableHead className="text-center text-[11px] font-bold uppercase tracking-[0.15em] text-primary">Streak</TableHead>
+                          <TableHead className="text-right text-[11px] font-bold uppercase tracking-[0.15em] text-primary">Score</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {dailyBoard.map((row, i) => (
                           <TableRow
                             key={row.player_id}
-                            className={row.player_id === playerId ? "bg-primary/10" : undefined}
+                            className={cn(
+                              "border-border/30",
+                              row.player_id === playerId ? "bg-primary/10" : i % 2 === 0 ? "bg-card/40" : undefined
+                            )}
                           >
-                            <TableCell className="font-bold text-muted-foreground">{i + 1}</TableCell>
-                            <TableCell>
-                              <span className="flex items-center gap-2 min-w-0">
+                            <TableCell className="py-3 font-bold text-muted-foreground">{i + 1}</TableCell>
+                            <TableCell className="py-3">
+                              <span className="flex items-center gap-2.5 min-w-0">
                                 <PlayerAvatar variant="icon-only" size="xs" name={row.player_name} avatarIndex={1} playerId={row.player_id} />
-                                <span className="truncate">
+                                <span className="truncate font-bold text-foreground">
                                   {row.player_name}
-                                  {row.player_id === playerId && <span className="text-primary text-xs"> (you)</span>}
+                                  {row.player_id === playerId && <span className="text-primary text-xs font-normal"> (you)</span>}
                                 </span>
                               </span>
                             </TableCell>
-                            <TableCell className="text-center">
+                            <TableCell className="py-3 text-center">
                               {row.streak > 0 ? (
-                                <span className="inline-flex items-center gap-1 text-kente-green font-semibold">
-                                  <Flame className="w-3.5 h-3.5" />
-                                  {row.streak}
+                                <span className="inline-flex items-center gap-1 font-semibold text-foreground">
+                                  🔥 {row.streak}
                                 </span>
                               ) : (
-                                <span className="text-muted-foreground">—</span>
+                                <span className="text-muted-foreground">0</span>
                               )}
                             </TableCell>
-                            <TableCell className="text-right font-bold text-gold">{row.score}</TableCell>
+                            <TableCell className="py-3 text-right font-bold text-gold text-[1.1rem]">{row.score}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -343,40 +354,42 @@ const Index = () => {
                   ) : (
                     <Table>
                       <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-14">Rank</TableHead>
-                          <TableHead>Player</TableHead>
-                          <TableHead className="text-center">Streak</TableHead>
-                          <TableHead className="text-right">Total Score</TableHead>
+                        <TableRow className="border-border/40 hover:bg-transparent">
+                          <TableHead className="w-14 text-[11px] font-bold uppercase tracking-[0.15em] text-primary">Rank</TableHead>
+                          <TableHead className="text-[11px] font-bold uppercase tracking-[0.15em] text-primary">Name</TableHead>
+                          <TableHead className="text-center text-[11px] font-bold uppercase tracking-[0.15em] text-primary">Streak</TableHead>
+                          <TableHead className="text-right text-[11px] font-bold uppercase tracking-[0.15em] text-primary">Total Score</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {overallBoard.map((row, i) => (
                           <TableRow
                             key={row.player_id}
-                            className={row.player_id === playerId ? "bg-primary/10" : undefined}
+                            className={cn(
+                              "border-border/30",
+                              row.player_id === playerId ? "bg-primary/10" : i % 2 === 0 ? "bg-card/40" : undefined
+                            )}
                           >
-                            <TableCell className="font-bold text-muted-foreground">{i + 1}</TableCell>
-                            <TableCell>
-                              <span className="flex items-center gap-2 min-w-0">
+                            <TableCell className="py-3 font-bold text-muted-foreground">{i + 1}</TableCell>
+                            <TableCell className="py-3">
+                              <span className="flex items-center gap-2.5 min-w-0">
                                 <PlayerAvatar variant="icon-only" size="xs" name={row.player_name} avatarIndex={1} playerId={row.player_id} />
-                                <span className="truncate">
+                                <span className="truncate font-bold text-foreground">
                                   {row.player_name}
-                                  {row.player_id === playerId && <span className="text-primary text-xs"> (you)</span>}
+                                  {row.player_id === playerId && <span className="text-primary text-xs font-normal"> (you)</span>}
                                 </span>
                               </span>
                             </TableCell>
-                            <TableCell className="text-center">
+                            <TableCell className="py-3 text-center">
                               {row.effective_streak > 0 ? (
-                                <span className="inline-flex items-center gap-1 text-kente-green font-semibold">
-                                  <Flame className="w-3.5 h-3.5" />
-                                  {row.effective_streak}
+                                <span className="inline-flex items-center gap-1 font-semibold text-foreground">
+                                  🔥 {row.effective_streak}
                                 </span>
                               ) : (
-                                <span className="text-muted-foreground">—</span>
+                                <span className="text-muted-foreground">0</span>
                               )}
                             </TableCell>
-                            <TableCell className="text-right font-bold text-gold">{row.total_score}</TableCell>
+                            <TableCell className="py-3 text-right font-bold text-gold text-[1.1rem]">{row.total_score}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>

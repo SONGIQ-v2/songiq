@@ -1,10 +1,12 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import songiqLogo from "@/assets/songiq-logo.png";
-import { UserCircle } from "lucide-react";
+import { Medal, Menu, UserCircle } from "lucide-react";
+import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useState, useEffect } from "react";
 import { useGameStore } from "@/lib/gameStore";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog,
   DialogContent,
@@ -12,12 +14,32 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { toast } from "@/hooks/use-toast";
 
+const NAV_LINKS = [
+  { to: "/solo", label: "Solo" },
+  { to: "/multiplayer", label: "Multiplayer" },
+  { to: "/leaderboard", label: "Leaderboard" },
+  { to: "/#how-to-play", label: "How it works" },
+];
+
 export const Header = () => {
+  const location = useLocation();
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showSignInModal, setShowSignInModal] = useState(false);
   const { playerName, setPlayer, avatarIndex } = useGameStore();
   const [editName, setEditName] = useState("");
+  // Signed-in players (Google-linked, once Lovable enables the provider)
+  // get a profile chip instead of the Sign in button + account icon
+  const [isAnonymous, setIsAnonymous] = useState(true);
+  const [signedInUser, setSignedInUser] = useState<{ id: string; name: string } | null>(null);
+  const [totalPoints, setTotalPoints] = useState<number | null>(null);
 
   useEffect(() => {
     // Load saved name from localStorage
@@ -26,6 +48,53 @@ export const Header = () => {
       setPlayer(saved, avatarIndex);
     }
   }, []);
+
+  useEffect(() => {
+    const applySession = (user: { id: string; is_anonymous?: boolean; user_metadata?: Record<string, unknown> } | null) => {
+      const anonymous = user?.is_anonymous ?? true;
+      setIsAnonymous(anonymous);
+      if (user && !anonymous) {
+        const googleName = (user.user_metadata?.full_name ?? user.user_metadata?.name) as string | undefined;
+        setSignedInUser({ id: user.id, name: googleName || "Player" });
+      } else {
+        setSignedInUser(null);
+        setTotalPoints(null);
+      }
+    };
+    supabase.auth.getSession().then(({ data }) => applySession(data.session?.user ?? null));
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => applySession(s?.user ?? null));
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  // Total Points for the signed-in chip
+  useEffect(() => {
+    if (!signedInUser) return;
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("player_points")
+        .select("points")
+        .eq("player_id", signedInUser.id)
+        .maybeSingle();
+      setTotalPoints(Number(data?.points ?? 0));
+    })();
+  }, [signedInUser?.id, location.pathname]);
+
+  const handleSignIn = async () => {
+    // linkIdentity upgrades the anonymous account in place -- same player_id,
+    // so all history (points, streaks, playtime) carries over.
+    const { error } = await supabase.auth.linkIdentity({
+      provider: "google",
+      options: { redirectTo: window.location.origin },
+    });
+    if (error) {
+      // Provider not enabled yet (Lovable will configure it) or link failed
+      console.error("Sign-in failed:", error);
+      toast({
+        title: "Sign-in isn't available yet",
+        description: "Google sign-in is coming soon — your progress is saved on this device meanwhile.",
+      });
+    }
+  };
 
   const handleSaveName = () => {
     const trimmed = editName.trim().replace(/[\x00-\x1F\x7F]/g, "").slice(0, 20);
@@ -48,20 +117,121 @@ export const Header = () => {
             <img src={songiqLogo} alt="SongIQ — Music Trivia Game" width="160" height="40" fetchPriority="high" decoding="async" className="h-8 md:h-10 w-auto" />
           </Link>
 
+          {/* Nav - desktop */}
+          <nav className="hidden md:flex items-center gap-8" aria-label="Main navigation">
+            {NAV_LINKS.map((link) => {
+              const isActive = location.pathname === link.to;
+              return (
+                <Link
+                  key={link.to}
+                  to={link.to}
+                  className={`text-xs font-bold uppercase tracking-[0.2em] transition-colors ${
+                    isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
+          </nav>
+
           {/* Right side actions */}
           <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Open profile and edit nickname"
-              onClick={() => {
-                setEditName(playerName || localStorage.getItem("songiq_player_name") || "");
-                setShowProfileModal(true);
-              }}
-              className="text-foreground/70 hover:text-foreground"
-            >
-              <UserCircle className="w-5 h-5" />
-            </Button>
+            {/* Nav - mobile */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild className="md:hidden">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Open menu"
+                  className="text-foreground/70 hover:text-foreground"
+                >
+                  <Menu className="w-5 h-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="md:hidden">
+                {NAV_LINKS.map((link) => (
+                  <DropdownMenuItem key={link.to} asChild>
+                    <Link
+                      to={link.to}
+                      className="text-xs font-bold uppercase tracking-[0.2em] cursor-pointer"
+                    >
+                      {link.label}
+                    </Link>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {signedInUser ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    aria-label="Open account menu"
+                    className="flex items-center gap-2 pl-1 pr-3 py-1 rounded-full bg-card/70 border border-border hover:border-primary/50 transition-colors"
+                  >
+                    <PlayerAvatar
+                      variant="icon-only"
+                      size="xs"
+                      name={playerName || signedInUser.name}
+                      avatarIndex={avatarIndex}
+                      playerId={signedInUser.id}
+                    />
+                    <span className="text-sm font-bold text-foreground max-w-[110px] truncate">
+                      {playerName || signedInUser.name}
+                    </span>
+                    {totalPoints !== null && (
+                      <span className="flex items-center gap-1 text-sm font-bold text-gold">
+                        <Medal className="w-4 h-4" />
+                        {totalPoints.toLocaleString()}
+                      </span>
+                    )}
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setEditName(playerName || localStorage.getItem("songiq_player_name") || "");
+                      setShowProfileModal(true);
+                    }}
+                    className="cursor-pointer"
+                  >
+                    Update nickname
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/leaderboard" className="cursor-pointer">
+                      My leaderboard spot
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={async () => {
+                      await supabase.auth.signOut();
+                    }}
+                    className="cursor-pointer text-destructive focus:text-destructive"
+                  >
+                    Sign out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Open profile and edit nickname"
+                  onClick={() => {
+                    setEditName(playerName || localStorage.getItem("songiq_player_name") || "");
+                    setShowProfileModal(true);
+                  }}
+                  className="text-foreground/70 hover:text-foreground"
+                >
+                  <UserCircle className="w-5 h-5" />
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setShowSignInModal(true)} className="ml-1">
+                  Sign in
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -93,6 +263,41 @@ export const Header = () => {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showSignInModal} onOpenChange={setShowSignInModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-2xl">
+              Sign in to <span className="text-gold">SONGIQ</span>
+            </DialogTitle>
+            <DialogDescription>
+              Your Points, streaks and leaderboard spot only live on this device —
+              clear your browser or switch phones and they're gone for good.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="pt-2">
+            {/* Placeholder — Lovable wires the real Google flow; until the
+                provider is enabled this fails to a friendly toast */}
+            <Button
+              variant="secondary"
+              size="lg"
+              className="w-full"
+              onClick={handleSignIn}
+            >
+              <svg className="w-5 h-5 mr-2 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z" />
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z" />
+                <path fill="#FBBC05" d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84z" />
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15A11 11 0 0 0 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+              </svg>
+              Continue with Google
+            </Button>
+          </div>
+          <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground pt-1">
+            You can keep playing without an account
+          </p>
         </DialogContent>
       </Dialog>
     </>

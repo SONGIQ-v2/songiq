@@ -12,6 +12,7 @@ import MultiplayerGame from "./pages/MultiplayerGame";
 import NotFound from "./pages/NotFound";
 import ChallengePage from "./pages/Challenge";
 import Daily from "./pages/Daily";
+import Leaderboard from "./pages/Leaderboard";
 import Admin from "./pages/Admin";
 import Privacy from "./pages/Privacy";
 import GuessTheSongGame from "./pages/landing/GuessTheSongGame";
@@ -41,6 +42,7 @@ const App = () => (
           <Route path="/room/:code/game" element={<MultiplayerGame />} />
           <Route path="/c/:code" element={<ChallengePage />} />
           <Route path="/daily" element={<Daily />} />
+          <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/anonymous" element={<Admin />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/guess-the-song-game" element={<GuessTheSongGame />} />

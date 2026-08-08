@@ -67,6 +67,11 @@ Deno.serve(async (req) => {
       .lt("created_at", challengeCutoff);
     console.log(`Purged ${purgedChallenges ?? 0} expired challenges`);
 
+    // Award the daily top-3 Points bonus for any finished, unsettled day
+    // (idempotent; no-op when every past day is already settled)
+    const { error: bonusErr } = await supabase.rpc("settle_daily_bonus");
+    if (bonusErr) console.error("[cleanup-stale-rooms] Daily bonus settle failed:", bonusErr.message);
+
     // Refresh stale playlist pools (>24h) so new releases show up daily.
     // Runs here because this function is already on a 10-minute cron with the
     // service role — no separate scheduler or key handling needed. Capped per

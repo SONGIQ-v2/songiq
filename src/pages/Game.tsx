@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useAppleMusic, type AppleMusicTrack } from "@/hooks/useAppleMusic";
+import { supabase } from "@/integrations/supabase/client";
 import { useGameStore } from "@/lib/gameStore";
 import { PLAYLISTS, getPlaylistById } from "@/lib/playlists";
 import { calculatePoints } from "@/lib/spotify";
@@ -132,6 +133,7 @@ export default function Game() {
   const [roundResults, setRoundResults] = useState<boolean[]>([]);
   const [challengeAttempts, setChallengeAttempts] = useState<ChallengeAttempt[] | null>(null);
   const [dailyResult, setDailyResult] = useState<{ rank: number; total: number; streak: number } | null>(null);
+  const [pointsResult, setPointsResult] = useState<{ earned: number; total: number } | null>(null);
   const [dailyPromo, setDailyPromo] = useState<{ number: number; categoryName: string; totalPlayed: number } | null>(null);
   // Separate from the Apple Music hook's `error` (which only covers thrown
   // fetch exceptions) — this also covers a *successful* fetch that simply
@@ -161,6 +163,11 @@ export default function Game() {
   const liveAudioBusyRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const countdownRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Playtime/Points recording: when this game started, and whether this
+  // game's session has already been recorded (results re-renders must not
+  // double-submit)
+  const gameStartedAtRef = useRef<number | null>(null);
+  const sessionRecordedRef = useRef(false);
 
   // Cleanup function to stop all audio and timers
   const cleanupGame = useCallback(() => {
@@ -322,6 +329,8 @@ export default function Game() {
   };
 
   const startRound = (availableTracks: AppleMusicTrack[], round: number) => {
+    // Stamp the game's wall-clock start for playtime recording
+    if (round === 1) gameStartedAtRef.current = Date.now();
     // Use the pre-shuffled track for this round (no re-shuffling to avoid repeats)
     const track = availableTracks[round - 1];
     
@@ -474,6 +483,10 @@ export default function Game() {
     setGameState("loading");
     resetSoloGame();
     setCurrentRound(1);
+    // Fresh game, fresh playtime/Points recording
+    sessionRecordedRef.current = false;
+    gameStartedAtRef.current = null;
+    setPointsResult(null);
     loadTracks();
   };
 
@@ -510,6 +523,43 @@ export default function Game() {
       score: soloScore,
       correct_count: roundResults.filter(Boolean).length,
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameState]);
+
+  // Record playtime + award Points for this game (any mode) — once.
+  useEffect(() => {
+    if (gameState !== "results" || sessionRecordedRef.current) return;
+    sessionRecordedRef.current = true;
+
+    const startedAt = gameStartedAtRef.current;
+    if (!startedAt) return; // never actually started (defensive)
+    const seconds = Math.min(3600, Math.max(5, Math.round((Date.now() - startedAt) / 1000)));
+    const mode = daily ? "daily" : challenge ? "challenge" : "solo";
+
+    (async () => {
+      try {
+        // (supabase as any): the generated types don't know this RPC until
+        // Lovable regenerates them after the migration deploys
+        const { data, error } = await (supabase as any).rpc("record_game_session", {
+          p_mode: mode,
+          p_name: playerName || null,
+          p_score: soloScore,
+          p_rounds: TOTAL_ROUNDS,
+          p_seconds: seconds,
+        });
+        if (error) throw error;
+        const row = Array.isArray(data) ? data[0] : data;
+        if (row) setPointsResult({ earned: row.points_earned, total: Number(row.total_points) });
+      } catch (err) {
+        // Points are a bonus layer — never break the results screen over them
+        console.error("Failed to record game session:", err);
+        logError("game.record_session_failed", "Failed to record play session", {
+          mode,
+          score: soloScore,
+          error: (err as Error)?.message,
+        });
+      }
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameState]);
 
@@ -1052,6 +1102,19 @@ export default function Game() {
               </p>
             )}
           </div>
+
+          {pointsResult && (
+            <motion.button
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+              onClick={() => navigate("/leaderboard")}
+              className="mb-6 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gold/15 border border-gold/40 text-sm font-semibold text-gold"
+            >
+              🏅 +{pointsResult.earned} Points
+              <span className="text-gold/70 font-normal">· {pointsResult.total} total</span>
+            </motion.button>
+          )}
 
           {daily && (
             <div className="bg-background/50 rounded-xl p-4 mb-6">

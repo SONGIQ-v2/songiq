@@ -403,6 +403,8 @@ serve(async (req) => {
         { data: dailyScoresToday },
         { data: topStreakRow },
         { data: uniquePlayers },
+        { data: minutesByModeInRange },
+        { data: minutesByModeAllTime },
       ] = await Promise.all([
         supabase.from("daily_stats").select("*", { count: "exact", head: true }),
         supabase.from("creation_log").select("*", { count: "exact", head: true }).eq("event_type", "challenge"),
@@ -421,7 +423,14 @@ serve(async (req) => {
           .limit(1)
           .maybeSingle(),
         supabase.rpc("count_unique_players"),
+        supabase.rpc("minutes_played_stats", { p_cutoff: rangeCutoff }),
+        supabase.rpc("minutes_played_stats"),
       ]);
+
+      const sumMinutes = (rows: { mode: string; minutes: number }[] | null) =>
+        (rows ?? []).reduce((sum, r) => sum + (r.minutes ?? 0), 0);
+      const minutesPlayedInRange = sumMinutes(minutesByModeInRange);
+      const minutesPlayedAllTime = sumMinutes(minutesByModeAllTime);
 
       const dailyAvgScoreToday =
         dailyScoresToday && dailyScoresToday.length > 0
@@ -451,6 +460,9 @@ serve(async (req) => {
             soloGamesPlayedInRange,
             soloGamesPlayedAllTime,
             visitorsInRange,
+            minutesPlayedInRange,
+            minutesPlayedAllTime,
+            minutesByMode: minutesByModeInRange ?? [],
             activeRoomsNow: activeRoomCount ?? 0,
             dailyPlaysToday: dailyPlaysToday ?? 0,
             dailyAvgScoreToday,
