@@ -79,22 +79,31 @@ export const Header = () => {
     })();
   }, [signedInUser?.id, location.pathname]);
 
+  const [signingIn, setSigningIn] = useState(false);
+
   const handleSignIn = async () => {
-    // linkIdentity upgrades the anonymous account in place -- same player_id,
-    // so all history (points, streaks, playtime) carries over.
-    const { error } = await supabase.auth.linkIdentity({
-      provider: "google",
-      options: { redirectTo: window.location.origin },
-    });
-    if (error) {
-      // Provider not enabled yet (Lovable will configure it) or link failed
-      console.error("Sign-in failed:", error);
-      toast({
-        title: "Sign-in isn't available yet",
-        description: "Google sign-in is coming soon — your progress is saved on this device meanwhile.",
+    setSigningIn(true);
+    try {
+      const result = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: window.location.origin,
       });
+      if (result.error) {
+        console.error("Sign-in failed:", result.error);
+        toast({
+          title: "Couldn't sign in",
+          description: "Google sign-in failed. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (result.redirected) return;
+      setShowSignInModal(false);
+      toast({ title: "Signed in!", description: "Your progress is now saved to your account." });
+    } finally {
+      setSigningIn(false);
     }
   };
+
 
   const handleSaveName = () => {
     const trimmed = editName.trim().replace(/[\x00-\x1F\x7F]/g, "").slice(0, 20);
