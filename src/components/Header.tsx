@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { useState, useEffect } from "react";
 import { useGameStore } from "@/lib/gameStore";
 import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable/index";
+
 import {
   Dialog,
   DialogContent,
@@ -79,22 +81,31 @@ export const Header = () => {
     })();
   }, [signedInUser?.id, location.pathname]);
 
+  const [signingIn, setSigningIn] = useState(false);
+
   const handleSignIn = async () => {
-    // linkIdentity upgrades the anonymous account in place -- same player_id,
-    // so all history (points, streaks, playtime) carries over.
-    const { error } = await supabase.auth.linkIdentity({
-      provider: "google",
-      options: { redirectTo: window.location.origin },
-    });
-    if (error) {
-      // Provider not enabled yet (Lovable will configure it) or link failed
-      console.error("Sign-in failed:", error);
-      toast({
-        title: "Sign-in isn't available yet",
-        description: "Google sign-in is coming soon — your progress is saved on this device meanwhile.",
+    setSigningIn(true);
+    try {
+      const result = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: window.location.origin,
       });
+      if (result.error) {
+        console.error("Sign-in failed:", result.error);
+        toast({
+          title: "Couldn't sign in",
+          description: "Google sign-in failed. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (result.redirected) return;
+      setShowSignInModal(false);
+      toast({ title: "Signed in!", description: "Your progress is now saved to your account." });
+    } finally {
+      setSigningIn(false);
     }
   };
+
 
   const handleSaveName = () => {
     const trimmed = editName.trim().replace(/[\x00-\x1F\x7F]/g, "").slice(0, 20);
@@ -278,14 +289,14 @@ export const Header = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="pt-2">
-            {/* Placeholder — Lovable wires the real Google flow; until the
-                provider is enabled this fails to a friendly toast */}
             <Button
               variant="secondary"
               size="lg"
               className="w-full"
+              disabled={signingIn}
               onClick={handleSignIn}
             >
+
               <svg className="w-5 h-5 mr-2 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z" />
                 <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z" />
