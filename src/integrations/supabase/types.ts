@@ -648,6 +648,30 @@ export type Database = {
         }
         Relationships: []
       }
+      points_log: {
+        Row: {
+          created_at: string
+          id: number
+          player_id: string
+          points: number
+          source: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: never
+          player_id: string
+          points: number
+          source?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: never
+          player_id?: string
+          points?: number
+          source?: string | null
+        }
+        Relationships: []
+      }
       push_subscriptions: {
         Row: {
           auth: string
@@ -910,15 +934,26 @@ export type Database = {
       }
     }
     Functions: {
-      add_player_points: {
-        Args: {
-          p_count_game?: boolean
-          p_name: string
-          p_player_id: string
-          p_points: number
-        }
-        Returns: undefined
-      }
+      add_player_points:
+        | {
+            Args: {
+              p_count_game?: boolean
+              p_name: string
+              p_player_id: string
+              p_points: number
+            }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              p_count_game?: boolean
+              p_name: string
+              p_player_id: string
+              p_points: number
+              p_source?: string
+            }
+            Returns: undefined
+          }
       advance_game_round: { Args: { _room_id: string }; Returns: Json }
       count_unique_players: { Args: never; Returns: number }
       delete_email: {
