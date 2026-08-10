@@ -169,3 +169,17 @@ export const useGameStore = create<GameState>((set, get) => ({
   openSignInModal: () => set({ showSignInModal: true }),
   closeSignInModal: () => set({ showSignInModal: false }),
 }));
+
+// Keeps playerId honest across auth changes -- without this, initializeAuth()'s
+// cached-return guard (`if isInitialized && playerId, return it`) would keep
+// handing back a just-invalidated id after sign-out until a full page reload,
+// since nothing else ever clears that cache.
+supabase.auth.onAuthStateChange((_event, session) => {
+  if (session?.user) {
+    if (useGameStore.getState().playerId !== session.user.id) {
+      useGameStore.setState({ playerId: session.user.id, isInitialized: true });
+    }
+  } else {
+    useGameStore.setState({ playerId: null, isInitialized: false });
+  }
+});
