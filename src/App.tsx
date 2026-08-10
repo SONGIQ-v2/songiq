@@ -24,6 +24,7 @@ import AfrobeatsQuiz from "./pages/landing/AfrobeatsQuiz";
 import AmapianoQuiz from "./pages/landing/AmapianoQuiz";
 import AfricanMusicQuiz from "./pages/landing/AfricanMusicQuiz";
 import { FeedbackWidget } from "./components/FeedbackWidget";
+import { SignInModal } from "./components/SignInModal";
 
 const queryClient = new QueryClient();
 
@@ -32,6 +33,7 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
+      <SignInModal />
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />

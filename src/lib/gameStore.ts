@@ -43,7 +43,13 @@ export interface GameState {
   // Solo game state
   soloScore: number;
   soloRound: number;
-  
+
+  // Sign-in modal — shared across pages so a "Sign in to save your
+  // progress" hint anywhere in the app can open the same modal, not just
+  // wherever Header happens to be rendered (e.g. the Daily Challenge page
+  // has no Header at all).
+  showSignInModal: boolean;
+
   // Actions
   initializeAuth: () => Promise<string | null>;
   setPlayer: (name: string, avatarIndex: number) => void;
@@ -58,6 +64,8 @@ export interface GameState {
   setCategory: (category: string) => void;
   resetSoloGame: () => void;
   reset: () => void;
+  openSignInModal: () => void;
+  closeSignInModal: () => void;
 }
 
 export const useGameStore = create<GameState>((set, get) => ({
@@ -80,7 +88,9 @@ export const useGameStore = create<GameState>((set, get) => ({
   
   soloScore: 0,
   soloRound: 0,
-  
+
+  showSignInModal: false,
+
   // Actions
   initializeAuth: async () => {
     // Check if already initialized
@@ -155,4 +165,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       soloScore: 0,
       soloRound: 0,
     }),
+
+  openSignInModal: () => set({ showSignInModal: true }),
+  closeSignInModal: () => set({ showSignInModal: false }),
 }));

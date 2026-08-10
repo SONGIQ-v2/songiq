@@ -13,6 +13,7 @@ import songiqLogo from "@/assets/songiq-logo.png";
 import { useGameStore } from "@/lib/gameStore";
 import { getKnownPlayerName, saveUsername, type Challenge } from "@/lib/challenges";
 import { trackEvent } from "@/lib/analytics";
+import { useSignInHint } from "@/hooks/useSignInHint";
 import {
   fetchTodayChallenge,
   fetchDailyAttempts,
@@ -29,7 +30,8 @@ import {
 
 export default function Daily() {
   const navigate = useNavigate();
-  const { initializeAuth, playerId, setPlayer } = useGameStore();
+  const { initializeAuth, playerId, setPlayer, openSignInModal } = useGameStore();
+  const signInHint = useSignInHint();
 
   const [status, setStatus] = useState<"loading" | "ready" | "none">("loading");
   const [daily, setDaily] = useState<DailyChallenge | null>(null);
@@ -179,9 +181,23 @@ export default function Daily() {
           </div>
 
           {myStreak > 0 && (
-            <p className="mb-4 font-semibold text-gold flex items-center justify-center gap-1.5">
-              <Flame className="w-5 h-5" /> {myStreak}-day streak
-            </p>
+            <div className="mb-4">
+              <p className="font-semibold text-gold flex items-center justify-center gap-1.5">
+                <Flame className="w-5 h-5" /> {myStreak}-day streak
+              </p>
+              {signInHint.show && (
+                <p className="text-xs text-muted-foreground mt-1 flex items-center justify-center gap-2">
+                  <span>Sign in to protect it</span>
+                  <button onClick={openSignInModal} className="text-primary font-semibold hover:underline">
+                    Sign in
+                  </button>
+                  <span>·</span>
+                  <button onClick={signInHint.dismiss} className="hover:text-foreground">
+                    Not now
+                  </button>
+                </p>
+              )}
+            </div>
           )}
 
           {myAttempt ? (

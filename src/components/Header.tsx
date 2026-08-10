@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { useState, useEffect } from "react";
 import { useGameStore } from "@/lib/gameStore";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable/index";
 import { getKnownPlayerName } from "@/lib/challenges";
 
 import {
@@ -36,8 +35,7 @@ const NAV_LINKS = [
 export const Header = () => {
   const location = useLocation();
   const [showProfileModal, setShowProfileModal] = useState(false);
-  const [showSignInModal, setShowSignInModal] = useState(false);
-  const { playerName, setPlayer, avatarIndex } = useGameStore();
+  const { playerName, setPlayer, avatarIndex, openSignInModal } = useGameStore();
   const [editName, setEditName] = useState("");
   // Signed-in players (Google-linked, once Lovable enables the provider)
   // get a profile chip instead of the Sign in button + account icon
@@ -90,32 +88,6 @@ export const Header = () => {
       setTotalPoints(Number(data?.points ?? 0));
     })();
   }, [signedInUser?.id, location.pathname]);
-
-  const [signingIn, setSigningIn] = useState(false);
-
-  const handleSignIn = async () => {
-    setSigningIn(true);
-    try {
-      const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: window.location.origin,
-      });
-      if (result.error) {
-        console.error("Sign-in failed:", result.error);
-        toast({
-          title: "Couldn't sign in",
-          description: "Google sign-in failed. Please try again.",
-          variant: "destructive",
-        });
-        return;
-      }
-      if (result.redirected) return;
-      setShowSignInModal(false);
-      toast({ title: "Signed in!", description: "Your progress is now saved to your account." });
-    } finally {
-      setSigningIn(false);
-    }
-  };
-
 
   const handleSaveName = () => {
     const trimmed = editName.trim().replace(/[\x00-\x1F\x7F]/g, "").slice(0, 20);
@@ -248,7 +220,7 @@ export const Header = () => {
                 >
                   <UserCircle className="w-5 h-5" />
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => setShowSignInModal(true)} className="ml-1">
+                <Button variant="outline" size="sm" onClick={openSignInModal} className="ml-1">
                   Sign in
                 </Button>
               </>
@@ -284,41 +256,6 @@ export const Header = () => {
               </Button>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showSignInModal} onOpenChange={setShowSignInModal}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-2xl">
-              Sign in to <span className="text-gold">SONGIQ</span>
-            </DialogTitle>
-            <DialogDescription>
-              Your Points, streaks and leaderboard spot only live on this device —
-              clear your browser or switch phones and they're gone for good.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="pt-2">
-            <Button
-              variant="secondary"
-              size="lg"
-              className="w-full"
-              disabled={signingIn}
-              onClick={handleSignIn}
-            >
-
-              <svg className="w-5 h-5 mr-2 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z" />
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z" />
-                <path fill="#FBBC05" d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84z" />
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15A11 11 0 0 0 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-              </svg>
-              Continue with Google
-            </Button>
-          </div>
-          <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground pt-1">
-            You can keep playing without an account
-          </p>
         </DialogContent>
       </Dialog>
     </>

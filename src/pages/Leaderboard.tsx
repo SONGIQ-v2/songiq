@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
-import { motion } from "framer-motion";
-import { Clock, HelpCircle, Medal } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Clock, HelpCircle, Medal, X } from "lucide-react";
 import { Starfield } from "@/components/Starfield";
 import { Header } from "@/components/Header";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
+import { Button } from "@/components/ui/button";
+import { useSignInHint } from "@/hooks/useSignInHint";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import {
   Dialog,
@@ -29,7 +31,8 @@ const RANGES: { key: LeaderboardRange; label: string }[] = [
 ];
 
 export default function Leaderboard() {
-  const { playerId, initializeAuth } = useGameStore();
+  const { playerId, initializeAuth, openSignInModal } = useGameStore();
+  const signInHint = useSignInHint();
   const [range, setRange] = useState<LeaderboardRange>("week");
   const [showHowItWorks, setShowHowItWorks] = useState(false);
   const [sort, setSort] = useState<LeaderboardSort>("points");
@@ -85,6 +88,31 @@ export default function Leaderboard() {
               Every mode counts — solo, daily, challenges & multiplayer
             </p>
           </div>
+
+          <AnimatePresence>
+            {signInHint.show && (
+              <motion.div
+                initial={{ opacity: 0, y: -8, height: 0 }}
+                animate={{ opacity: 1, y: 0, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="flex items-center gap-3 mb-4 px-4 py-3 rounded-xl bg-gold/10 border border-gold/30 overflow-hidden"
+              >
+                <span className="flex-1 text-sm text-foreground/90">
+                  Sign in with Google to save your Points and rank across devices.
+                </span>
+                <Button variant="gold" size="sm" onClick={openSignInModal} className="shrink-0">
+                  Sign in
+                </Button>
+                <button
+                  onClick={signInHint.dismiss}
+                  aria-label="Dismiss"
+                  className="text-muted-foreground hover:text-foreground shrink-0"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Range tabs — filled active block on a dark strip, each labeled
               with when its window starts */}
