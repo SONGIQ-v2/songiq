@@ -11,7 +11,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { Lock, LinkIcon, RefreshCw, Users, Trophy, Radio, Flame, Calendar, Target, ListMusic, Eye, Globe, MapPin, Share2, Clock, UserCheck } from "lucide-react";
+import { Lock, LinkIcon, RefreshCw, Users, Trophy, Radio, Flame, Calendar, Target, ListMusic, Eye, Globe, MapPin, Share2, Clock, UserCheck, LayoutDashboard, BarChart3 } from "lucide-react";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { Starfield } from "@/components/Starfield";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,15 @@ const DATE_RANGES: { key: DateRangeKey; label: string; startDate: string }[] = [
   { key: "30d", label: "30 days", startDate: "30daysAgo" },
 ];
 
+type AdminSection = "overview" | "analytics" | "playlists" | "geography" | "users";
+const SECTIONS: { key: AdminSection; label: string; icon: typeof Users }[] = [
+  { key: "overview", label: "Overview", icon: LayoutDashboard },
+  { key: "analytics", label: "Analytics", icon: BarChart3 },
+  { key: "playlists", label: "Playlists", icon: ListMusic },
+  { key: "geography", label: "Geography & Traffic", icon: Globe },
+  { key: "users", label: "Signed-in Users", icon: UserCheck },
+];
+
 interface ReportData {
   connected: boolean;
   eventCounts?: { event: string; count: number }[];
@@ -38,6 +47,7 @@ interface ReportData {
   signedInUsers?: {
     id: string;
     name: string | null;
+    nickname: string | null;
     email: string | null;
     createdAt: string;
     lastSignInAt: string | null;
@@ -100,6 +110,7 @@ export default function Admin() {
   const [loggingIn, setLoggingIn] = useState(false);
 
   const [range, setRange] = useState<DateRangeKey>("7d");
+  const [activeSection, setActiveSection] = useState<AdminSection>("overview");
   const [report, setReport] = useState<ReportData | null>(null);
   const [loadingReport, setLoadingReport] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
@@ -289,260 +300,300 @@ export default function Admin() {
                 {loadingReport || !report ? (
                   <div className="raised-panel p-8 text-center text-muted-foreground">Loading...</div>
                 ) : (
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      <StatTile icon={Calendar} label="Daily Challenge plays today" value={report.stats?.dailyPlaysToday ?? 0} />
-                      <StatTile icon={Target} label="Avg Daily score today" value={report.stats?.dailyAvgScoreToday ?? 0} />
-                      <StatTile
-                        icon={Flame}
-                        label="Highest active streak"
-                        value={report.stats?.topStreakPlayer?.streak ?? 0}
-                        sublabel={report.stats?.topStreakPlayer?.name}
-                      />
-                      <StatTile icon={Users} label="Unique players ever" value={report.stats?.uniquePlayersEver ?? 0} />
-                      <StatTile icon={Eye} label="Visitors" value={report.stats?.visitorsInRange ?? 0} sublabel="in selected range" />
-                      <StatTile
-                        icon={Clock}
-                        label="Minutes played"
-                        value={report.stats?.minutesPlayedInRange ?? 0}
-                        sublabel={`${report.stats?.minutesPlayedAllTime ?? 0} all-time`}
-                      />
-                      <StatTile
-                        icon={Trophy}
-                        label="Solo games played"
-                        value={report.stats?.soloGamesPlayedInRange ?? 0}
-                        sublabel={`${report.stats?.soloGamesPlayedAllTime ?? 0} all-time`}
-                      />
-                      <StatTile
-                        icon={LinkIcon}
-                        label="Challenges created"
-                        value={report.stats?.challengesCreatedInRange ?? 0}
-                        sublabel={`${report.stats?.challengesCreated ?? 0} all-time`}
-                      />
-                      <StatTile
-                        icon={Trophy}
-                        label="Challenge completion rate"
-                        value={`${report.stats?.challengeCompletionRatePct ?? 0}%`}
-                      />
-                      <StatTile
-                        icon={Users}
-                        label="Rooms created"
-                        value={report.stats?.roomsCreatedInRange ?? 0}
-                        sublabel={`${report.stats?.roomsCreated ?? 0} all-time`}
-                      />
-                      <StatTile icon={Radio} label="Active rooms now" value={report.stats?.activeRoomsNow ?? 0} />
-                    </div>
+                  <div className="flex flex-col md:flex-row gap-6">
+                    <nav className="flex md:flex-col gap-1.5 overflow-x-auto md:overflow-x-visible md:w-56 shrink-0 pb-1 md:pb-0">
+                      {SECTIONS.map((s) => {
+                        const Icon = s.icon;
+                        const isActive = activeSection === s.key;
+                        return (
+                          <button
+                            key={s.key}
+                            onClick={() => setActiveSection(s.key)}
+                            className={cn(
+                              "flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap text-left transition-all shrink-0",
+                              isActive
+                                ? "bg-primary text-primary-foreground shadow-lg"
+                                : "text-muted-foreground hover:text-foreground hover:bg-card/50"
+                            )}
+                          >
+                            <Icon className="w-4 h-4 shrink-0" />
+                            {s.label}
+                          </button>
+                        );
+                      })}
+                    </nav>
 
-                    <div className="grid lg:grid-cols-2 gap-6">
-                    <div className="raised-panel p-5">
-                      <p className="text-sm font-semibold text-foreground mb-4 flex items-center gap-1.5">
-                        <Trophy className="w-4 h-4 text-primary" /> Events by type
-                      </p>
-                      <div className="h-72">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={report.eventCounts ?? []} layout="vertical" margin={{ left: 8, right: 24 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border) / 0.3)" horizontal={false} />
-                            <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={11} />
-                            <YAxis
-                              type="category"
-                              dataKey="event"
-                              stroke="hsl(var(--muted-foreground))"
-                              fontSize={11}
-                              width={140}
-                            />
-                            <Tooltip
-                              contentStyle={{
-                                background: "hsl(var(--card))",
-                                border: "1px solid hsl(var(--border))",
-                                borderRadius: 8,
-                                fontSize: 12,
-                              }}
-                            />
-                            <Bar dataKey="count" fill="hsl(var(--gold))" radius={[0, 4, 4, 0]} />
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </div>
-                    </div>
-
-                    <div className="raised-panel p-5">
-                      <p className="text-sm font-semibold text-foreground mb-4">Daily event volume</p>
-                      <div className="h-56">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <AreaChart data={(report.dailyTotals ?? []).map((d) => ({ ...d, label: formatGa4Date(d.date) }))}>
-                            <defs>
-                              <linearGradient id="goldFill" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor="hsl(var(--gold))" stopOpacity={0.35} />
-                                <stop offset="100%" stopColor="hsl(var(--gold))" stopOpacity={0} />
-                              </linearGradient>
-                            </defs>
-                            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border) / 0.3)" vertical={false} />
-                            <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={11} />
-                            <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} />
-                            <Tooltip
-                              contentStyle={{
-                                background: "hsl(var(--card))",
-                                border: "1px solid hsl(var(--border))",
-                                borderRadius: 8,
-                                fontSize: 12,
-                              }}
-                            />
-                            <Area
-                              type="monotone"
-                              dataKey="count"
-                              stroke="hsl(var(--gold))"
-                              strokeWidth={2}
-                              fill="url(#goldFill)"
-                            />
-                          </AreaChart>
-                        </ResponsiveContainer>
-                      </div>
-                    </div>
-                    </div>
-
-                    {report.topPlaylists && report.topPlaylists.length > 0 && (
-                      <div className="raised-panel p-5">
-                        <p className="text-sm font-semibold text-foreground mb-4 flex items-center gap-1.5">
-                          <ListMusic className="w-4 h-4 text-primary" /> Most-played playlists
-                        </p>
-                        <div className="space-y-1.5">
-                          {report.topPlaylists.map((p, i) => (
-                            <div
-                              key={p.playlist}
-                              className="flex items-center justify-between px-3 py-1.5 rounded-lg text-sm bg-card/50"
-                            >
-                              <span className="font-semibold text-foreground flex items-center gap-2 min-w-0">
-                                <span className="text-muted-foreground w-5">#{i + 1}</span>
-                                <span className="truncate">{p.playlist}</span>
-                              </span>
-                              <span className="font-bold text-gold shrink-0">{p.plays}</span>
-                            </div>
-                          ))}
-                        </div>
+                    <div className="flex-1 min-w-0 space-y-6">
+                    {activeSection === "overview" && (
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <StatTile icon={Calendar} label="Daily Challenge plays today" value={report.stats?.dailyPlaysToday ?? 0} />
+                        <StatTile icon={Target} label="Avg Daily score today" value={report.stats?.dailyAvgScoreToday ?? 0} />
+                        <StatTile
+                          icon={Flame}
+                          label="Highest active streak"
+                          value={report.stats?.topStreakPlayer?.streak ?? 0}
+                          sublabel={report.stats?.topStreakPlayer?.name}
+                        />
+                        <StatTile icon={Users} label="Unique players ever" value={report.stats?.uniquePlayersEver ?? 0} />
+                        <StatTile icon={Eye} label="Visitors" value={report.stats?.visitorsInRange ?? 0} sublabel="in selected range" />
+                        <StatTile
+                          icon={Clock}
+                          label="Minutes played"
+                          value={report.stats?.minutesPlayedInRange ?? 0}
+                          sublabel={`${report.stats?.minutesPlayedAllTime ?? 0} all-time`}
+                        />
+                        <StatTile
+                          icon={Trophy}
+                          label="Solo games played"
+                          value={report.stats?.soloGamesPlayedInRange ?? 0}
+                          sublabel={`${report.stats?.soloGamesPlayedAllTime ?? 0} all-time`}
+                        />
+                        <StatTile
+                          icon={LinkIcon}
+                          label="Challenges created"
+                          value={report.stats?.challengesCreatedInRange ?? 0}
+                          sublabel={`${report.stats?.challengesCreated ?? 0} all-time`}
+                        />
+                        <StatTile
+                          icon={Trophy}
+                          label="Challenge completion rate"
+                          value={`${report.stats?.challengeCompletionRatePct ?? 0}%`}
+                        />
+                        <StatTile
+                          icon={Users}
+                          label="Rooms created"
+                          value={report.stats?.roomsCreatedInRange ?? 0}
+                          sublabel={`${report.stats?.roomsCreated ?? 0} all-time`}
+                        />
+                        <StatTile icon={Radio} label="Active rooms now" value={report.stats?.activeRoomsNow ?? 0} />
                       </div>
                     )}
 
-                    <div className="grid lg:grid-cols-3 gap-6">
-                      {report.stats?.minutesByMode && report.stats.minutesByMode.length > 0 && (
-                        <div className="raised-panel p-5">
-                          <p className="text-sm font-semibold text-foreground mb-4 flex items-center gap-1.5">
-                            <Clock className="w-4 h-4 text-primary" /> Time played by mode
-                          </p>
-                          <div className="space-y-1.5">
-                            {report.stats.minutesByMode.map((m) => (
-                              <div
-                                key={m.mode}
-                                className="flex items-center justify-between px-3 py-1.5 rounded-lg text-sm bg-card/50"
-                              >
-                                <span className="font-semibold text-foreground capitalize">{m.mode}</span>
-                                <span className="font-bold text-gold shrink-0">{m.minutes}m</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {report.topCountries && report.topCountries.length > 0 && (
-                        <div className="raised-panel p-5">
-                          <p className="text-sm font-semibold text-foreground mb-4 flex items-center gap-1.5">
-                            <Globe className="w-4 h-4 text-primary" /> Top countries
-                          </p>
-                          <div className="space-y-1.5">
-                            {report.topCountries.map((c, i) => (
-                              <div
-                                key={c.name}
-                                className="flex items-center justify-between px-3 py-1.5 rounded-lg text-sm bg-card/50"
-                              >
-                                <span className="font-semibold text-foreground flex items-center gap-2 min-w-0">
-                                  <span className="text-muted-foreground w-5">#{i + 1}</span>
-                                  <span className="truncate">{c.name}</span>
-                                </span>
-                                <span className="font-bold text-gold shrink-0">{c.visitors}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {report.topCities && report.topCities.length > 0 && (
-                        <div className="raised-panel p-5">
-                          <p className="text-sm font-semibold text-foreground mb-4 flex items-center gap-1.5">
-                            <MapPin className="w-4 h-4 text-primary" /> Top cities
-                          </p>
-                          <div className="space-y-1.5">
-                            {report.topCities.map((c, i) => (
-                              <div
-                                key={c.name}
-                                className="flex items-center justify-between px-3 py-1.5 rounded-lg text-sm bg-card/50"
-                              >
-                                <span className="font-semibold text-foreground flex items-center gap-2 min-w-0">
-                                  <span className="text-muted-foreground w-5">#{i + 1}</span>
-                                  <span className="truncate">{c.name}</span>
-                                </span>
-                                <span className="font-bold text-gold shrink-0">{c.visitors}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {report.trafficSources && report.trafficSources.length > 0 && (
-                        <div className="raised-panel p-5">
-                          <p className="text-sm font-semibold text-foreground mb-4 flex items-center gap-1.5">
-                            <Share2 className="w-4 h-4 text-primary" /> Traffic sources
-                          </p>
-                          <div className="space-y-1.5">
-                            {report.trafficSources.map((s, i) => (
-                              <div
-                                key={s.source}
-                                className="flex items-center justify-between px-3 py-1.5 rounded-lg text-sm bg-card/50"
-                              >
-                                <span className="font-semibold text-foreground flex items-center gap-2 min-w-0">
-                                  <span className="text-muted-foreground w-5">#{i + 1}</span>
-                                  <span className="truncate">{s.source}</span>
-                                </span>
-                                <span className="font-bold text-gold shrink-0">{s.sessions}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {report.signedInUsers && report.signedInUsers.length > 0 && (
+                    {activeSection === "analytics" && (
+                      <div className="grid lg:grid-cols-2 gap-6">
                       <div className="raised-panel p-5">
                         <p className="text-sm font-semibold text-foreground mb-4 flex items-center gap-1.5">
-                          <UserCheck className="w-4 h-4 text-primary" /> Signed-in users ({report.signedInUsers.length})
+                          <Trophy className="w-4 h-4 text-primary" /> Events by type
                         </p>
-                        <div className="max-h-96 overflow-y-auto">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>Name</TableHead>
-                                <TableHead>Email</TableHead>
-                                <TableHead className="text-right">Points</TableHead>
-                                <TableHead className="text-right">Joined</TableHead>
-                                <TableHead className="text-right">Last sign-in</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {report.signedInUsers.map((u) => (
-                                <TableRow key={u.id}>
-                                  <TableCell className="font-semibold text-foreground">{u.name || "—"}</TableCell>
-                                  <TableCell className="text-muted-foreground">{u.email || "—"}</TableCell>
-                                  <TableCell className="text-right font-bold text-gold">{u.points}</TableCell>
-                                  <TableCell className="text-right text-muted-foreground text-xs">
-                                    {new Date(u.createdAt).toLocaleDateString()}
-                                  </TableCell>
-                                  <TableCell className="text-right text-muted-foreground text-xs">
-                                    {u.lastSignInAt ? new Date(u.lastSignInAt).toLocaleDateString() : "—"}
-                                  </TableCell>
-                                </TableRow>
+                        <div className="h-72">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={report.eventCounts ?? []} layout="vertical" margin={{ left: 8, right: 24 }}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border) / 0.3)" horizontal={false} />
+                              <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                              <YAxis
+                                type="category"
+                                dataKey="event"
+                                stroke="hsl(var(--muted-foreground))"
+                                fontSize={11}
+                                width={140}
+                              />
+                              <Tooltip
+                                contentStyle={{
+                                  background: "hsl(var(--card))",
+                                  border: "1px solid hsl(var(--border))",
+                                  borderRadius: 8,
+                                  fontSize: 12,
+                                }}
+                              />
+                              <Bar dataKey="count" fill="hsl(var(--gold))" radius={[0, 4, 4, 0]} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
+
+                      <div className="raised-panel p-5">
+                        <p className="text-sm font-semibold text-foreground mb-4">Daily event volume</p>
+                        <div className="h-56">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={(report.dailyTotals ?? []).map((d) => ({ ...d, label: formatGa4Date(d.date) }))}>
+                              <defs>
+                                <linearGradient id="goldFill" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="0%" stopColor="hsl(var(--gold))" stopOpacity={0.35} />
+                                  <stop offset="100%" stopColor="hsl(var(--gold))" stopOpacity={0} />
+                                </linearGradient>
+                              </defs>
+                              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border) / 0.3)" vertical={false} />
+                              <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                              <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                              <Tooltip
+                                contentStyle={{
+                                  background: "hsl(var(--card))",
+                                  border: "1px solid hsl(var(--border))",
+                                  borderRadius: 8,
+                                  fontSize: 12,
+                                }}
+                              />
+                              <Area
+                                type="monotone"
+                                dataKey="count"
+                                stroke="hsl(var(--gold))"
+                                strokeWidth={2}
+                                fill="url(#goldFill)"
+                              />
+                            </AreaChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
+                      </div>
+                    )}
+
+                    {activeSection === "playlists" && (
+                      report.topPlaylists && report.topPlaylists.length > 0 ? (
+                        <div className="raised-panel p-5">
+                          <p className="text-sm font-semibold text-foreground mb-4 flex items-center gap-1.5">
+                            <ListMusic className="w-4 h-4 text-primary" /> Most-played playlists
+                          </p>
+                          <div className="space-y-1.5">
+                            {report.topPlaylists.map((p, i) => (
+                              <div
+                                key={p.playlist}
+                                className="flex items-center justify-between px-3 py-1.5 rounded-lg text-sm bg-card/50"
+                              >
+                                <span className="font-semibold text-foreground flex items-center gap-2 min-w-0">
+                                  <span className="text-muted-foreground w-5">#{i + 1}</span>
+                                  <span className="truncate">{p.playlist}</span>
+                                </span>
+                                <span className="font-bold text-gold shrink-0">{p.plays}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="raised-panel p-8 text-center text-muted-foreground text-sm">No playlist plays in this range yet.</div>
+                      )
+                    )}
+
+                    {activeSection === "geography" && (
+                      <div className="grid lg:grid-cols-3 gap-6">
+                        {report.stats?.minutesByMode && report.stats.minutesByMode.length > 0 && (
+                          <div className="raised-panel p-5">
+                            <p className="text-sm font-semibold text-foreground mb-4 flex items-center gap-1.5">
+                              <Clock className="w-4 h-4 text-primary" /> Time played by mode
+                            </p>
+                            <div className="space-y-1.5">
+                              {report.stats.minutesByMode.map((m) => (
+                                <div
+                                  key={m.mode}
+                                  className="flex items-center justify-between px-3 py-1.5 rounded-lg text-sm bg-card/50"
+                                >
+                                  <span className="font-semibold text-foreground capitalize">{m.mode}</span>
+                                  <span className="font-bold text-gold shrink-0">{m.minutes}m</span>
+                                </div>
                               ))}
-                            </TableBody>
-                          </Table>
-                        </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {report.topCountries && report.topCountries.length > 0 && (
+                          <div className="raised-panel p-5">
+                            <p className="text-sm font-semibold text-foreground mb-4 flex items-center gap-1.5">
+                              <Globe className="w-4 h-4 text-primary" /> Top countries
+                            </p>
+                            <div className="space-y-1.5">
+                              {report.topCountries.map((c, i) => (
+                                <div
+                                  key={c.name}
+                                  className="flex items-center justify-between px-3 py-1.5 rounded-lg text-sm bg-card/50"
+                                >
+                                  <span className="font-semibold text-foreground flex items-center gap-2 min-w-0">
+                                    <span className="text-muted-foreground w-5">#{i + 1}</span>
+                                    <span className="truncate">{c.name}</span>
+                                  </span>
+                                  <span className="font-bold text-gold shrink-0">{c.visitors}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {report.topCities && report.topCities.length > 0 && (
+                          <div className="raised-panel p-5">
+                            <p className="text-sm font-semibold text-foreground mb-4 flex items-center gap-1.5">
+                              <MapPin className="w-4 h-4 text-primary" /> Top cities
+                            </p>
+                            <div className="space-y-1.5">
+                              {report.topCities.map((c, i) => (
+                                <div
+                                  key={c.name}
+                                  className="flex items-center justify-between px-3 py-1.5 rounded-lg text-sm bg-card/50"
+                                >
+                                  <span className="font-semibold text-foreground flex items-center gap-2 min-w-0">
+                                    <span className="text-muted-foreground w-5">#{i + 1}</span>
+                                    <span className="truncate">{c.name}</span>
+                                  </span>
+                                  <span className="font-bold text-gold shrink-0">{c.visitors}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {report.trafficSources && report.trafficSources.length > 0 && (
+                          <div className="raised-panel p-5">
+                            <p className="text-sm font-semibold text-foreground mb-4 flex items-center gap-1.5">
+                              <Share2 className="w-4 h-4 text-primary" /> Traffic sources
+                            </p>
+                            <div className="space-y-1.5">
+                              {report.trafficSources.map((s, i) => (
+                                <div
+                                  key={s.source}
+                                  className="flex items-center justify-between px-3 py-1.5 rounded-lg text-sm bg-card/50"
+                                >
+                                  <span className="font-semibold text-foreground flex items-center gap-2 min-w-0">
+                                    <span className="text-muted-foreground w-5">#{i + 1}</span>
+                                    <span className="truncate">{s.source}</span>
+                                  </span>
+                                  <span className="font-bold text-gold shrink-0">{s.sessions}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
+
+                    {activeSection === "users" && (
+                      report.signedInUsers && report.signedInUsers.length > 0 ? (
+                        <div className="raised-panel p-5">
+                          <p className="text-sm font-semibold text-foreground mb-4 flex items-center gap-1.5">
+                            <UserCheck className="w-4 h-4 text-primary" /> Signed-in users ({report.signedInUsers.length})
+                          </p>
+                          <div className="max-h-96 overflow-y-auto">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>Name</TableHead>
+                                  <TableHead>Nickname</TableHead>
+                                  <TableHead>Email</TableHead>
+                                  <TableHead className="text-right">Points</TableHead>
+                                  <TableHead className="text-right">Joined</TableHead>
+                                  <TableHead className="text-right">Last sign-in</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {report.signedInUsers.map((u) => (
+                                  <TableRow key={u.id}>
+                                    <TableCell className="font-semibold text-foreground">{u.name || "—"}</TableCell>
+                                    <TableCell className="text-muted-foreground">{u.nickname || "—"}</TableCell>
+                                    <TableCell className="text-muted-foreground">{u.email || "—"}</TableCell>
+                                    <TableCell className="text-right font-bold text-gold">{u.points}</TableCell>
+                                    <TableCell className="text-right text-muted-foreground text-xs">
+                                      {new Date(u.createdAt).toLocaleDateString()}
+                                    </TableCell>
+                                    <TableCell className="text-right text-muted-foreground text-xs">
+                                      {u.lastSignInAt ? new Date(u.lastSignInAt).toLocaleDateString() : "—"}
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="raised-panel p-8 text-center text-muted-foreground text-sm">No signed-in users yet.</div>
+                      )
+                    )}
+                    </div>
                   </div>
                 )}
               </>

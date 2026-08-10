@@ -271,7 +271,7 @@ async function runSoloGamesAllTime(accessToken: string): Promise<number> {
 // assuming signed-in users are all on the first page, capped to bound cost.
 async function fetchSignedInUsers(
   supabase: ReturnType<typeof createClient>
-): Promise<{ id: string; name: string | null; email: string | null; createdAt: string; lastSignInAt: string | null; points: number }[]> {
+): Promise<{ id: string; name: string | null; nickname: string | null; email: string | null; createdAt: string; lastSignInAt: string | null; points: number }[]> {
   const signedIn: { id: string; name: string | null; email: string | null; createdAt: string; lastSignInAt: string | null }[] = [];
   const maxPages = 20; // 20 * 200 = up to 4000 users scanned
   for (let page = 1; page <= maxPages; page++) {
@@ -298,12 +298,18 @@ async function fetchSignedInUsers(
   if (signedIn.length === 0) return [];
   const { data: pointsRows } = await supabase
     .from("player_points")
-    .select("player_id, points")
+    .select("player_id, player_name, points")
     .in("player_id", signedIn.map((u) => u.id));
-  const pointsById = new Map((pointsRows ?? []).map((r: { player_id: string; points: number }) => [r.player_id, r.points]));
+  const pointsById = new Map(
+    (pointsRows ?? []).map((r: { player_id: string; player_name: string | null; points: number }) => [r.player_id, r])
+  );
 
   return signedIn
-    .map((u) => ({ ...u, points: Number(pointsById.get(u.id) ?? 0) }))
+    .map((u) => ({
+      ...u,
+      nickname: pointsById.get(u.id)?.player_name ?? null,
+      points: Number(pointsById.get(u.id)?.points ?? 0),
+    }))
     .sort((a, b) => b.points - a.points);
 }
 
