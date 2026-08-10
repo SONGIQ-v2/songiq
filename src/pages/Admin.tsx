@@ -11,7 +11,8 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { Lock, LinkIcon, RefreshCw, Users, Trophy, Radio, Flame, Calendar, Target, ListMusic, Eye, Globe, MapPin, Share2, Clock } from "lucide-react";
+import { Lock, LinkIcon, RefreshCw, Users, Trophy, Radio, Flame, Calendar, Target, ListMusic, Eye, Globe, MapPin, Share2, Clock, UserCheck } from "lucide-react";
+import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { Starfield } from "@/components/Starfield";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +35,14 @@ interface ReportData {
   topCountries?: { name: string; visitors: number }[];
   topCities?: { name: string; visitors: number }[];
   trafficSources?: { source: string; sessions: number }[];
+  signedInUsers?: {
+    id: string;
+    name: string | null;
+    email: string | null;
+    createdAt: string;
+    lastSignInAt: string | null;
+    points: number;
+  }[];
   stats?: {
     playersWithStreak: number;
     challengesCreated: number;
@@ -498,6 +507,42 @@ export default function Admin() {
                         </div>
                       )}
                     </div>
+
+                    {report.signedInUsers && report.signedInUsers.length > 0 && (
+                      <div className="raised-panel p-5">
+                        <p className="text-sm font-semibold text-foreground mb-4 flex items-center gap-1.5">
+                          <UserCheck className="w-4 h-4 text-primary" /> Signed-in users ({report.signedInUsers.length})
+                        </p>
+                        <div className="max-h-96 overflow-y-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Name</TableHead>
+                                <TableHead>Email</TableHead>
+                                <TableHead className="text-right">Points</TableHead>
+                                <TableHead className="text-right">Joined</TableHead>
+                                <TableHead className="text-right">Last sign-in</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {report.signedInUsers.map((u) => (
+                                <TableRow key={u.id}>
+                                  <TableCell className="font-semibold text-foreground">{u.name || "—"}</TableCell>
+                                  <TableCell className="text-muted-foreground">{u.email || "—"}</TableCell>
+                                  <TableCell className="text-right font-bold text-gold">{u.points}</TableCell>
+                                  <TableCell className="text-right text-muted-foreground text-xs">
+                                    {new Date(u.createdAt).toLocaleDateString()}
+                                  </TableCell>
+                                  <TableCell className="text-right text-muted-foreground text-xs">
+                                    {u.lastSignInAt ? new Date(u.lastSignInAt).toLocaleDateString() : "—"}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </>

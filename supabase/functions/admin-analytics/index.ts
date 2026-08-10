@@ -264,6 +264,49 @@ async function runSoloGamesAllTime(accessToken: string): Promise<number> {
   return Number(data.rows?.[0]?.metricValues?.[0]?.value ?? 0);
 }
 
+// Real (non-anonymous) signed-in players -- name/email come from Google via
+// Supabase Auth's admin API (client-side/anon keys can never list auth.users;
+// this requires the service-role client). Anonymous players vastly
+// outnumber real ones, so this pages through admin.listUsers() rather than
+// assuming signed-in users are all on the first page, capped to bound cost.
+async function fetchSignedInUsers(
+  supabase: ReturnType<typeof createClient>
+): Promise<{ id: string; name: string | null; email: string | null; createdAt: string; lastSignInAt: string | null; points: number }[]> {
+  const signedIn: { id: string; name: string | null; email: string | null; createdAt: string; lastSignInAt: string | null }[] = [];
+  const maxPages = 20; // 20 * 200 = up to 4000 users scanned
+  for (let page = 1; page <= maxPages; page++) {
+    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage: 200 });
+    if (error) {
+      console.error("[admin-analytics] listUsers failed:", error.message);
+      break;
+    }
+    for (const u of data.users) {
+      if (u.is_anonymous) continue;
+      const meta = u.user_metadata as Record<string, unknown> | null;
+      signedIn.push({
+        id: u.id,
+        name: (meta?.full_name ?? meta?.name ?? null) as string | null,
+        email: u.email ?? null,
+        createdAt: u.created_at,
+        lastSignInAt: u.last_sign_in_at ?? null,
+      });
+    }
+    if (data.users.length < 200) break; // last page
+    if (signedIn.length >= 200) break; // enough for the dashboard
+  }
+
+  if (signedIn.length === 0) return [];
+  const { data: pointsRows } = await supabase
+    .from("player_points")
+    .select("player_id, points")
+    .in("player_id", signedIn.map((u) => u.id));
+  const pointsById = new Map((pointsRows ?? []).map((r: { player_id: string; points: number }) => [r.player_id, r.points]));
+
+  return signedIn
+    .map((u) => ({ ...u, points: Number(pointsById.get(u.id) ?? 0) }))
+    .sort((a, b) => b.points - a.points);
+}
+
 /** "Today" by Lagos time, matching daily_challenges.challenge_date elsewhere in the app. */
 function lagosToday(): string {
   return new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -353,6 +396,7 @@ serve(async (req) => {
         topCountries,
         topCities,
         trafficSources,
+        signedInUsers,
       ] = await Promise.all([
         runGA4Report(accessToken, reportStart, reportEnd),
         runTopPlaylists(accessToken, reportStart, reportEnd).catch((e) => {
@@ -379,6 +423,10 @@ serve(async (req) => {
         }),
         runTrafficSources(accessToken, reportStart, reportEnd).catch((e) => {
           console.error("[admin-analytics] Traffic sources failed:", e);
+          return [];
+        }),
+        fetchSignedInUsers(supabase).catch((e) => {
+          console.error("[admin-analytics] Signed-in users failed:", e);
           return [];
         }),
       ]);
@@ -451,6 +499,7 @@ serve(async (req) => {
           topCountries,
           topCities,
           trafficSources,
+          signedInUsers,
           stats: {
             playersWithStreak: streakCount ?? 0,
             challengesCreated: challengeCount ?? 0,
