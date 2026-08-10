@@ -518,6 +518,27 @@ export type Database = {
         }
         Relationships: []
       }
+      merge_requests: {
+        Row: {
+          anonymous_id: string
+          created_at: string
+          expires_at: string
+          token: string
+        }
+        Insert: {
+          anonymous_id: string
+          created_at?: string
+          expires_at?: string
+          token?: string
+        }
+        Update: {
+          anonymous_id?: string
+          created_at?: string
+          expires_at?: string
+          token?: string
+        }
+        Relationships: []
+      }
       play_sessions: {
         Row: {
           created_at: string
@@ -627,6 +648,7 @@ export type Database = {
       playlist_cache: {
         Row: {
           image_url: string
+          is_artist: boolean
           playlist_name: string
           search_terms: Json
           tracks: Json
@@ -634,6 +656,7 @@ export type Database = {
         }
         Insert: {
           image_url?: string
+          is_artist?: boolean
           playlist_name: string
           search_terms?: Json
           tracks?: Json
@@ -641,6 +664,7 @@ export type Database = {
         }
         Update: {
           image_url?: string
+          is_artist?: boolean
           playlist_name?: string
           search_terms?: Json
           tracks?: Json
@@ -978,6 +1002,10 @@ export type Database = {
           streak: number
         }[]
       }
+      merge_player_data: {
+        Args: { v_new: string; v_old: string }
+        Returns: undefined
+      }
       minutes_played_stats: {
         Args: { p_cutoff?: string }
         Returns: {
@@ -1003,6 +1031,10 @@ export type Database = {
           read_ct: number
         }[]
       }
+      recompute_daily_stats: {
+        Args: { p_player_id: string }
+        Returns: undefined
+      }
       record_game_session: {
         Args: {
           p_mode: string
@@ -1016,8 +1048,16 @@ export type Database = {
           total_points: number
         }[]
       }
+      resolve_signin_identity: {
+        Args: { p_fallback_name: string; p_token: string }
+        Returns: {
+          player_name: string
+        }[]
+      }
       server_time_ms: { Args: never; Returns: number }
+      set_nickname: { Args: { p_name: string }; Returns: undefined }
       settle_daily_bonus: { Args: never; Returns: undefined }
+      stage_anonymous_merge: { Args: never; Returns: string }
     }
     Enums: {
       [_ in never]: never
