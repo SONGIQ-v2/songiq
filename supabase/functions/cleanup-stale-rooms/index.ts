@@ -3,10 +3,7 @@
 // Triggered every 10 minutes via pg_cron.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import webpush from "npm:web-push@3.6.7";
-import { fetchPlaylistPool, buildRoundPlanFromPool } from "../_shared/itunes.ts";
-
-// Playlists never used for the daily challenge
-const DAILY_EXCLUDED = new Set(["East Africa Vibes", "Ghana Sounds", "CacheProbe"]);
+import { fetchPlaylistPool, buildRoundPlanFromPool, DAILY_EXCLUDED } from "../_shared/itunes.ts";
 
 // Whether a playlist is a single-artist spotlight (forces "Guess the Song"
 // only in buildRoundPlanFromPool -- "Guess the Artist" makes no sense for a

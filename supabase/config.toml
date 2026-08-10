@@ -24,3 +24,6 @@ verify_jwt = false
 [functions.admin-analytics]
 verify_jwt = true
 
+[functions.admin-daily-challenge]
+verify_jwt = true
+

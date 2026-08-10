@@ -11,8 +11,9 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { Lock, LinkIcon, RefreshCw, Users, Trophy, Radio, Flame, Calendar, Target, ListMusic, Eye, Globe, MapPin, Share2, Clock, UserCheck, LayoutDashboard, BarChart3 } from "lucide-react";
+import { Lock, LinkIcon, RefreshCw, Users, Trophy, Radio, Flame, Calendar, Target, ListMusic, Eye, Globe, MapPin, Share2, Clock, UserCheck, LayoutDashboard, BarChart3, Mic2 } from "lucide-react";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Starfield } from "@/components/Starfield";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,14 +28,21 @@ const DATE_RANGES: { key: DateRangeKey; label: string; startDate: string }[] = [
   { key: "30d", label: "30 days", startDate: "30daysAgo" },
 ];
 
-type AdminSection = "overview" | "analytics" | "playlists" | "geography" | "users";
+type AdminSection = "overview" | "analytics" | "playlists" | "daily" | "geography" | "users";
 const SECTIONS: { key: AdminSection; label: string; icon: typeof Users }[] = [
   { key: "overview", label: "Overview", icon: LayoutDashboard },
   { key: "analytics", label: "Analytics", icon: BarChart3 },
   { key: "playlists", label: "Playlists", icon: ListMusic },
+  { key: "daily", label: "Daily Challenge", icon: Mic2 },
   { key: "geography", label: "Geography & Traffic", icon: Globe },
   { key: "users", label: "Signed-in Users", icon: UserCheck },
 ];
+
+interface DailyChallengeInfo {
+  today: { challengeDate: string; number: number; categoryName: string } | null;
+  attemptsToday: number;
+  playlists: { playlistName: string; isArtist: boolean; trackCount: number }[];
+}
 
 interface ReportData {
   connected: boolean;
@@ -116,6 +124,13 @@ export default function Admin() {
   const [reportError, setReportError] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
 
+  const [dailyInfo, setDailyInfo] = useState<DailyChallengeInfo | null>(null);
+  const [loadingDaily, setLoadingDaily] = useState(false);
+  const [dailyError, setDailyError] = useState<string | null>(null);
+  const [selectedPlaylist, setSelectedPlaylist] = useState("");
+  const [settingDaily, setSettingDaily] = useState(false);
+  const [confirmOverride, setConfirmOverride] = useState(false);
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => setSession(s));
@@ -171,6 +186,42 @@ export default function Admin() {
     if (isAdmin && !connecting) fetchReport(range);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [range]);
+
+  const fetchDailyInfo = useCallback(async () => {
+    setLoadingDaily(true);
+    setDailyError(null);
+    const { data, error } = await supabase.functions.invoke("admin-daily-challenge", {
+      body: { action: "list" },
+    });
+    if (error || data?.error) {
+      setDailyError(error?.message ?? data?.error ?? "Failed to load");
+    } else {
+      const info = data as DailyChallengeInfo;
+      setDailyInfo(info);
+      setSelectedPlaylist((prev) => prev || info.playlists[0]?.playlistName || "");
+    }
+    setLoadingDaily(false);
+  }, []);
+
+  useEffect(() => {
+    if (isAdmin && activeSection === "daily" && !dailyInfo) fetchDailyInfo();
+  }, [isAdmin, activeSection, dailyInfo, fetchDailyInfo]);
+
+  const handleSetDaily = async () => {
+    if (!selectedPlaylist) return;
+    setSettingDaily(true);
+    setDailyError(null);
+    const { data, error } = await supabase.functions.invoke("admin-daily-challenge", {
+      body: { action: "set", playlistName: selectedPlaylist },
+    });
+    setSettingDaily(false);
+    setConfirmOverride(false);
+    if (error || data?.error) {
+      setDailyError(error?.message ?? data?.error ?? "Failed to set the Daily Challenge");
+      return;
+    }
+    fetchDailyInfo();
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -463,6 +514,72 @@ export default function Admin() {
                       )
                     )}
 
+                    {activeSection === "daily" && (
+                      <div className="raised-panel p-5 max-w-xl">
+                        <p className="text-sm font-semibold text-foreground mb-4 flex items-center gap-1.5">
+                          <Mic2 className="w-4 h-4 text-primary" /> Daily Challenge override
+                        </p>
+
+                        {loadingDaily && !dailyInfo ? (
+                          <p className="text-muted-foreground text-sm">Loading…</p>
+                        ) : (
+                          <div className="space-y-4">
+                            {dailyInfo?.today ? (
+                              <div className="px-3 py-2.5 rounded-lg bg-card/50 text-sm">
+                                <span className="text-muted-foreground">Today (#{dailyInfo.today.number}): </span>
+                                <span className="font-bold text-foreground">{dailyInfo.today.categoryName}</span>
+                                {dailyInfo.attemptsToday > 0 && (
+                                  <span className="text-gold ml-2">
+                                    · {dailyInfo.attemptsToday} {dailyInfo.attemptsToday === 1 ? "play" : "plays"} so far
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <p className="text-muted-foreground text-sm">No challenge generated for today yet.</p>
+                            )}
+
+                            <div>
+                              <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">
+                                Set today's playlist
+                              </label>
+                              <div className="flex gap-2">
+                                <select
+                                  value={selectedPlaylist}
+                                  onChange={(e) => setSelectedPlaylist(e.target.value)}
+                                  className="flex-1 h-10 rounded-md border border-border bg-card px-3 text-sm text-foreground"
+                                >
+                                  {(dailyInfo?.playlists ?? []).map((p) => (
+                                    <option key={p.playlistName} value={p.playlistName}>
+                                      {p.playlistName} {p.isArtist ? "(artist)" : ""} — {p.trackCount} tracks
+                                    </option>
+                                  ))}
+                                </select>
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  onClick={fetchDailyInfo}
+                                  disabled={loadingDaily}
+                                  aria-label="Refresh"
+                                >
+                                  <RefreshCw className={cn("w-4 h-4", loadingDaily && "animate-spin")} />
+                                </Button>
+                              </div>
+                            </div>
+
+                            {dailyError && <p className="text-red-400 text-sm">{dailyError}</p>}
+
+                            <Button
+                              variant="gold"
+                              disabled={!selectedPlaylist || settingDaily}
+                              onClick={() => setConfirmOverride(true)}
+                            >
+                              {settingDaily ? "Setting…" : "Set as today's challenge"}
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {activeSection === "geography" && (
                       <div className="grid lg:grid-cols-3 gap-6">
                         {report.stats?.minutesByMode && report.stats.minutesByMode.length > 0 && (
@@ -601,6 +718,34 @@ export default function Admin() {
           </>
         )}
       </main>
+
+      <Dialog open={confirmOverride} onOpenChange={setConfirmOverride}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Set today's Daily Challenge to "{selectedPlaylist}"?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            {dailyInfo?.today
+              ? `This replaces today's challenge (currently "${dailyInfo.today.categoryName}").`
+              : "This generates today's challenge."}
+            {dailyInfo && dailyInfo.attemptsToday > 0 && (
+              <span className="text-red-400 font-semibold">
+                {" "}
+                {dailyInfo.attemptsToday} {dailyInfo.attemptsToday === 1 ? "player has" : "players have"} already
+                played today — their attempt{dailyInfo.attemptsToday === 1 ? "" : "s"} will be deleted.
+              </span>
+            )}
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmOverride(false)}>
+              Cancel
+            </Button>
+            <Button variant="gold" onClick={handleSetDaily} disabled={settingDaily}>
+              {settingDaily ? "Setting…" : "Confirm"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
