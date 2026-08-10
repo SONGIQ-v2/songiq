@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useMultiplayerGame } from "@/hooks/useMultiplayerGame";
 import { useGameStore } from "@/lib/gameStore";
+import { getKnownPlayerName } from "@/lib/challenges";
 import { supabase } from "@/integrations/supabase/client";
 import { PLAYLISTS, PLAYLIST_CATEGORIES, getPlaylistById, type PlaylistCategory } from "@/lib/playlists";
 import { getMotionVariants, CARD_SPRING } from "@/lib/motion";
@@ -123,11 +124,8 @@ export default function RoomLobby() {
     }
   }, [players, playerId, loading, room, isHost, navigate]);
 
-  // Helper: get/set username cookie
-  const getUsernameCookie = () => {
-    const match = document.cookie.match(/(?:^|; )songiq_username=([^;]*)/);
-    return match ? decodeURIComponent(match[1]) : "";
-  };
+  // Helper: set username cookie (reading goes through getKnownPlayerName,
+  // which also checks the profile's saved name)
   const setUsernameCookie = (name: string) => {
     const maxAge = 365 * 24 * 60 * 60; // 1 year
     document.cookie = `songiq_username=${encodeURIComponent(name)}; path=/; max-age=${maxAge}; SameSite=Lax`;
@@ -145,11 +143,14 @@ export default function RoomLobby() {
     initializeAuth();
   }, [initializeAuth]);
 
-  // Pre-fill join name from cookie
+  // Pre-fill join name from the profile/cookie, so returning players never
+  // see an empty field even when the modal below still shows the input.
   useEffect(() => {
-    const saved = getUsernameCookie();
+    const saved = getKnownPlayerName();
     if (saved) setJoinName(saved);
   }, []);
+
+  const hasKnownName = Boolean(getKnownPlayerName());
 
 
   // Fetch playlist images from API
@@ -328,22 +329,24 @@ export default function RoomLobby() {
       <Dialog open={showNameModal} onOpenChange={() => {}}>
         <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
           <DialogHeader>
-            <DialogTitle>Enter Your Name</DialogTitle>
+            <DialogTitle>{hasKnownName ? `Join as ${joinName}?` : "Enter Your Name"}</DialogTitle>
             <DialogDescription>
-              Choose a nickname to join the room
+              {hasKnownName ? "You're about to join this room" : "Choose a nickname to join the room"}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 pt-2">
-            <Input
-              value={joinName}
-              onChange={(e) => setJoinName(e.target.value)}
-              placeholder="Your nickname"
-              aria-label="Your nickname"
-              maxLength={20}
-              className="text-center text-lg"
-              onKeyDown={(e) => e.key === "Enter" && handleJoinWithName()}
-              autoFocus
-            />
+            {!hasKnownName && (
+              <Input
+                value={joinName}
+                onChange={(e) => setJoinName(e.target.value)}
+                placeholder="Your nickname"
+                aria-label="Your nickname"
+                maxLength={20}
+                className="text-center text-lg"
+                onKeyDown={(e) => e.key === "Enter" && handleJoinWithName()}
+                autoFocus
+              />
+            )}
             <Button
               variant="gold"
               size="lg"

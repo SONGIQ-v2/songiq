@@ -8,6 +8,7 @@ import { useState, useEffect } from "react";
 import { useGameStore } from "@/lib/gameStore";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
+import { getKnownPlayerName } from "@/lib/challenges";
 
 import {
   Dialog,
@@ -27,6 +28,7 @@ import { toast } from "@/hooks/use-toast";
 const NAV_LINKS = [
   { to: "/solo", label: "Solo" },
   { to: "/multiplayer", label: "Multiplayer" },
+  { to: "/daily", label: "Daily Challenge" },
   { to: "/leaderboard", label: "Leaderboard" },
   { to: "/#how-to-play", label: "How it works" },
 ];
@@ -58,6 +60,14 @@ export const Header = () => {
       if (user && !anonymous) {
         const googleName = (user.user_metadata?.full_name ?? user.user_metadata?.name) as string | undefined;
         setSignedInUser({ id: user.id, name: googleName || "Player" });
+        // First sign-in with no nickname chosen yet -- adopt the Google
+        // name as the profile name so Daily/Multiplayer/RoomLobby's
+        // getKnownPlayerName() picks it up too, instead of still asking.
+        // Never overwrites a nickname the player already set themselves.
+        if (googleName && !getKnownPlayerName()) {
+          localStorage.setItem("songiq_player_name", googleName);
+          setPlayer(googleName, avatarIndex);
+        }
       } else {
         setSignedInUser(null);
         setTotalPoints(null);

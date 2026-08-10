@@ -40,6 +40,18 @@ export function saveUsername(name: string): void {
   document.cookie = `songiq_username=${encodeURIComponent(name)}; path=/; max-age=${maxAge}; SameSite=Lax`;
 }
 
+/**
+ * Best known nickname across the app's two separate saved-name stores --
+ * the profile dialog's localStorage value (src/components/Header.tsx) and
+ * the older multiplayer cookie above -- so a page can tell "we already
+ * know this player's name" without caring which flow originally saved it.
+ */
+export function getKnownPlayerName(): string {
+  if (typeof window === "undefined") return "";
+  const profileName = window.localStorage.getItem("songiq_player_name")?.trim();
+  return profileName || getSavedUsername();
+}
+
 /** Get the current user id, signing in anonymously if needed (RLS requires it). */
 async function ensureUserId(): Promise<string | null> {
   const { data: { session } } = await supabase.auth.getSession();

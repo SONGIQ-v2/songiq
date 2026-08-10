@@ -16,7 +16,7 @@ import {
   fetchChallenge,
   fetchChallengeAttempts,
   fetchMyChallengeAttempt,
-  getSavedUsername,
+  getKnownPlayerName,
   saveUsername,
   challengeUrl,
   type Challenge,
@@ -87,11 +87,15 @@ export default function ChallengePage() {
       ]);
       setAttempts(board);
       setMyAttempt(mine);
-      setName(getSavedUsername());
+      setName(getKnownPlayerName());
       setStatus("ready");
     })();
   }, [code, initializeAuth]);
   const isCreator = !!challenge?.creator_id && challenge.creator_id === playerId;
+  // Skip asking for a nickname when one is already known (profile, Google
+  // sign-in, or the multiplayer cookie) -- computed fresh each render, not
+  // from `name` state, so there's no flash of the input before it fills in.
+  const hasKnownName = Boolean(getKnownPlayerName());
 
   const board: BoardEntry[] = challenge
     ? [
@@ -261,15 +265,17 @@ export default function ChallengePage() {
               <p className="text-foreground/80 font-semibold mb-4">
                 Same songs. Same options. One attempt — make it count.
               </p>
-              <Input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Your nickname"
-                aria-label="Your nickname"
-                maxLength={20}
-                className="text-center text-lg mb-4"
-                onKeyDown={(e) => e.key === "Enter" && name.trim() && handleAccept()}
-              />
+              {!hasKnownName && (
+                <Input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Your nickname"
+                  aria-label="Your nickname"
+                  maxLength={20}
+                  className="text-center text-lg mb-4"
+                  onKeyDown={(e) => e.key === "Enter" && name.trim() && handleAccept()}
+                />
+              )}
               <Button
                 variant="gold"
                 size="lg"

@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import songiqLogo from "@/assets/songiq-logo.png";
 import { useGameStore } from "@/lib/gameStore";
-import { getSavedUsername, saveUsername, type Challenge } from "@/lib/challenges";
+import { getKnownPlayerName, saveUsername, type Challenge } from "@/lib/challenges";
 import { trackEvent } from "@/lib/analytics";
 import {
   fetchTodayChallenge,
@@ -52,7 +52,7 @@ export default function Daily() {
         return;
       }
       setDaily(challenge);
-      setName(getSavedUsername());
+      setName(getKnownPlayerName());
       const [{ attempts: rows, total }, board, mine, attempt] = await Promise.all([
         fetchDailyAttempts(challenge.challenge_date),
         fetchDailyStatsLeaderboard(),
@@ -75,6 +75,10 @@ export default function Daily() {
   }, [initializeAuth]);
 
   const myStreak = isStreakActive(myStats) ? myStats?.current_streak ?? 0 : 0;
+  // Skip asking for a nickname when one is already known (profile or the
+  // multiplayer cookie) -- computed fresh each render, not from `name`
+  // state, so there's no flash of the input before the mount effect fills it.
+  const hasKnownName = Boolean(getKnownPlayerName());
 
   // allTime already arrives sorted by streak (the default); only re-sort
   // client-side when the player switches to Total Score, to avoid a
@@ -195,15 +199,17 @@ export default function Daily() {
               <p className="text-foreground/80 font-semibold mb-3">
                 Same songs for everyone. One attempt — make it count.
               </p>
-              <Input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Your nickname"
-                aria-label="Your nickname"
-                maxLength={20}
-                className="text-center text-lg mb-3"
-                onKeyDown={(e) => e.key === "Enter" && name.trim() && handlePlay()}
-              />
+              {!hasKnownName && (
+                <Input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Your nickname"
+                  aria-label="Your nickname"
+                  maxLength={20}
+                  className="text-center text-lg mb-3"
+                  onKeyDown={(e) => e.key === "Enter" && name.trim() && handlePlay()}
+                />
+              )}
               <Button
                 variant="gold"
                 size="lg"

@@ -7,6 +7,7 @@ import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useGameStore } from "@/lib/gameStore";
+import { getKnownPlayerName } from "@/lib/challenges";
 import { generateRoomCode } from "@/lib/spotify";
 import { supabase } from "@/integrations/supabase/client";
 import { getMotionVariants } from "@/lib/motion";
@@ -26,10 +27,6 @@ const Multiplayer = () => {
   const shouldReduceMotion = useReducedMotion();
   const { container, pop, fade } = getMotionVariants(!!shouldReduceMotion);
 
-  const getUsernameCookie = () => {
-    const match = document.cookie.match(/(?:^|; )songiq_username=([^;]*)/);
-    return match ? decodeURIComponent(match[1]) : "";
-  };
   const setUsernameCookie = (name: string) => {
     const maxAge = 365 * 24 * 60 * 60;
     document.cookie = `songiq_username=${encodeURIComponent(name)}; path=/; max-age=${maxAge}; SameSite=Lax`;
@@ -43,9 +40,14 @@ const Multiplayer = () => {
       setIsAuthLoading(false);
     };
     init();
-    const saved = getUsernameCookie();
+    const saved = getKnownPlayerName();
     if (saved) setPlayerName(saved);
   }, [initializeAuth]);
+
+  // Skip asking for a nickname when one is already known (profile or the
+  // multiplayer cookie) -- computed fresh each render, not from `playerName`
+  // state, so there's no flash of the input before the mount effect fills it.
+  const hasKnownName = Boolean(getKnownPlayerName());
 
   const sanitizeName = (name: string): string => {
     return name
@@ -222,18 +224,20 @@ const Multiplayer = () => {
             </p>
           </motion.div>
 
-          {/* Name Input */}
-          <motion.div className="mb-6" variants={fade}>
-            <label htmlFor="mp-player-name" className="block text-sm font-medium mb-2">Your Name</label>
-            <Input
-              id="mp-player-name"
-              value={playerName}
-              onChange={(e) => setPlayerName(e.target.value)}
-              placeholder="Enter your nickname"
-              maxLength={20}
-              className="text-center text-lg"
-            />
-          </motion.div>
+          {/* Name Input — hidden once we already know their nickname */}
+          {!hasKnownName && (
+            <motion.div className="mb-6" variants={fade}>
+              <label htmlFor="mp-player-name" className="block text-sm font-medium mb-2">Your Name</label>
+              <Input
+                id="mp-player-name"
+                value={playerName}
+                onChange={(e) => setPlayerName(e.target.value)}
+                placeholder="Enter your nickname"
+                maxLength={20}
+                className="text-center text-lg"
+              />
+            </motion.div>
+          )}
 
           {/* Create Room */}
           <motion.div className="raised-panel p-6 mb-4" variants={pop}>
