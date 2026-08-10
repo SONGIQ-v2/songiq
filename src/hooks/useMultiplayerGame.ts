@@ -773,7 +773,7 @@ export function useMultiplayerGame(roomCode: string) {
   // Load tracks for the game
   const loadTracks = useCallback(async (category: string) => {
     const playlist = getPlaylistById(category) || PLAYLISTS[0];
-    const result = await getPlaylistTracks(playlist.searchTerms, playlist.name, 50);
+    const result = await getPlaylistTracks(playlist.searchTerms, playlist.name, 50, playlist.isArtist);
     if (result?.tracks) {
       // Shuffle tracks to ensure unique, non-repeating order each game
       return shuffleArray(result.tracks);

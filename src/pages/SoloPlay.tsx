@@ -48,7 +48,8 @@ const SoloPlay = () => {
         const result = await getPlaylistTracks(
           firstPlaylist.searchTerms,
           firstPlaylist.name,
-          5
+          5,
+          firstPlaylist.isArtist
         );
         if (result?.playlistImage) {
           images[firstPlaylist.id] = result.playlistImage;
@@ -61,7 +62,8 @@ const SoloPlay = () => {
         const result = await getPlaylistTracks(
           playlist.searchTerms,
           playlist.name,
-          5
+          5,
+          playlist.isArtist
         );
         if (result?.playlistImage) {
           images[playlist.id] = result.playlistImage;

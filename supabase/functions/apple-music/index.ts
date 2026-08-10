@@ -45,7 +45,8 @@ async function getTracksByGenre(genre: string, limit: number = 50): Promise<iTun
 async function getPlaylistTracksCached(
   searchTerms: string[],
   playlistName: string,
-  limit: number
+  limit: number,
+  isArtist: boolean
 ): Promise<{ playlistName: string; playlistImage: string; tracks: iTunesTrack[]; cached: boolean }> {
   const admin = createClient(
     Deno.env.get('SUPABASE_URL')!,
@@ -86,6 +87,7 @@ async function getPlaylistTracksCached(
         search_terms: searchTerms,
         tracks: pool,
         image_url: image,
+        is_artist: isArtist,
         updated_at: new Date().toISOString(),
       });
       if (writeErr) {
@@ -119,7 +121,7 @@ serve(async (req) => {
   }
 
   try {
-    const { action, query, genre, searchTerms, playlistName, limit } = await req.json();
+    const { action, query, genre, searchTerms, playlistName, limit, isArtist } = await req.json();
 
     console.log(`[Apple Music] Action: ${action}`);
 
@@ -140,7 +142,7 @@ serve(async (req) => {
         if (!searchTerms || !Array.isArray(searchTerms) || searchTerms.length === 0) {
           throw new Error('searchTerms array parameter required for playlist action');
         }
-        result = await getPlaylistTracksCached(searchTerms, playlistName || 'Playlist', limit || 50);
+        result = await getPlaylistTracksCached(searchTerms, playlistName || 'Playlist', limit || 50, Boolean(isArtist));
         break;
 
       case 'push-test': {

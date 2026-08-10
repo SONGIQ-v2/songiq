@@ -8,24 +8,11 @@ import { fetchPlaylistPool, buildRoundPlanFromPool } from "../_shared/itunes.ts"
 // Playlists never used for the daily challenge
 const DAILY_EXCLUDED = new Set(["East Africa Vibes", "Ghana Sounds", "CacheProbe"]);
 
-// Single-artist spotlight playlists — eligible for the daily challenge, but
-// buildRoundPlanFromPool forces "Guess the Song" only for these, since a
-// "Guess the Artist" round makes no sense for a playlist about one artist
-// (and the pool's other credited artists on features/collabs could otherwise
-// slip past its diversity check).
-const DAILY_ARTIST_PLAYLISTS = new Set([
-  "Rihanna",
-  "Adele",
-  "Taylor Swift",
-  "Justin Bieber",
-  "Sam Smith",
-  "Ed Sheeran",
-  "Beyoncé",
-  "Chris Brown",
-  "Wizkid",
-  "Davido",
-  "Burna Boy",
-]);
+// Whether a playlist is a single-artist spotlight (forces "Guess the Song"
+// only in buildRoundPlanFromPool -- "Guess the Artist" makes no sense for a
+// playlist about one artist) now comes straight from playlist_cache.is_artist,
+// populated by the client from playlists.ts's isArtist flag on every cache
+// write -- see the "eligible" filter below, not a hand-maintained list here.
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -119,7 +106,7 @@ Deno.serve(async (req) => {
     if (!existingDaily) {
       const { data: pools } = await supabase
         .from("playlist_cache")
-        .select("playlist_name, tracks");
+        .select("playlist_name, tracks, is_artist");
 
       const eligible = (pools ?? []).filter(
         (p) =>
@@ -130,7 +117,7 @@ Deno.serve(async (req) => {
 
       if (eligible.length > 0) {
         const pick = eligible[Math.floor(Math.random() * eligible.length)];
-        const plan = buildRoundPlanFromPool(pick.tracks, 10, DAILY_ARTIST_PLAYLISTS.has(pick.playlist_name));
+        const plan = buildRoundPlanFromPool(pick.tracks, 10, Boolean(pick.is_artist));
         const { count: dailyCount } = await supabase
           .from("daily_challenges")
           .select("*", { count: "exact", head: true });

@@ -113,7 +113,7 @@ const Index = () => {
   useEffect(() => {
     (async () => {
       const results = await Promise.all(
-        battlefield.map((p) => getPlaylistTracks(p.searchTerms, p.name, 5))
+        battlefield.map((p) => getPlaylistTracks(p.searchTerms, p.name, 5, p.isArtist))
       );
       const images: Record<string, string> = {};
       results.forEach((r, i) => {

@@ -158,7 +158,7 @@ export default function RoomLobby() {
     const fetchImages = async () => {
       for (const playlist of PLAYLISTS) {
         try {
-          const result = await getPlaylistTracks(playlist.searchTerms, playlist.name, 5);
+          const result = await getPlaylistTracks(playlist.searchTerms, playlist.name, 5, playlist.isArtist);
           if (result?.playlistImage) {
             setPlaylistImages((prev) => ({ ...prev, [playlist.id]: result.playlistImage }));
           }

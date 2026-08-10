@@ -294,7 +294,8 @@ export default function Game() {
     const result = await getPlaylistTracks(
       playlist.searchTerms,
       playlist.name,
-      50
+      50,
+      playlist.isArtist
     );
 
     if (result && result.tracks.length >= TOTAL_ROUNDS) {
