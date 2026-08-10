@@ -170,16 +170,55 @@ export const useGameStore = create<GameState>((set, get) => ({
   closeSignInModal: () => set({ showSignInModal: false }),
 }));
 
+// Set by SignInModal.tsx right before starting Google OAuth (while still
+// anonymous), read here once a real session shows up. Exported so both
+// sides share the exact same key instead of duplicating the string.
+export const PENDING_MERGE_TOKEN_KEY = "songiq_pending_merge_token";
+
 // Keeps playerId honest across auth changes -- without this, initializeAuth()'s
 // cached-return guard (`if isInitialized && playerId, return it`) would keep
 // handing back a just-invalidated id after sign-out until a full page reload,
 // since nothing else ever clears that cache.
 supabase.auth.onAuthStateChange((_event, session) => {
   if (session?.user) {
-    if (useGameStore.getState().playerId !== session.user.id) {
+    const idChanged = useGameStore.getState().playerId !== session.user.id;
+    if (idChanged) {
       useGameStore.setState({ playerId: session.user.id, isInitialized: true });
+    }
+    // Only on an actual sign-in transition, not every token refresh of the
+    // same session -- resolveSignedInIdentity is a one-time-per-account
+    // operation server-side, but there's no reason to re-call it on a
+    // no-op timer.
+    if (idChanged && !session.user.is_anonymous) {
+      resolveSignedInIdentity(session.user);
     }
   } else {
     useGameStore.setState({ playerId: null, isInitialized: false });
   }
 });
+
+// The single call site for establishing a signed-in account's identity --
+// deliberately not split across multiple independent listeners (that
+// previously raced a separate merge-claim effect over who got to decide
+// whether the account was "already established"). Registered at module
+// scope so it runs regardless of which page is mounted -- Daily.tsx, for
+// instance, renders no Header at all.
+async function resolveSignedInIdentity(user: { id: string; user_metadata?: Record<string, unknown> | null }) {
+  const pendingToken = localStorage.getItem(PENDING_MERGE_TOKEN_KEY);
+  if (pendingToken) localStorage.removeItem(PENDING_MERGE_TOKEN_KEY);
+
+  const googleName = (user.user_metadata?.full_name ?? user.user_metadata?.name) as string | undefined;
+  const { data, error } = await (supabase as any).rpc("resolve_signin_identity", {
+    p_token: pendingToken,
+    p_fallback_name: googleName || "Player",
+  });
+  if (error) {
+    console.error("resolveSignedInIdentity failed:", error.message);
+    return;
+  }
+  const dbName = data?.[0]?.player_name as string | null | undefined;
+  if (dbName) {
+    useGameStore.getState().setPlayer(dbName, useGameStore.getState().avatarIndex);
+    localStorage.setItem("songiq_player_name", dbName);
+  }
+}

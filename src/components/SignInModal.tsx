@@ -1,66 +1,36 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { useGameStore } from "@/lib/gameStore";
+import { useGameStore, PENDING_MERGE_TOKEN_KEY } from "@/lib/gameStore";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { toast } from "@/hooks/use-toast";
-
-const PENDING_MERGE_KEY = "songiq_pending_merge_token";
 
 /**
  * Mounted once, globally (see App.tsx), so any page can open it via
  * useGameStore's openSignInModal() -- not just wherever Header happens to
  * be rendered.
+ *
+ * Staging a merge token here, before OAuth starts, is this component's only
+ * job in the merge flow -- actually resolving it (merge, or a fresh
+ * bootstrap, exactly once ever per account) happens centrally in
+ * gameStore.ts's auth listener, which runs regardless of which page is
+ * mounted. Keeping that resolution in one place, rather than also claiming
+ * it here, is deliberate: two independent listeners racing to decide
+ * whether an account was "already established" is exactly the bug that
+ * needed fixing.
  */
 export function SignInModal() {
   const { showSignInModal, closeSignInModal } = useGameStore();
   const [signingIn, setSigningIn] = useState(false);
 
-  // Claims a merge staged before sign-in (see handleSignIn) once a real
-  // session shows up. The listener is always active (not just when a token
-  // already exists at mount) because staging can happen either before this
-  // component mounts -- Lovable's OAuth flow does a full-page redirect on a
-  // normal browser tab, so a token set right before redirecting is picked
-  // up fresh on the next page load -- or after, in the popup/iframe case,
-  // where the session swap happens in the same page load. Reading
-  // localStorage fresh inside tryClaim (rather than once, at effect setup)
-  // covers both. claim_anonymous_merge() is itself single-use server-side,
-  // so a duplicate call here (e.g. both getSession() and the auth-change
-  // event firing for the same token) is a harmless no-op, not double-merge.
-  useEffect(() => {
-    let inFlightToken: string | null = null;
-    const tryClaim = async (user: { is_anonymous?: boolean } | null | undefined) => {
-      if (!user || user.is_anonymous) return;
-      const pendingToken = localStorage.getItem(PENDING_MERGE_KEY);
-      if (!pendingToken || pendingToken === inFlightToken) return;
-      inFlightToken = pendingToken;
-      localStorage.removeItem(PENDING_MERGE_KEY);
-      const { error } = await (supabase as any).rpc("claim_anonymous_merge", { p_token: pendingToken });
-      if (error) {
-        console.error("claim_anonymous_merge failed:", error.message);
-        return;
-      }
-      toast({ title: "Signed in!", description: "Your previous progress has been added to your account." });
-    };
-
-    supabase.auth.getSession().then(({ data }) => tryClaim(data.session?.user));
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => tryClaim(s?.user));
-    return () => sub.subscription.unsubscribe();
-  }, []);
-
   const handleSignIn = async () => {
     setSigningIn(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const hadAnonymousSession = session?.user?.is_anonymous ?? false;
-      let staged = false;
-      if (hadAnonymousSession) {
+      if (session?.user?.is_anonymous) {
         const { data: token } = await (supabase as any).rpc("stage_anonymous_merge");
-        if (token) {
-          localStorage.setItem(PENDING_MERGE_KEY, token as string);
-          staged = true;
-        }
+        if (token) localStorage.setItem(PENDING_MERGE_TOKEN_KEY, token as string);
       }
 
       const result = await lovable.auth.signInWithOAuth("google", {
@@ -68,7 +38,7 @@ export function SignInModal() {
       });
       if (result.error) {
         console.error("Sign-in failed:", result.error);
-        if (staged) localStorage.removeItem(PENDING_MERGE_KEY);
+        localStorage.removeItem(PENDING_MERGE_TOKEN_KEY);
         toast({
           title: "Couldn't sign in",
           description: "Google sign-in failed. Please try again.",
@@ -78,11 +48,7 @@ export function SignInModal() {
       }
       if (result.redirected) return;
       closeSignInModal();
-      // If a token was staged, the merge effect above shows its own
-      // "Signed in!" toast once it actually merges the anonymous progress.
-      if (!staged) {
-        toast({ title: "Signed in!", description: "Your progress is now saved to your account." });
-      }
+      toast({ title: "Signed in!", description: "Your progress is now saved to your account." });
     } finally {
       setSigningIn(false);
     }

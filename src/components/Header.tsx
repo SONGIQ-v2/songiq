@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { useState, useEffect } from "react";
 import { useGameStore } from "@/lib/gameStore";
 import { supabase } from "@/integrations/supabase/client";
-import { getKnownPlayerName } from "@/lib/challenges";
 
 import {
   Dialog,
@@ -52,20 +51,17 @@ export const Header = () => {
   }, []);
 
   useEffect(() => {
+    // Nickname adoption/sync for signed-in accounts now happens centrally
+    // in gameStore.ts's own auth listener (it needs to run regardless of
+    // which page is mounted -- e.g. Daily.tsx renders no Header at all).
+    // This effect only tracks local UI bookkeeping: the profile chip vs.
+    // "Sign in" button, and the Points total below.
     const applySession = (user: { id: string; is_anonymous?: boolean; user_metadata?: Record<string, unknown> } | null) => {
       const anonymous = user?.is_anonymous ?? true;
       setIsAnonymous(anonymous);
       if (user && !anonymous) {
         const googleName = (user.user_metadata?.full_name ?? user.user_metadata?.name) as string | undefined;
         setSignedInUser({ id: user.id, name: googleName || "Player" });
-        // First sign-in with no nickname chosen yet -- adopt the Google
-        // name as the profile name so Daily/Multiplayer/RoomLobby's
-        // getKnownPlayerName() picks it up too, instead of still asking.
-        // Never overwrites a nickname the player already set themselves.
-        if (googleName && !getKnownPlayerName()) {
-          localStorage.setItem("songiq_player_name", googleName);
-          setPlayer(googleName, avatarIndex);
-        }
       } else {
         setSignedInUser(null);
         setTotalPoints(null);
@@ -89,11 +85,20 @@ export const Header = () => {
     })();
   }, [signedInUser?.id, location.pathname]);
 
-  const handleSaveName = () => {
+  const handleSaveName = async () => {
     const trimmed = editName.trim().replace(/[\x00-\x1F\x7F]/g, "").slice(0, 20);
     if (trimmed.length < 1) {
       toast({ title: "Name must be at least 1 character", variant: "destructive" });
       return;
+    }
+    // Signed-in accounts: the DB is authoritative now, so persist there
+    // first -- local state only updates once the rename actually succeeds.
+    if (!isAnonymous) {
+      const { error } = await (supabase as any).rpc("set_nickname", { p_name: trimmed });
+      if (error) {
+        toast({ title: "Couldn't update name", description: error.message, variant: "destructive" });
+        return;
+      }
     }
     setPlayer(trimmed, avatarIndex);
     localStorage.setItem("songiq_player_name", trimmed);
