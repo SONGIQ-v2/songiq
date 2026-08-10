@@ -81,16 +81,15 @@ const Index = () => {
         setDaily(challenge);
         const { attempts, total } = await fetchDailyAttempts(challenge.challenge_date);
         setTotalPlayedToday(total);
-        const top = attempts.slice(0, 5);
-        const statsById = await fetchDailyStatsForPlayers(top.map((a) => a.player_id));
+        const statsById = await fetchDailyStatsForPlayers(attempts.map((a) => a.player_id));
         setDailyBoard(
-          top.map((a) => {
+          attempts.map((a) => {
             const stats = statsById[a.player_id] ?? null;
             return { ...a, streak: isStreakActive(stats) ? stats!.current_streak : 0 };
           })
         );
         const allTime = await fetchDailyStatsLeaderboard();
-        setOverallBoard(allTime.slice(0, 5));
+        setOverallBoard(allTime);
       } catch {
         // homepage works fine without the daily section
       }
@@ -308,6 +307,7 @@ const Index = () => {
                     </button>
                   </div>
 
+                  <div className="max-h-96 overflow-y-auto">
                   {dailyTab === "today" ? (
                     <Table>
                       <TableHeader>
@@ -395,6 +395,7 @@ const Index = () => {
                       </TableBody>
                     </Table>
                   )}
+                  </div>
                 </motion.div>
               )}
 
