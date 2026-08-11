@@ -73,7 +73,7 @@ function AvatarCircle({
   const dataUri = useAvatarDataUri(seed);
 
   return (
-    <Avatar className={cn(sizeClasses[size], className)}>
+    <Avatar className={cn(sizeClasses[size], "border border-white shadow-sm", className)}>
       {dataUri && <AvatarImage src={dataUri} alt={name} />}
       <AvatarFallback
         className={`bg-gradient-to-br ${colorClass} font-bold text-white`}
