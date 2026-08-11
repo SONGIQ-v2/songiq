@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { Copy, Check, Users, Play, Crown, LogOut, Loader2, UserCircle, Music, Clock, Hash, UserX, Lightbulb, Search } from "lucide-react";
+import { Copy, Check, Users, Play, Crown, LogOut, Loader2, UserCircle, Clock, Hash, UserX, Lightbulb, Search } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Starfield } from "@/components/Starfield";
 import songiqLogo from "@/assets/songiq-logo.png";
@@ -81,6 +81,7 @@ export default function RoomLobby() {
   const [activeCategory, setActiveCategory] = useState<"all" | PlaylistCategory>("all");
   const [artistsOnly, setArtistsOnly] = useState(false);
   const [playlistSearch, setPlaylistSearch] = useState("");
+  const [hostTab, setHostTab] = useState<"playlist" | "settings">("playlist");
   const [factIndex, setFactIndex] = useState(0);
   const [showFactsModal, setShowFactsModal] = useState(false);
 
@@ -426,7 +427,7 @@ export default function RoomLobby() {
         </div>
       </header>
 
-      <main className="relative z-10 pt-24 pb-12 px-4">
+      <main className={cn("relative z-10 pt-24 px-4", isHost ? "pb-28" : "pb-12")}>
         <h1 className="sr-only">Multiplayer Room Lobby</h1>
         <div className="max-w-2xl lg:max-w-[1400px] mx-auto">
           {/* Waiting message for non-host */}
@@ -462,13 +463,34 @@ export default function RoomLobby() {
                   <h2 className="font-bold text-xl">Game Settings</h2>
                 </div>
 
-                <div className="space-y-5">
-                  {/* Playlist picker — tabs + grid, same pattern as Solo Play */}
+                {/* Select Playlist / Game Settings tabs */}
+                <div className="flex rounded-xl bg-card/60 border border-border p-1 mb-5">
+                  <button
+                    onClick={() => setHostTab("playlist")}
+                    className={cn(
+                      "flex-1 py-2 rounded-lg text-xs font-bold uppercase tracking-[0.12em] transition-all",
+                      hostTab === "playlist"
+                        ? "bg-primary text-primary-foreground shadow-lg"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    1. Select Playlist
+                  </button>
+                  <button
+                    onClick={() => setHostTab("settings")}
+                    className={cn(
+                      "flex-1 py-2 rounded-lg text-xs font-bold uppercase tracking-[0.12em] transition-all",
+                      hostTab === "settings"
+                        ? "bg-primary text-primary-foreground shadow-lg"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    2. Game Settings
+                  </button>
+                </div>
+
+                {hostTab === "playlist" ? (
                   <div>
-                    <label className="flex items-center gap-1.5 text-sm font-medium mb-3">
-                      <Music className="w-4 h-4 text-primary" />
-                      Select Playlist
-                    </label>
                     <DoubleTapHint />
                     <div className="flex flex-wrap gap-2 mb-4">
                       {PLAYLIST_CATEGORIES.map((cat) => (
@@ -564,9 +586,8 @@ export default function RoomLobby() {
                       );
                     })()}
                   </div>
-
-                  {/* Number of Songs + Time per Song — one row, visually separated from the playlist picker above */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-5 mt-1 border-t border-border/50">
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="flex items-center gap-1.5 text-sm font-medium mb-3">
                         <Hash className="w-4 h-4 text-primary" />
@@ -621,18 +642,7 @@ export default function RoomLobby() {
                       </div>
                     </div>
                   </div>
-
-                  <Button
-                    variant="gold"
-                    size="lg"
-                    className="w-full"
-                    onClick={() => handleStartGame()}
-                    disabled={!canStart || isStarting}
-                  >
-                    <Play className="w-5 h-5 mr-2" />
-                    {isStarting ? "Starting..." : players.length < 2 ? "Need at least 2 players" : "Start Game"}
-                  </Button>
-                </div>
+                )}
               </motion.div>
             ) : (
               <motion.div variants={pop} className="raised-panel p-6">
@@ -817,6 +827,29 @@ export default function RoomLobby() {
           </motion.div>
         </div>
       </main>
+
+      {/* Fixed to the viewport (not just sticky within the panel above) so
+          the host never has to scroll to find it -- a motion.div ancestor
+          with a resting transform (from the pop-in spring) would otherwise
+          constrain position:sticky/fixed to that panel's own box instead of
+          the real viewport. Aligned under the settings column, not the
+          400px sidebar, to match the grid above it on desktop. */}
+      {isHost && (
+        <div className="fixed inset-x-0 bottom-0 z-30 bg-card/95 backdrop-blur-sm border-t border-border/60 px-4 py-3">
+          <div className="max-w-2xl lg:max-w-[1400px] mx-auto lg:grid lg:grid-cols-[1fr_400px] lg:gap-6">
+            <Button
+              variant="gold"
+              size="lg"
+              className="w-full"
+              onClick={() => handleStartGame()}
+              disabled={!canStart || isStarting}
+            >
+              <Play className="w-5 h-5 mr-2" />
+              {isStarting ? "Starting..." : players.length < 2 ? "Need at least 2 players" : "Start Game"}
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Music Facts Modal (mobile) */}
       <Dialog open={showFactsModal} onOpenChange={setShowFactsModal}>
