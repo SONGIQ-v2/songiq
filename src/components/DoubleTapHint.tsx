@@ -3,9 +3,9 @@ import { X, Sparkles } from "lucide-react";
 
 const STORAGE_KEY = "songiq_dismissed_double_tap_hint";
 
-/** Mobile-only, dismiss-once tip teaching the double-tap-to-start gesture
- *  on playlist cards. Shared key so dismissing it on one page (Solo Play,
- *  Room Lobby) hides it everywhere else too. */
+/** Dismiss-once tip teaching the double-tap/double-click-to-start gesture on
+ *  playlist cards. Shared key so dismissing it on one page (Solo Play, Room
+ *  Lobby) hides it everywhere else too. */
 export const DoubleTapHint = () => {
   const [dismissed, setDismissed] = useState(true);
 
@@ -16,10 +16,10 @@ export const DoubleTapHint = () => {
   if (dismissed) return null;
 
   return (
-    <div className="sm:hidden flex items-center gap-2.5 bg-primary/10 border border-primary/30 rounded-xl px-4 py-2.5 mb-4 text-sm">
+    <div className="flex items-center gap-2.5 bg-primary/10 border border-primary/30 rounded-xl px-4 py-2.5 mb-4 text-sm sm:max-w-xl sm:mx-auto">
       <Sparkles className="w-4 h-4 text-primary shrink-0" />
       <p className="flex-1 text-foreground/90">
-        <strong className="text-primary font-semibold">Tip:</strong> double-tap a playlist to jump straight in
+        <strong className="text-primary font-semibold">Tip:</strong> double-tap (or double-click) a playlist to jump straight in
       </p>
       <button
         onClick={() => {

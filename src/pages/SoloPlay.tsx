@@ -108,7 +108,7 @@ const SoloPlay = () => {
       <Header />
 
       <main className="relative z-10 pt-24 pb-12 px-4">
-        <motion.div className="max-w-[1100px] mx-auto" variants={container(0.1)} initial="hidden" animate="show">
+        <motion.div className="max-w-[1400px] mx-auto" variants={container(0.1)} initial="hidden" animate="show">
           {/* Back button */}
           <motion.div variants={fade}>
             <Button
@@ -200,7 +200,7 @@ const SoloPlay = () => {
           ) : (
             <motion.div
               key={activeCategory}
-              className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8"
+              className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-4 mb-8"
               variants={container(0.05)}
               initial="hidden"
               animate="show"
