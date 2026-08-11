@@ -6,6 +6,7 @@ import { Starfield } from "@/components/Starfield";
 import { Header } from "@/components/Header";
 import { GameModeCard } from "@/components/GameModeCard";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
+import { VerifiedBadge } from "@/components/VerifiedBadge";
 import { PlaylistCard } from "@/components/PlaylistCard";
 import { Button } from "@/components/ui/button";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
@@ -26,6 +27,7 @@ import {
   type DailyStats,
   type DailyLeaderboardStats,
 } from "@/lib/daily";
+import { fetchVerifiedPlayerIds } from "@/lib/verifiedPlayers";
 
 const HOW_TO_PLAY = [
   { icon: Headphones, title: "Listen", desc: "Hear a short clip from a trending song" },
@@ -60,6 +62,7 @@ const Index = () => {
   const [myStreak, setMyStreak] = useState(0);
   const [playerId, setPlayerId] = useState<string | null>(null);
   const [totalPlayedToday, setTotalPlayedToday] = useState(0);
+  const [verifiedIds, setVerifiedIds] = useState<Set<string>>(new Set());
 
   const [battlefield] = useState<Playlist[]>(pickBattlefield);
   const [battlefieldImages, setBattlefieldImages] = useState<Record<string, string>>({});
@@ -90,6 +93,10 @@ const Index = () => {
         );
         const allTime = await fetchDailyStatsLeaderboard();
         setOverallBoard(allTime);
+        fetchVerifiedPlayerIds([
+          ...attempts.map((a) => a.player_id),
+          ...allTime.map((a) => a.player_id),
+        ]).then(setVerifiedIds);
       } catch {
         // homepage works fine without the daily section
       }
@@ -333,6 +340,7 @@ const Index = () => {
                                 <PlayerAvatar variant="icon-only" size="xs" name={row.player_name} avatarIndex={1} playerId={row.player_id} />
                                 <span className="truncate font-bold text-foreground">
                                   {row.player_name}
+                                  {verifiedIds.has(row.player_id) && <VerifiedBadge className="ml-1" />}
                                   {row.player_id === playerId && <span className="text-primary text-xs font-normal"> (you)</span>}
                                 </span>
                               </span>
@@ -376,6 +384,7 @@ const Index = () => {
                                 <PlayerAvatar variant="icon-only" size="xs" name={row.player_name} avatarIndex={1} playerId={row.player_id} />
                                 <span className="truncate font-bold text-foreground">
                                   {row.player_name}
+                                  {verifiedIds.has(row.player_id) && <VerifiedBadge className="ml-1" />}
                                   {row.player_id === playerId && <span className="text-primary text-xs font-normal"> (you)</span>}
                                 </span>
                               </span>
