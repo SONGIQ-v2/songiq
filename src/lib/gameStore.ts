@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { supabase } from "@/integrations/supabase/client";
+import { clearSavedUsername } from "@/lib/challenges";
 
 export interface Player {
   id: string;
@@ -193,7 +194,15 @@ supabase.auth.onAuthStateChange((_event, session) => {
       resolveSignedInIdentity(session.user);
     }
   } else {
-    useGameStore.setState({ playerId: null, isInitialized: false });
+    // No session -- in practice this only happens right after an explicit
+    // sign-out (anonymous sessions otherwise persist/auto-recreate). Clear
+    // the local nickname too, not just the id: otherwise the browser keeps
+    // showing the just-signed-out account's name, reads as "am I still
+    // signed in?", and a fresh anonymous session would silently inherit it
+    // -- including on the leaderboard, where it'd look like a duplicate row.
+    localStorage.removeItem("songiq_player_name");
+    clearSavedUsername();
+    useGameStore.setState({ playerId: null, isInitialized: false, playerName: "" });
   }
 });
 

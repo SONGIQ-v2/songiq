@@ -40,6 +40,11 @@ export function saveUsername(name: string): void {
   document.cookie = `songiq_username=${encodeURIComponent(name)}; path=/; max-age=${maxAge}; SameSite=Lax`;
 }
 
+/** Expires the multiplayer nickname cookie -- used on sign-out so a signed-out browser doesn't keep the just-signed-out account's name. */
+export function clearSavedUsername(): void {
+  document.cookie = "songiq_username=; path=/; max-age=0; SameSite=Lax";
+}
+
 /**
  * Best known nickname across the app's two separate saved-name stores --
  * the profile dialog's localStorage value (src/components/Header.tsx) and
