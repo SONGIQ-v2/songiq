@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { Copy, Check, Users, Play, Crown, LogOut, Loader2, UserCircle, Music, Clock, Hash, UserX, Lightbulb } from "lucide-react";
+import { Copy, Check, Users, Play, Crown, LogOut, Loader2, UserCircle, Music, Clock, Hash, UserX, Lightbulb, Search } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Starfield } from "@/components/Starfield";
 import songiqLogo from "@/assets/songiq-logo.png";
@@ -79,6 +79,7 @@ export default function RoomLobby() {
   const [playlistImages, setPlaylistImages] = useState<Record<string, string>>({});
   const [activeCategory, setActiveCategory] = useState<"all" | PlaylistCategory>("all");
   const [artistsOnly, setArtistsOnly] = useState(false);
+  const [playlistSearch, setPlaylistSearch] = useState("");
   const [factIndex, setFactIndex] = useState(0);
   const [showFactsModal, setShowFactsModal] = useState(false);
 
@@ -479,9 +480,13 @@ export default function RoomLobby() {
                         ? PLAYLISTS
                         : PLAYLISTS.filter((p) => p.category === activeCategory);
                       const hasArtistsInCategory = categoryPlaylists.some((p) => p.isArtist);
-                      const gridPlaylists = artistsOnly
+                      const artistFiltered = artistsOnly
                         ? categoryPlaylists.filter((p) => p.isArtist)
                         : categoryPlaylists;
+                      const query = playlistSearch.trim().toLowerCase();
+                      const gridPlaylists = query
+                        ? artistFiltered.filter((p) => p.name.toLowerCase().includes(query))
+                        : artistFiltered;
                       return (
                         <>
                           {hasArtistsInCategory && (
@@ -506,6 +511,21 @@ export default function RoomLobby() {
                               </button>
                             </div>
                           )}
+                    <div className="relative max-w-xs mb-3">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        value={playlistSearch}
+                        onChange={(e) => setPlaylistSearch(e.target.value)}
+                        placeholder="Search playlists…"
+                        aria-label="Search playlists"
+                        className="pl-9 h-9 text-sm"
+                      />
+                    </div>
+                    {gridPlaylists.length === 0 ? (
+                      <p className="text-sm text-muted-foreground py-2">
+                        No playlists match "{playlistSearch.trim()}"
+                      </p>
+                    ) : (
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       {gridPlaylists.map((playlist) => (
                         <PlaylistCard
@@ -525,6 +545,7 @@ export default function RoomLobby() {
                         />
                       ))}
                     </div>
+                    )}
                         </>
                       );
                     })()}

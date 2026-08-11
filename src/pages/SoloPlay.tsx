@@ -7,13 +7,14 @@ import { Header } from "@/components/Header";
 import { PlaylistCard } from "@/components/PlaylistCard";
 import { DoubleTapHint } from "@/components/DoubleTapHint";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { PLAYLISTS, PLAYLIST_CATEGORIES, getPlaylistById, type PlaylistCategory } from "@/lib/playlists";
 import { cn } from "@/lib/utils";
 import { useGameStore } from "@/lib/gameStore";
 import { useAppleMusic } from "@/hooks/useAppleMusic";
 import { getMotionVariants } from "@/lib/motion";
 import { trackEvent } from "@/lib/analytics";
-import { ArrowLeft, Play, Loader2 } from "lucide-react";
+import { ArrowLeft, Play, Loader2, Search } from "lucide-react";
 
 const SoloPlay = () => {
   const navigate = useNavigate();
@@ -23,6 +24,7 @@ const SoloPlay = () => {
   const [activeCategory, setActiveCategory] = useState<"all" | PlaylistCategory>("all");
   // Sub-filter within the active main category — not a category of its own.
   const [artistsOnly, setArtistsOnly] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const { setCategory } = useGameStore();
   const { getPlaylistTracks } = useAppleMusic();
   const shouldReduceMotion = useReducedMotion();
@@ -32,9 +34,13 @@ const SoloPlay = () => {
     ? PLAYLISTS
     : PLAYLISTS.filter((p) => p.category === activeCategory);
   const hasArtistsInCategory = categoryPlaylists.some((p) => p.isArtist);
-  const visiblePlaylists = artistsOnly
+  const filteredPlaylists = artistsOnly
     ? categoryPlaylists.filter((p) => p.isArtist)
     : categoryPlaylists;
+  const query = searchQuery.trim().toLowerCase();
+  const visiblePlaylists = query
+    ? filteredPlaylists.filter((p) => p.name.toLowerCase().includes(query))
+    : filteredPlaylists;
 
   // Fetch playlist images on mount
   useEffect(() => {
@@ -170,31 +176,51 @@ const SoloPlay = () => {
             </motion.div>
           )}
 
+          {/* Search within the active category */}
+          <motion.div className="flex justify-center mb-6" variants={fade}>
+            <div className="relative w-full max-w-xs">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search playlists…"
+                aria-label="Search playlists"
+                className="pl-9"
+              />
+            </div>
+          </motion.div>
+
           <DoubleTapHint />
 
           {/* Playlists Grid */}
-          <motion.div
-            key={activeCategory}
-            className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8"
-            variants={container(0.05)}
-            initial="hidden"
-            animate="show"
-          >
-            {visiblePlaylists.map((playlist) => (
-              <PlaylistCard
-                key={playlist.id}
-                variants={pop}
-                playlist={playlist}
-                imageUrl={playlistImages[playlist.id]}
-                isSelected={selectedPlaylistId === playlist.id}
-                onClick={() => setSelectedPlaylistId(playlist.id)}
-                onDoubleClick={() => {
-                  setSelectedPlaylistId(playlist.id);
-                  startQuiz(playlist.id);
-                }}
-              />
-            ))}
-          </motion.div>
+          {visiblePlaylists.length === 0 ? (
+            <p className="text-center text-muted-foreground mb-8">
+              No playlists match "{searchQuery.trim()}"
+            </p>
+          ) : (
+            <motion.div
+              key={activeCategory}
+              className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8"
+              variants={container(0.05)}
+              initial="hidden"
+              animate="show"
+            >
+              {visiblePlaylists.map((playlist) => (
+                <PlaylistCard
+                  key={playlist.id}
+                  variants={pop}
+                  playlist={playlist}
+                  imageUrl={playlistImages[playlist.id]}
+                  isSelected={selectedPlaylistId === playlist.id}
+                  onClick={() => setSelectedPlaylistId(playlist.id)}
+                  onDoubleClick={() => {
+                    setSelectedPlaylistId(playlist.id);
+                    startQuiz(playlist.id);
+                  }}
+                />
+              ))}
+            </motion.div>
+          )}
 
           {/* Play Button */}
           <motion.div className="flex justify-center" variants={pop}>
