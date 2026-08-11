@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { PlaylistCard } from "@/components/PlaylistCard";
 import { DoubleTapHint } from "@/components/DoubleTapHint";
+import { ReactionBar, FloatingReactions } from "@/components/EmojiReactions";
 import { useAppleMusic } from "@/hooks/useAppleMusic";
 import {
   Dialog,
@@ -110,6 +111,8 @@ export default function RoomLobby() {
     playerId,
     isTerminated,
     kickPlayer,
+    reactions,
+    sendReaction,
   } = useMultiplayerGame(code || "");
 
   // Kicked detection: if I was in the room but my row is gone, redirect.
@@ -361,6 +364,16 @@ export default function RoomLobby() {
         </DialogContent>
       </Dialog>
       <Starfield />
+
+      <FloatingReactions reactions={reactions} />
+      {/* Vertically centered on the right edge -- bottom-right is the
+          FeedbackWidget's spot, and the mobile leaderboard sheet during
+          gameplay spans the whole bottom edge, so this stays clear of both
+          in the lobby and in-game alike. */}
+      <div className="fixed right-2 top-1/2 -translate-y-1/2 z-[80]">
+        <ReactionBar onSend={sendReaction} orientation="vertical" />
+      </div>
+
       {/* Custom header with Leave Room instead of menu */}
       <header className="fixed top-0 left-0 right-0 z-50 px-4 py-3 bg-background/60 backdrop-blur-xl border-b border-white/10">
         <div className="max-w-[1400px] mx-auto flex items-center justify-between">

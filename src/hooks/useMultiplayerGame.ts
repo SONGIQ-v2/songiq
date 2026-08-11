@@ -67,8 +67,16 @@ export type MultiplayerGameStatus =
   | "results"
   | "terminated";
 
+export interface ReactionEvent {
+  id: string;
+  emoji: string;
+  playerName: string;
+  avatarIndex: number;
+  isSelf: boolean;
+}
+
 export function useMultiplayerGame(roomCode: string) {
-  const { playerId, isHost: storeIsHost, setRoom: setStoreRoom, isInitialized } = useGameStore();
+  const { playerId, playerName, avatarIndex, isHost: storeIsHost, setRoom: setStoreRoom, isInitialized } = useGameStore();
   const { getPlaylistTracks } = useAppleMusic();
 
   // Room state
@@ -103,6 +111,41 @@ export function useMultiplayerGame(roomCode: string) {
   // reveal start in case a broadcast was dropped.
   const [roundAnswers, setRoundAnswers] = useState<Record<string, string[]>>({});
 
+  // Emoji reactions -- ephemeral, not persisted anywhere. Floats up the
+  // screen for a few seconds then self-removes (see the timeout in
+  // sendReaction/handleReactionBroadcast below).
+  const [reactions, setReactions] = useState<ReactionEvent[]>([]);
+  // Must be >= FloatingReactions' animation duration (EmojiReactions.tsx) so
+  // a reaction never gets removed from state mid-flight.
+  const REACTION_LIFETIME_MS = 5400;
+
+  // The room's Broadcast channel, kept in a ref (not just a local variable
+  // in the subscription effect below) so sendReaction can use it from
+  // outside that effect.
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  // Declared here (rather than with the rest of the player-delta state
+  // below) so sendReaction can read the room's own record of this player's
+  // name -- the same name everyone else already sees on avatars/leaderboard
+  // -- instead of gameStore's copy, which can lag or be empty depending on
+  // hydration timing and would silently broadcast the literal "Player"
+  // fallback to the whole room.
+  const playersMapRef = useRef<Map<string, MultiplayerPlayer>>(new Map());
+
+  const addReaction = useCallback((r: Omit<ReactionEvent, "id">) => {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    setReactions((prev) => [...prev, { ...r, id }]);
+    setTimeout(() => {
+      setReactions((prev) => prev.filter((x) => x.id !== id));
+    }, REACTION_LIFETIME_MS);
+  }, []);
+
+  const sendReaction = useCallback((emoji: string) => {
+    const roomName = playerId ? playersMapRef.current.get(playerId)?.player_name : undefined;
+    const payload = { emoji, playerName: roomName || playerName || "Player", avatarIndex };
+    addReaction({ ...payload, isSelf: true }); // optimistic local echo -- broadcast sends don't loop back to the sender
+    channelRef.current?.send({ type: "broadcast", event: "reaction", payload });
+  }, [addReaction, playerId, playerName, avatarIndex]);
+
   // The round the ticker derives all timing from (ref so the 100ms tick
   // always sees the latest round without re-creating the interval)
   const roundRef = useRef<RoundData | null>(null);
@@ -123,8 +166,8 @@ export function useMultiplayerGame(roomCode: string) {
   // round so live server-side score updates can't leak who answered right
   const scoreSnapshotRef = useRef<Map<string, number>>(new Map());
 
-  // Player delta state: source-of-truth map + throttled flush to React state
-  const playersMapRef = useRef<Map<string, MultiplayerPlayer>>(new Map());
+  // Player delta state: source-of-truth map (declared above, near
+  // sendReaction) + throttled flush to React state
   const playersFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const flushPlayers = useCallback(() => {
@@ -401,6 +444,14 @@ export function useMultiplayerGame(roomCode: string) {
         .on("broadcast", { event: "INSERT" }, (msg) => handleBroadcast(msg.payload))
         .on("broadcast", { event: "UPDATE" }, (msg) => handleBroadcast(msg.payload))
         .on("broadcast", { event: "DELETE" }, (msg) => handleBroadcast(msg.payload))
+        .on("broadcast", { event: "reaction" }, (msg) => {
+          const p = msg.payload as { emoji?: string; playerName?: string; avatarIndex?: number };
+          if (!p?.emoji) return;
+          // Sender already added their own reaction locally (sendReaction) --
+          // broadcast doesn't loop back to the sender anyway, so every
+          // arrival here is genuinely from someone else.
+          addReaction({ emoji: p.emoji, playerName: p.playerName || "Player", avatarIndex: p.avatarIndex ?? 1, isSelf: false });
+        })
         .subscribe((status) => {
           if (status === "SUBSCRIBED") {
             logInfo("realtime.subscribed", "Room broadcast channel subscribed", { roomId: room.id, roomCode: room.room_code });
@@ -408,13 +459,15 @@ export function useMultiplayerGame(roomCode: string) {
             logWarn("realtime.disconnected", `Room broadcast channel ${status}`, { roomId: room.id, roomCode: room.room_code, status });
           }
         });
+      channelRef.current = channel;
     })();
 
     return () => {
       cancelled = true;
+      channelRef.current = null;
       if (channel) supabase.removeChannel(channel);
     };
-  }, [room?.id, handleBroadcast]);
+  }, [room?.id, handleBroadcast, addReaction]);
 
   // ---- Wall-clock phase ticker ----
   // Derives the game phase, round timer and countdowns from the round's
@@ -596,22 +649,41 @@ export function useMultiplayerGame(roomCode: string) {
       : (isHost ? 0 : 2500);
 
     const t = setTimeout(async () => {
-      advanceRequestedForRef.current = currentRound.id;
       if (isFinal) setIsFinalizingResults(true);
-      try {
-        const { error: rpcError } = await (supabase as any).rpc("advance_game_round", {
-          _room_id: room.id,
-        });
-        if (rpcError) throw rpcError;
-      } catch (err) {
-        console.error("Error advancing round:", err);
-        logError("multiplayer.advance_failed", "advance_game_round RPC failed", {
-          roomId: room.id,
-          roomCode: room.room_code,
-          roundNumber: currentRound.round_number,
-          error: (err as Error)?.message,
-        }, (err as Error)?.stack);
+      // advance_game_round is idempotent server-side (row lock + status
+      // checks), so retrying from here -- or from another room member's own
+      // copy of this same effect -- is always safe. Marking "requested"
+      // only on a confirmed success (not before the call, like this used
+      // to) matters: a single transient failure used to permanently strand
+      // the game in "between_rounds" forever, since nothing else would ever
+      // call this again for that round.
+      const MAX_ATTEMPTS = 4;
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        try {
+          const { error: rpcError } = await (supabase as any).rpc("advance_game_round", {
+            _room_id: room.id,
+          });
+          if (rpcError) throw rpcError;
+          advanceRequestedForRef.current = currentRound.id;
+          return;
+        } catch (err) {
+          console.error(`Error advancing round (attempt ${attempt}/${MAX_ATTEMPTS}):`, err);
+          logError("multiplayer.advance_failed", "advance_game_round RPC failed", {
+            roomId: room.id,
+            roomCode: room.room_code,
+            roundNumber: currentRound.round_number,
+            attempt,
+            error: (err as Error)?.message,
+          }, (err as Error)?.stack);
+          if (attempt < MAX_ATTEMPTS) {
+            await new Promise((resolve) => setTimeout(resolve, 1500 * attempt));
+          }
+        }
       }
+      // Every attempt failed -- surface it rather than hanging silently;
+      // the 3s poll will still pick up the finish if another room member's
+      // retry (or the poll itself, next reconciliation) succeeds meanwhile.
+      toast.error("Having trouble finishing the game — still trying in the background.");
     }, delay);
 
     return () => clearTimeout(t);
@@ -1051,6 +1123,8 @@ export function useMultiplayerGame(roomCode: string) {
     currentQuestionType,
     revealActive,
     roundAnswers,
+    reactions,
+    sendReaction,
     startGame,
     submitAnswer,
     toggleReady,

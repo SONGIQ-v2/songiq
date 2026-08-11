@@ -15,6 +15,7 @@ import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { Podium } from "@/components/Podium";
 import { Button } from "@/components/ui/button";
 import { VolumeControl } from "@/components/VolumeControl";
+import { ReactionBar, FloatingReactions } from "@/components/EmojiReactions";
 import { useVolume } from "@/hooks/useVolume";
 import { logError, logWarn, logInfo } from "@/lib/clientLogger";
 import { warmAudioUrl, preloadAudio, playWithWatchdog } from "@/lib/audioPreload";
@@ -89,6 +90,8 @@ export default function MultiplayerGame() {
     currentQuestionType,
     revealActive,
     roundAnswers,
+    reactions,
+    sendReaction,
     submitAnswer,
     leaveRoom,
     playAgain,
@@ -833,6 +836,15 @@ export default function MultiplayerGame() {
       </Helmet>
       <Starfield />
       <h1 className="sr-only">Multiplayer Music Quiz Gameplay</h1>
+
+      <FloatingReactions reactions={reactions} />
+      {/* Vertically centered on the right edge -- bottom-right is the
+          FeedbackWidget's spot, and mobile's bottom leaderboard sheet spans
+          the entire bottom edge during gameplay, so nothing near the bottom
+          is safe here. */}
+      <div className="fixed right-2 top-1/2 -translate-y-1/2 z-[80]">
+        <ReactionBar onSend={sendReaction} orientation="vertical" />
+      </div>
 
       <div className="relative z-10 flex flex-col lg:flex-row min-h-screen">
         {/* Main Game Area */}
