@@ -5,6 +5,7 @@ import { useAppleMusic, type AppleMusicTrack } from "@/hooks/useAppleMusic";
 import { getPlaylistById, PLAYLISTS } from "@/lib/playlists";
 import { toast } from "sonner";
 import { logError, logWarn, logInfo } from "@/lib/clientLogger";
+import { fetchVerifiedPlayerIds } from "@/lib/verifiedPlayers";
 
 export interface MultiplayerPlayer {
   id: string;
@@ -81,6 +82,11 @@ export function useMultiplayerGame(roomCode: string) {
 
   // Room state
   const [room, setRoom] = useState<RoomData | null>(null);
+  // Which of the room's players are signed in (not anonymous) -- shown as a
+  // badge next to their name (Room Lobby, in-game leaderboard, Podium).
+  // Re-fetched only when who's in the room changes, not on every score
+  // update.
+  const [verifiedPlayerIds, setVerifiedPlayerIds] = useState<Set<string>>(new Set());
   const [players, setPlayers] = useState<MultiplayerPlayer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -88,6 +94,14 @@ export function useMultiplayerGame(roomCode: string) {
   // Compute ROUND_TIME from room settings (time_per_round is in seconds)
   const ROUND_TIME = room ? room.time_per_round * 1000 : DEFAULT_ROUND_TIME;
   const isHost = room && playerId ? room.host_id === playerId : storeIsHost;
+
+  // Stable across score updates (only changes when who's in the room does),
+  // so this doesn't re-fetch on every round.
+  const playerIdsKey = players.map((p) => p.player_id).sort().join(",");
+  useEffect(() => {
+    if (!playerIdsKey) return;
+    fetchVerifiedPlayerIds(playerIdsKey.split(",")).then(setVerifiedPlayerIds);
+  }, [playerIdsKey]);
 
   // Game state
   const [gameStatus, setGameStatus] = useState<MultiplayerGameStatus>("waiting");
@@ -1125,6 +1139,7 @@ export function useMultiplayerGame(roomCode: string) {
     roundAnswers,
     reactions,
     sendReaction,
+    verifiedPlayerIds,
     startGame,
     submitAnswer,
     toggleReady,

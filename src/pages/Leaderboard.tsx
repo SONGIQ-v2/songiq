@@ -5,8 +5,10 @@ import { Clock, HelpCircle, Medal, X } from "lucide-react";
 import { Starfield } from "@/components/Starfield";
 import { Header } from "@/components/Header";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
+import { VerifiedBadge } from "@/components/VerifiedBadge";
 import { Button } from "@/components/ui/button";
 import { useSignInHint } from "@/hooks/useSignInHint";
+import { fetchVerifiedPlayerIds } from "@/lib/verifiedPlayers";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import {
   Dialog,
@@ -39,6 +41,7 @@ export default function Leaderboard() {
   const [rows, setRows] = useState<GlobalLeaderboardRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [verifiedIds, setVerifiedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     initializeAuth();
@@ -52,6 +55,9 @@ export default function Leaderboard() {
       try {
         const data = await fetchGlobalLeaderboard(range, sort, playerId);
         if (!cancelled) setRows(data);
+        fetchVerifiedPlayerIds(data.map((r) => r.player_id)).then((ids) => {
+          if (!cancelled) setVerifiedIds(ids);
+        });
       } catch (err) {
         console.error("Failed to load leaderboard:", err);
         if (!cancelled) setError("Couldn't load the leaderboard. Please try again.");
@@ -214,6 +220,7 @@ export default function Leaderboard() {
                             />
                             <span className="truncate font-bold text-foreground">
                               {row.player_name}
+                              {verifiedIds.has(row.player_id) && <VerifiedBadge className="ml-1" />}
                               {row.player_id === playerId && <span className="text-primary text-xs font-normal"> (you)</span>}
                             </span>
                           </span>

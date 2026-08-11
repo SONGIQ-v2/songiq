@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { Crown } from "lucide-react";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
+import { VerifiedBadge } from "@/components/VerifiedBadge";
 import { CARD_SPRING } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
@@ -16,6 +17,8 @@ interface PodiumProps {
   /** Top 3 players, already sorted by score descending. Fewer than 3 (e.g. a 2-player game) is fine. */
   players: PodiumPlayer[];
   currentPlayerId: string | null;
+  /** player_ids that are signed in (not anonymous) -- shown with a verified badge. */
+  verifiedIds?: Set<string>;
 }
 
 const RANKS = [
@@ -54,7 +57,7 @@ const RANKS = [
 // Visual order left-to-right: 2nd, 1st, 3rd
 const DISPLAY_ORDER = [1, 0, 2];
 
-export function Podium({ players, currentPlayerId }: PodiumProps) {
+export function Podium({ players, currentPlayerId, verifiedIds }: PodiumProps) {
   return (
     <div className="flex items-end justify-center gap-3">
       {DISPLAY_ORDER.map((rankIndex) => {
@@ -83,6 +86,7 @@ export function Podium({ players, currentPlayerId }: PodiumProps) {
               <p className={cn("text-sm font-bold truncate", isMe && "text-primary")}>
                 {player.player_name}
               </p>
+              {verifiedIds?.has(player.player_id) && <VerifiedBadge />}
               {player.is_host && <Crown className="w-3.5 h-3.5 text-gold shrink-0" fill="currentColor" />}
             </div>
             <p className="text-xs font-bold text-gold mb-2">{player.score} pts</p>

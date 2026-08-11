@@ -92,6 +92,7 @@ export default function MultiplayerGame() {
     roundAnswers,
     reactions,
     sendReaction,
+    verifiedPlayerIds,
     submitAnswer,
     leaveRoom,
     playAgain,
@@ -590,7 +591,7 @@ export default function MultiplayerGame() {
 
             {podiumPlayers.length > 0 && (
               <div className="mb-6">
-                <Podium players={podiumPlayers} currentPlayerId={playerId} />
+                <Podium players={podiumPlayers} currentPlayerId={playerId} verifiedIds={verifiedPlayerIds} />
               </div>
             )}
 
@@ -636,7 +637,7 @@ export default function MultiplayerGame() {
 
             {/* Remaining players (4th place and below) */}
             {restPlayers.length > 0 && (
-              <Leaderboard players={restPlayers} currentPlayerId={playerId} compact rankOffset={3} hideHeader />
+              <Leaderboard players={restPlayers} currentPlayerId={playerId} compact rankOffset={3} hideHeader verifiedIds={verifiedPlayerIds} />
             )}
           </motion.div>
         </div>
@@ -786,7 +787,7 @@ export default function MultiplayerGame() {
 
           {/* Leaderboard - always visible */}
           <div className="lg:w-96">
-            <Leaderboard players={players} currentPlayerId={playerId} showRoundScore />
+            <Leaderboard players={players} currentPlayerId={playerId} showRoundScore verifiedIds={verifiedPlayerIds} />
           </div>
         </div>
 
@@ -1075,7 +1076,7 @@ export default function MultiplayerGame() {
 
         {/* Sidebar Leaderboard - Desktop */}
         <div className="hidden lg:block w-96 p-4 border-l border-border bg-background/50 backdrop-blur-sm">
-          <Leaderboard players={players} currentPlayerId={playerId} showRoundScore />
+          <Leaderboard players={players} currentPlayerId={playerId} showRoundScore verifiedIds={verifiedPlayerIds} />
         </div>
 
         {/* Mobile Leaderboard - Bottom Sheet Style */}

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Crown, TrendingUp, TrendingDown, Minus, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
+import { VerifiedBadge } from "@/components/VerifiedBadge";
 
 interface LeaderboardPlayer {
   id: string;
@@ -26,6 +27,8 @@ interface LeaderboardProps {
   rankOffset?: number;
   /** Hides the "Leaderboard" header — useful when this list is a continuation of a podium shown above it. */
   hideHeader?: boolean;
+  /** player_ids that are signed in (not anonymous) -- shown with a verified badge. */
+  verifiedIds?: Set<string>;
 }
 
 const RANK_COLORS = ["text-yellow-400", "text-gray-300", "text-amber-600"];
@@ -37,6 +40,7 @@ export function Leaderboard({
   compact = false,
   rankOffset = 0,
   hideHeader = false,
+  verifiedIds,
 }: LeaderboardProps) {
   const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
 
@@ -66,6 +70,7 @@ export function Leaderboard({
               isCurrentPlayer={player.player_id === currentPlayerId}
               rankChange={getRankChange(player)}
               showRoundScore={showRoundScore}
+              verified={verifiedIds?.has(player.player_id) ?? false}
             />
           ))}
         </AnimatePresence>
@@ -80,10 +85,11 @@ interface LeaderboardRowProps {
   isCurrentPlayer: boolean;
   rankChange: "up" | "down" | "same";
   showRoundScore: boolean;
+  verified: boolean;
 }
 
 const LeaderboardRow = memo(
-  ({ player, index, isCurrentPlayer, rankChange, showRoundScore }: LeaderboardRowProps) => {
+  ({ player, index, isCurrentPlayer, rankChange, showRoundScore, verified }: LeaderboardRowProps) => {
     return (
       <motion.div
         layout
@@ -130,6 +136,7 @@ const LeaderboardRow = memo(
           <div className="flex items-center gap-1">
             <span className={cn("font-medium truncate", isCurrentPlayer && "text-primary")}>
               {player.player_name}
+              {verified && <VerifiedBadge className="ml-1" />}
             </span>
             {player.is_host && <Crown className="w-3 h-3 text-gold" />}
             {isCurrentPlayer && <span className="text-xs text-muted-foreground">(you)</span>}
@@ -168,7 +175,8 @@ const LeaderboardRow = memo(
     prev.player.player_name === next.player.player_name &&
     prev.player.avatar_index === next.player.avatar_index &&
     prev.player.hasAnswered === next.player.hasAnswered &&
-    prev.player.roundScore === next.player.roundScore
+    prev.player.roundScore === next.player.roundScore &&
+    prev.verified === next.verified
 );
 LeaderboardRow.displayName = "LeaderboardRow";
 

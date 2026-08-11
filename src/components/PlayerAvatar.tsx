@@ -4,6 +4,7 @@ import { Crown } from "lucide-react";
 import { createAvatar } from "@dicebear/core";
 import { avataaars } from "@dicebear/collection";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { VerifiedBadge } from "@/components/VerifiedBadge";
 import { cn } from "@/lib/utils";
 
 interface PlayerAvatarProps {
@@ -12,6 +13,8 @@ interface PlayerAvatarProps {
   playerId?: string;
   score?: number;
   isHost?: boolean;
+  /** Signed in (not anonymous) -- shows a verified badge next to the name. "card" variant only. */
+  verified?: boolean;
   size?: "2xs" | "xs" | "sm" | "md" | "lg";
   showScore?: boolean;
   /** "card" (default) renders the full name/score/crown layout used in the lobby.
@@ -87,6 +90,7 @@ export const PlayerAvatar = ({
   playerId,
   score = 0,
   isHost = false,
+  verified = false,
   size = "md",
   showScore = false,
   variant = "card",
@@ -121,7 +125,10 @@ export const PlayerAvatar = ({
       <AvatarCircle name={name} avatarIndex={avatarIndex} playerId={playerId} size={size} />
 
       {/* Name */}
-      <span className="text-sm font-medium truncate max-w-[80px]">{name}</span>
+      <span className="text-sm font-medium truncate max-w-[80px]">
+        {name}
+        {verified && <VerifiedBadge className="ml-1" />}
+      </span>
 
       {/* Score */}
       {showScore && (

@@ -2,16 +2,19 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { motion } from "framer-motion";
-import { Music2, Play, Swords, Clock, Hash, Crown, Copy } from "lucide-react";
+import { Music2, Play, Swords, Clock, Hash, Crown, Copy, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { Starfield } from "@/components/Starfield";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
+import { VerifiedBadge } from "@/components/VerifiedBadge";
 import songiqLogo from "@/assets/songiq-logo.png";
 import { useGameStore } from "@/lib/gameStore";
 import { trackEvent } from "@/lib/analytics";
+import { shareResult, buildChallengeResultShareText } from "@/lib/shareCard";
+import { fetchVerifiedPlayerIds } from "@/lib/verifiedPlayers";
 import {
   fetchChallenge,
   fetchChallengeAttempts,
@@ -31,7 +34,7 @@ interface BoardEntry {
   isMe: boolean;
 }
 
-function Leaderboard({ entries }: { entries: BoardEntry[] }) {
+function Leaderboard({ entries, verifiedIds }: { entries: BoardEntry[]; verifiedIds: Set<string> }) {
   return (
     <div className="bg-background/50 rounded-xl p-4 mb-6 text-left">
       <p className="text-muted-foreground mb-3 text-center text-sm">
@@ -49,6 +52,7 @@ function Leaderboard({ entries }: { entries: BoardEntry[] }) {
               <span className="text-muted-foreground w-6">#{i + 1}</span>
               <PlayerAvatar variant="icon-only" size="xs" name={e.name} avatarIndex={1} playerId={e.playerId ?? undefined} />
               <span className="truncate">{e.name}</span>
+              {e.playerId && verifiedIds.has(e.playerId) && <VerifiedBadge />}
               {e.isCreator && <Crown className="w-4 h-4 text-gold shrink-0" />}
               {e.isMe && <span className="text-xs text-primary shrink-0">(you)</span>}
             </span>
@@ -70,6 +74,7 @@ export default function ChallengePage() {
   const [myAttempt, setMyAttempt] = useState<ChallengeAttempt | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "not_found">("loading");
   const [name, setName] = useState("");
+  const [verifiedIds, setVerifiedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     (async () => {
@@ -89,6 +94,10 @@ export default function ChallengePage() {
       setMyAttempt(mine);
       setName(getKnownPlayerName());
       setStatus("ready");
+      fetchVerifiedPlayerIds([
+        c.creator_id,
+        ...board.map((a) => a.player_id),
+      ]).then(setVerifiedIds);
     })();
   }, [code, initializeAuth]);
   const isCreator = !!challenge?.creator_id && challenge.creator_id === playerId;
@@ -115,6 +124,21 @@ export default function ChallengePage() {
         })),
       ].sort((a, b) => b.score - a.score)
     : [];
+
+  const handleShareMyAttempt = async () => {
+    if (!challenge || !myAttempt) return;
+    trackEvent("share_result", { mode: "challenge_revisit", score: myAttempt.score });
+    const text = buildChallengeResultShareText({
+      categoryName: challenge.category_name,
+      score: myAttempt.score,
+      correctCount: myAttempt.correct_count,
+      totalRounds: challenge.plan.length,
+      challengeUrl: challengeUrl(challenge.code),
+    });
+    const outcome = await shareResult(text);
+    if (outcome === "copied") toast.success("Result copied — paste it anywhere!");
+    if (outcome === "failed") toast.error("Couldn't share your result");
+  };
 
   const handleAccept = () => {
     if (!challenge) return;
@@ -218,7 +242,7 @@ export default function ChallengePage() {
               </div>
             )}
 
-            {board.length > 1 || myAttempt || isCreator ? <Leaderboard entries={board} /> : null}
+            {board.length > 1 || myAttempt || isCreator ? <Leaderboard entries={board} verifiedIds={verifiedIds} /> : null}
 
             {(isCreator || !!myAttempt) && (
               <div className="flex justify-center gap-6 mb-6 text-sm text-muted-foreground">
@@ -258,6 +282,10 @@ export default function ChallengePage() {
               </p>
               <Button variant="gold" size="lg" className="w-full" onClick={() => navigate("/")}>
                 Play more on SongIQ
+              </Button>
+              <Button variant="outline" size="lg" className="w-full mt-2" onClick={handleShareMyAttempt}>
+                <Share2 className="w-5 h-5 mr-2" />
+                Share my result
               </Button>
             </>
           ) : (

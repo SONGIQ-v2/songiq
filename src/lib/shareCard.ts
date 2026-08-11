@@ -38,6 +38,30 @@ export function buildShareText({ categoryName, score, results, rank, playerCount
   return lines.join("\n");
 }
 
+/**
+ * For sharing an attempt after revisiting it later -- only the aggregate
+ * score/correct_count survive in the database (challenge_attempts has no
+ * per-round column), so unlike buildShareText() this can't reproduce the
+ * exact 🟩🟥 grid from the original result, only the totals.
+ */
+export function buildChallengeResultShareText(opts: {
+  categoryName: string;
+  score: number;
+  correctCount: number;
+  totalRounds: number;
+  challengeUrl?: string;
+}): string {
+  const lines = [
+    `🎵 SongIQ — ${opts.categoryName}`,
+    `${opts.correctCount}/${opts.totalRounds} correct · ${opts.score} pts`,
+    "",
+    opts.challengeUrl
+      ? `Same songs — beat my score 👉 ${opts.challengeUrl}`
+      : `Think you know music? Beat me 👉 ${SHARE_URL}`,
+  ];
+  return lines.join("\n");
+}
+
 export type ShareOutcome = "shared" | "copied" | "canceled" | "failed";
 
 /**

@@ -7,11 +7,13 @@ import { Starfield } from "@/components/Starfield";
 import { Button } from "@/components/ui/button";
 import { DailyReminderButton } from "@/components/DailyReminderButton";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
+import { VerifiedBadge } from "@/components/VerifiedBadge";
 import { Input } from "@/components/ui/input";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import songiqLogo from "@/assets/songiq-logo.png";
 import { useGameStore } from "@/lib/gameStore";
 import { getKnownPlayerName, saveUsername, type Challenge } from "@/lib/challenges";
+import { fetchVerifiedPlayerIds } from "@/lib/verifiedPlayers";
 import { trackEvent } from "@/lib/analytics";
 import { useSignInHint } from "@/hooks/useSignInHint";
 import {
@@ -44,6 +46,7 @@ export default function Daily() {
   const [tab, setTab] = useState<"today" | "alltime">("today");
   const [streakSortBy, setStreakSortBy] = useState<"streak" | "score">("streak");
   const [name, setName] = useState("");
+  const [verifiedIds, setVerifiedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     (async () => {
@@ -68,6 +71,10 @@ export default function Daily() {
       setAllTime(board);
       setMyStats(mine);
       setMyAttempt(attempt);
+      fetchVerifiedPlayerIds([
+        ...rows.map((r) => r.player_id),
+        ...board.map((b) => b.player_id),
+      ]).then(setVerifiedIds);
       if (attempt) {
         const { rank } = await fetchMyDailyRank(challenge.challenge_date, attempt.score);
         setMyRank(rank);
@@ -292,6 +299,7 @@ export default function Daily() {
                             <PlayerAvatar variant="icon-only" size="xs" name={a.player_name} avatarIndex={1} playerId={a.player_id} />
                             <span className="truncate font-bold text-foreground">
                               {a.player_name}
+                              {verifiedIds.has(a.player_id) && <VerifiedBadge className="ml-1" />}
                               {a.player_id === playerId && <span className="text-primary text-xs font-normal"> (you)</span>}
                             </span>
                           </span>
@@ -353,6 +361,7 @@ export default function Daily() {
                             <PlayerAvatar variant="icon-only" size="xs" name={s.player_name} avatarIndex={1} playerId={s.player_id} />
                             <span className="truncate font-bold text-foreground">
                               {s.player_name}
+                              {verifiedIds.has(s.player_id) && <VerifiedBadge className="ml-1" />}
                               {s.player_id === playerId && <span className="text-primary text-xs font-normal"> (you)</span>}
                             </span>
                           </span>

@@ -113,6 +113,7 @@ export default function RoomLobby() {
     kickPlayer,
     reactions,
     sendReaction,
+    verifiedPlayerIds,
   } = useMultiplayerGame(code || "");
 
   // Kicked detection: if I was in the room but my row is gone, redirect.
@@ -773,6 +774,7 @@ export default function RoomLobby() {
                           name={player.player_name}
                           avatarIndex={player.avatar_index}
                           isHost={player.is_host}
+                          verified={verifiedPlayerIds.has(player.player_id)}
                           size="md"
                         />
                         {isHost && !player.is_host && (
