@@ -131,30 +131,43 @@ const SoloPlay = () => {
             </p>
           </motion.div>
 
-          {/* Category Tabs */}
-          <motion.div className="flex flex-wrap justify-center gap-2 mb-6" variants={fade}>
-            {PLAYLIST_CATEGORIES.map((cat) => (
-              <button
-                key={cat.id}
-                onClick={() => {
-                  setActiveCategory(cat.id);
-                  setArtistsOnly(false);
-                }}
-                className={cn(
-                  "px-4 py-2 rounded-full text-sm font-medium uppercase tracking-wide transition-all border",
-                  activeCategory === cat.id
-                    ? "bg-primary text-primary-foreground border-primary shadow-[0_0_20px_hsl(var(--primary)/0.5)]"
-                    : "bg-card/40 text-muted-foreground border-border/40 hover:text-foreground hover:border-border"
-                )}
-              >
-                {cat.label}
-              </button>
-            ))}
+          {/* Category Tabs + search — same row on desktop (tabs left, search right), stacked/centered on mobile */}
+          <motion.div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6" variants={fade}>
+            <div className="flex flex-wrap justify-center md:justify-start gap-2">
+              {PLAYLIST_CATEGORIES.map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => {
+                    setActiveCategory(cat.id);
+                    setArtistsOnly(false);
+                  }}
+                  className={cn(
+                    "px-4 py-2 rounded-full text-sm font-medium uppercase tracking-wide transition-all border",
+                    activeCategory === cat.id
+                      ? "bg-primary text-primary-foreground border-primary shadow-[0_0_20px_hsl(var(--primary)/0.5)]"
+                      : "bg-card/40 text-muted-foreground border-border/40 hover:text-foreground hover:border-border"
+                  )}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="relative w-full max-w-xs mx-auto md:mx-0">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search playlists…"
+                aria-label="Search playlists"
+                className="pl-9"
+              />
+            </div>
           </motion.div>
 
           {/* Sub-filter: only artist spotlights within the active category */}
           {hasArtistsInCategory && (
-            <motion.div className="flex justify-center gap-2 mb-6" variants={fade}>
+            <motion.div className="flex justify-center md:justify-start gap-2 mb-6" variants={fade}>
               <button
                 onClick={() => setArtistsOnly(false)}
                 className={cn(
@@ -175,20 +188,6 @@ const SoloPlay = () => {
               </button>
             </motion.div>
           )}
-
-          {/* Search within the active category */}
-          <motion.div className="flex justify-center mb-6" variants={fade}>
-            <div className="relative w-full max-w-xs">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search playlists…"
-                aria-label="Search playlists"
-                className="pl-9"
-              />
-            </div>
-          </motion.div>
 
           <DoubleTapHint />
 
