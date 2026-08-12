@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { motion, useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Starfield } from "@/components/Starfield";
+import { SiteFooter } from "@/components/SiteFooter";
 import { Header } from "@/components/Header";
 import { GameModeCard } from "@/components/GameModeCard";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
@@ -434,6 +435,8 @@ const Index = () => {
           </motion.section>
         </motion.div>
       </main>
+
+      <SiteFooter />
     </div>
   );
 };

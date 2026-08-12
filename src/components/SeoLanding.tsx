@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Starfield } from "@/components/Starfield";
 import { Header } from "@/components/Header";
+import { SiteFooter } from "@/components/SiteFooter";
 import { Button } from "@/components/ui/button";
 import { Music, Users, Headphones, Zap, Trophy, Play } from "lucide-react";
 
@@ -181,6 +182,8 @@ export const SeoLanding = ({
           </section>
         </article>
       </main>
+
+      <SiteFooter />
     </div>
   );
 };
