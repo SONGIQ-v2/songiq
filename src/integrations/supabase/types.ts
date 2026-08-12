@@ -958,26 +958,16 @@ export type Database = {
       }
     }
     Functions: {
-      add_player_points:
-        | {
-            Args: {
-              p_count_game?: boolean
-              p_name: string
-              p_player_id: string
-              p_points: number
-            }
-            Returns: undefined
-          }
-        | {
-            Args: {
-              p_count_game?: boolean
-              p_name: string
-              p_player_id: string
-              p_points: number
-              p_source?: string
-            }
-            Returns: undefined
-          }
+      add_player_points: {
+        Args: {
+          p_count_game?: boolean
+          p_name: string
+          p_player_id: string
+          p_points: number
+          p_source?: string
+        }
+        Returns: undefined
+      }
       advance_game_round: { Args: { _room_id: string }; Returns: Json }
       count_unique_players: { Args: never; Returns: number }
       delete_email: {
@@ -1058,6 +1048,12 @@ export type Database = {
       set_nickname: { Args: { p_name: string }; Returns: undefined }
       settle_daily_bonus: { Args: never; Returns: undefined }
       stage_anonymous_merge: { Args: never; Returns: string }
+      verified_player_ids: {
+        Args: { p_ids: string[] }
+        Returns: {
+          player_id: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
