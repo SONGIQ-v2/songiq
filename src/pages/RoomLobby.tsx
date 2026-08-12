@@ -458,11 +458,6 @@ export default function RoomLobby() {
             <div style={{ gridArea: "settings" }} className="space-y-6">
             {isHost ? (
               <motion.div variants={pop} className="raised-panel p-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <Crown className="w-5 h-5 text-gold" />
-                  <h2 className="font-bold text-xl">Game Settings</h2>
-                </div>
-
                 {/* Select Playlist / Game Settings tabs */}
                 <div className="flex rounded-xl bg-card/60 border border-border p-1 mb-5">
                   <button
