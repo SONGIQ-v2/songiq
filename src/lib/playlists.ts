@@ -848,6 +848,15 @@ export const PLAYLISTS: Playlist[] = [
     searchTerms: ["__artist:324225716"],
   },
   {
+    id: "artist-asa",
+    category: "africa",
+    isArtist: true,
+    name: "Asa",
+    description: "Asa, top to bottom",
+    image: "",
+    searchTerms: ["__artist:26089928"],
+  },
+  {
     id: "artist-nathaniel-bassey",
     category: "gospel",
     isArtist: true,

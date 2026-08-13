@@ -29,22 +29,23 @@ const EXCLUDED_ARTIST_PATTERN = /ragheb alama/i;
 
 // iTunes/Apple endpoints return a plain-text "Rate limit exceeded" body (not
 // JSON) when throttling us -- calling response.json() directly on that
-// crashes with a SyntaxError instead of failing gracefully. Checks
-// response.ok and Content-Type first and returns null on anything
-// unexpected, so callers fall back to an empty result instead of throwing.
+// crashes with a SyntaxError instead of failing gracefully. But on success
+// these endpoints always serve valid JSON as "Content-Type: text/javascript",
+// never "application/json" -- so Content-Type can't distinguish a real
+// response from a rate-limited one. Parse by content instead: a successful
+// body parses as JSON regardless of its (always-wrong) header, and a
+// rate-limited plain-text body fails to parse and falls back to null.
 async function safeFetchJson<T = unknown>(url: string, init?: RequestInit): Promise<T | null> {
   const response = await fetch(url, init);
-  const contentType = response.headers.get("content-type") ?? "";
-  if (!response.ok || !contentType.includes("application/json")) {
-    console.error(
-      `[iTunes] Non-JSON/error response (status ${response.status}, content-type "${contentType}") for ${url} -- likely rate-limited`
-    );
+  if (!response.ok) {
+    console.error(`[iTunes] Non-OK response (status ${response.status}) for ${url} -- likely rate-limited`);
     return null;
   }
+  const text = await response.text();
   try {
-    return (await response.json()) as T;
+    return JSON.parse(text) as T;
   } catch (e) {
-    console.error(`[iTunes] JSON parse failed for ${url}:`, e);
+    console.error(`[iTunes] Non-JSON response for ${url} -- likely rate-limited: ${text.slice(0, 100)}`);
     return null;
   }
 }
