@@ -73,28 +73,32 @@ export default function Leaderboard() {
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
       <Helmet>
-        <title>Global Leaderboard — SongIQ</title>
+        <title>Global Leaderboard | SongIQ</title>
         <meta
           name="description"
-          content="SongIQ's global leaderboard — top players by time played and Points across every game mode."
+          content="SongIQ's global leaderboard: top players by time played and Points across every game mode."
         />
       </Helmet>
       <Starfield />
       <Header />
 
-      <main className="relative z-10 pt-24 pb-12 px-4">
+      <main className="relative z-10 pt-[119px] md:pt-[149px] pb-12 px-4">
+        <motion.div
+          initial={{ scale: 0.97, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="max-w-[1200px] mx-auto text-center mb-6"
+        >
+          <h1 className="glow-heading mb-1">Global Leaderboard</h1>
+          <p className="text-muted-foreground text-sm">
+            Every mode counts: solo, daily, challenges & multiplayer
+          </p>
+        </motion.div>
+
         <motion.div
           initial={{ scale: 0.97, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           className="max-w-2xl mx-auto"
         >
-          <div className="text-center mb-6">
-            <h1 className="font-display text-3xl md:text-4xl mb-1">Global Leaderboard</h1>
-            <p className="text-muted-foreground text-sm">
-              Every mode counts — solo, daily, challenges & multiplayer
-            </p>
-          </div>
-
           <AnimatePresence>
             {signInHint.show && (
               <motion.div
@@ -182,7 +186,7 @@ export default function Leaderboard() {
               <p className="text-muted-foreground text-sm text-center py-10">{error}</p>
             ) : rows.length === 0 ? (
               <p className="text-muted-foreground text-sm text-center py-10">
-                No games recorded yet — play a round and claim the top spot!
+                No games recorded yet. Play a round and claim the top spot!
               </p>
             ) : (
               <div className="max-h-[32rem] overflow-y-auto">
@@ -249,7 +253,7 @@ export default function Leaderboard() {
           </div>
 
           <p className="text-muted-foreground text-xs text-center mt-4">
-            Earn Points from every game — winning multiplayer matches and topping the Daily Challenge earn extra.
+            Earn Points from every game. Winning multiplayer matches and topping the Daily Challenge earns extra.
           </p>
         </motion.div>
       </main>
@@ -270,7 +274,7 @@ export default function Leaderboard() {
             <div>
               <p className="font-bold text-foreground mb-1">⏱️ Minutes played</p>
               <p>
-                Your total time in games — every mode counts. <span className="font-semibold text-foreground">Weekly</span> restarts
+                Your total time in games, across every mode. <span className="font-semibold text-foreground">Weekly</span> restarts
                 every Sunday; <span className="font-semibold text-foreground">Monthly</span> restarts on the 1st of the month.
               </p>
             </div>
@@ -278,7 +282,7 @@ export default function Leaderboard() {
               <p className="font-bold text-foreground mb-1">🏅 Points</p>
               <p className="mb-1.5">Earned in every game you finish, and they never reset:</p>
               <ul className="space-y-1 pl-4 list-disc marker:text-gold">
-                <li>Your game score ÷ 100 — up to 20 Points per game</li>
+                <li>Your game score ÷ 100 (up to 20 Points per game)</li>
                 <li>Multiplayer: +5 for every opponent you beat</li>
                 <li>Daily Challenge top 3: +10 / +6 / +4 when the day ends</li>
               </ul>

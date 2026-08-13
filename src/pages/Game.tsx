@@ -4,11 +4,10 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Music2, X, Share2, Play, Star, Flame, ArrowLeft, WifiOff } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import { Starfield } from "@/components/Starfield";
-import { RoundIndicator } from "@/components/RoundIndicator";
 import { AudioVisualizer } from "@/components/AudioVisualizer";
 import { AnswerOption } from "@/components/AnswerOption";
-import { TimerBar } from "@/components/TimerBar";
 import { Button } from "@/components/ui/button";
 import { DailyReminderButton } from "@/components/DailyReminderButton";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
@@ -1055,20 +1054,26 @@ export default function Game() {
               initial={{ scale: 0.5, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ ...CARD_SPRING, delay: 0.25 }}
-              className="relative px-10 py-3 rounded-2xl border-2"
+              className="relative rounded-2xl p-[2px]"
               style={{
-                background: "linear-gradient(180deg, hsl(150 65% 48%), hsl(150 65% 36%))",
-                borderColor: "hsl(150 70% 60% / 0.8)",
-                boxShadow: "0 4px 0 hsl(150 70% 24%), 0 0 30px hsl(150 60% 45% / 0.5), var(--shadow-inset-highlight)",
+                background: "linear-gradient(90deg, #ffef00, #bf00ff)",
+                boxShadow: "0 0 30px rgba(255, 239, 0, 0.3)",
               }}
             >
-              <span className="pulse-kente absolute inset-0 rounded-2xl" />
-              <p
-                className="relative text-2xl font-bold text-white"
-                style={{ textShadow: "0 2px 3px hsl(150 70% 15% / 0.6)" }}
+              <div
+                className="relative rounded-2xl px-10 py-3"
+                style={{ background: "rgba(17, 20, 23, 0.8)", backdropFilter: "blur(24px)" }}
               >
-                Game Complete!
-              </p>
+                <p
+                  className="font-display italic font-black uppercase tracking-tighter text-2xl text-white"
+                  style={{
+                    textShadow:
+                      "0 0 10px rgba(255, 239, 0, 0.8), 0 0 22px rgba(191, 0, 255, 0.6), 0 0 32px rgba(255, 239, 0, 0.35)",
+                  }}
+                >
+                  Game Complete!
+                </p>
+              </div>
             </motion.div>
           </div>
 
@@ -1085,10 +1090,15 @@ export default function Game() {
             <p className="font-bold text-foreground">{playerName || getSavedUsername() || "You"}</p>
           </div>
 
-          <div className="bg-background/50 rounded-xl p-6 mb-6">
-            <p className="text-5xl font-bold text-gold mb-2">{soloScore}</p>
-            <p className="text-foreground/60">points</p>
-            <div className="mt-4 h-3 bg-muted rounded-full overflow-hidden">
+          <div className="bg-background/50 rounded-xl border border-gold/20 p-6 mb-6">
+            <p
+              className="font-display text-6xl font-black text-gold mb-1"
+              style={{ filter: "drop-shadow(0 0 16px hsl(var(--gold) / 0.5))" }}
+            >
+              {soloScore}
+            </p>
+            <p className="text-xs font-bold uppercase tracking-wider text-foreground/60">Points</p>
+            <div className="mt-4 h-2 bg-muted rounded-full overflow-hidden">
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${percentage}%` }}
@@ -1304,6 +1314,8 @@ export default function Game() {
     );
   }
 
+  const isTimeLow = (timeLeft / ROUND_TIME) * 100 < 30;
+
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
       <Helmet>
@@ -1320,7 +1332,9 @@ export default function Game() {
       
       
       {/* Header */}
-      <div className="relative z-10 p-4 flex items-center justify-between safe-area-inset-top">
+      <div className="relative z-10 p-4 safe-area-inset-top">
+        <div className="raised-panel px-4 py-3 md:px-6 md:py-4 max-w-[1000px] mx-auto">
+        <div className="flex items-center justify-between gap-4 mb-3">
         <div className="flex items-center gap-3">
           <AlertDialog>
             <AlertDialogTrigger asChild>
@@ -1328,9 +1342,9 @@ export default function Game() {
                 variant="destructive"
                 size="icon"
                 aria-label="Leave game"
-                className="bg-destructive/90 hover:bg-destructive shadow-md"
+                className="bg-destructive/90 hover:bg-destructive shadow-md w-9 h-9 shrink-0"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
@@ -1397,29 +1411,74 @@ export default function Game() {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
-          <RoundIndicator currentRound={currentRound} totalRounds={TOTAL_ROUNDS} />
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground hidden sm:inline">Round</span>
+            <span className="round-dot active w-7 h-7 text-sm shrink-0">{Math.max(currentRound, 1)}</span>
+            <span className="text-sm text-muted-foreground">/ {TOTAL_ROUNDS}</span>
+          </div>
         </div>
-        
-        <div className="flex items-center gap-4">
+
+        <div className="hidden md:flex flex-col items-center">
+          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Time Remaining</span>
+          <motion.span
+            className={cn("text-2xl md:text-3xl font-black", isTimeLow ? "text-red-400" : "text-gold")}
+            style={{
+              filter: isTimeLow
+                ? "drop-shadow(0 0 16px hsl(0 84% 60% / 0.6))"
+                : "drop-shadow(0 0 16px hsl(var(--gold) / 0.6))",
+            }}
+            animate={isTimeLow ? { scale: [1, 1.1, 1] } : {}}
+            transition={{ repeat: Infinity, duration: 0.5 }}
+          >
+            {Math.ceil(timeLeft / 1000)}s
+          </motion.span>
+        </div>
+
+        <div className="flex items-center gap-4 shrink-0">
           <div className="text-right">
-            <p className="text-sm text-foreground/60">Score</p>
+            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Score</p>
             <motion.p
               key={soloScore}
               initial={{ scale: 1.3 }}
               animate={{ scale: 1 }}
               transition={CARD_SPRING}
-              className="text-xl font-bold text-gold"
+              className="text-2xl md:text-3xl font-black text-foreground"
             >
               {soloScore}
             </motion.p>
           </div>
           <VolumeControl volume={volume} onVolumeChange={setVolume} />
         </div>
-      </div>
+        </div>
 
-      {/* Timer */}
-      <div className="px-4">
-        <TimerBar key={currentRound} timeLeft={timeLeft} maxTime={ROUND_TIME} />
+        {/* Time remaining — mobile only, restored to the original label-left/value-right row */}
+        <div className="flex md:hidden justify-between items-center mb-2">
+          <span className="text-sm text-muted-foreground">Time remaining</span>
+          <motion.span
+            className={cn("font-bold", isTimeLow ? "text-red-400" : "text-primary")}
+            animate={isTimeLow ? { scale: [1, 1.1, 1] } : {}}
+            transition={{ repeat: Infinity, duration: 0.5 }}
+          >
+            {Math.ceil(timeLeft / 1000)}s
+          </motion.span>
+        </div>
+
+        {/* Progress bar */}
+        <div className="progress-track h-1.5">
+          <motion.div
+            className="progress-fill"
+            initial={{ width: "100%" }}
+            animate={{ width: `${(timeLeft / ROUND_TIME) * 100}%` }}
+            transition={{ duration: 0.5 }}
+            style={{
+              background: isTimeLow
+                ? "linear-gradient(90deg, hsl(0 70% 50%), hsl(0 70% 60%))"
+                : undefined,
+              boxShadow: isTimeLow ? undefined : "0 0 8px hsl(45 100% 60% / 0.5)",
+            }}
+          />
+        </div>
+        </div>
       </div>
 
       {/* Main game area */}
@@ -1430,10 +1489,10 @@ export default function Game() {
           initial={{ opacity: 0, scale: 0.9, y: -10 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={CARD_SPRING}
-          className="mb-6 px-6 py-3 rounded-xl bg-gold shadow-lg shadow-gold/30"
-          style={{ boxShadow: "var(--shadow-inset-highlight)" }}
+          className="mb-6 px-4 py-2 rounded-full bg-gold"
+          style={{ boxShadow: "var(--shadow-glow), var(--shadow-inset-highlight)" }}
         >
-          <p className="text-lg font-bold text-background tracking-wide">
+          <p className="font-display text-xs font-extrabold text-background tracking-wide">
             {questionType === "artist" ? "🎤 GUESS THE ARTIST" : "🎵 GUESS THE SONG"}
           </p>
         </motion.div>

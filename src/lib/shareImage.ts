@@ -43,8 +43,8 @@ async function ensureFonts() {
   try {
     await Promise.race([
       Promise.all([
-        document.fonts.load('700 80px "Fredoka"'),
-        document.fonts.load('40px "Nunito"'),
+        document.fonts.load('700 80px "Montserrat"'),
+        document.fonts.load('40px "Inter"'),
       ]),
       new Promise((r) => setTimeout(r, 1500)),
     ]);
@@ -53,8 +53,8 @@ async function ensureFonts() {
   }
 }
 
-const display = (px: number) => `700 ${px}px "Fredoka", sans-serif`;
-const body = (px: number, weight = 400) => `${weight} ${px}px "Nunito", sans-serif`;
+const display = (px: number) => `700 ${px}px "Montserrat", sans-serif`;
+const body = (px: number, weight = 400) => `${weight} ${px}px "Inter", sans-serif`;
 
 export async function renderShareCard(opts: ShareCardOptions): Promise<Blob | null> {
   const { categoryName, score, results, rank, playerCount } = opts;

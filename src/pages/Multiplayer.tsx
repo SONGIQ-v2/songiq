@@ -11,8 +11,7 @@ import { getKnownPlayerName } from "@/lib/challenges";
 import { generateRoomCode } from "@/lib/spotify";
 import { supabase } from "@/integrations/supabase/client";
 import { getMotionVariants } from "@/lib/motion";
-import { cn } from "@/lib/utils";
-import { ArrowLeft, Users, Plus, LogIn, Loader2 } from "lucide-react";
+import { ArrowLeft, Plus, LogIn, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { trackEvent } from "@/lib/analytics";
 
@@ -193,8 +192,8 @@ const Multiplayer = () => {
       <Starfield />
       <Header />
 
-      <main className="relative z-10 pt-24 pb-12 px-4">
-        <motion.div className="max-w-md mx-auto" variants={container(0.1)} initial="hidden" animate="show">
+      <main className="relative z-10 pt-[119px] md:pt-[149px] pb-12 px-4">
+        <motion.div className="max-w-[1000px] mx-auto" variants={container(0.1)} initial="hidden" animate="show">
           <motion.div variants={fade}>
             <Button variant="ghost" onClick={() => navigate("/")} className="mb-6">
               <ArrowLeft className="w-4 h-4 mr-2" />
@@ -202,31 +201,16 @@ const Multiplayer = () => {
             </Button>
           </motion.div>
 
-          <motion.div className="text-center mb-8" variants={fade}>
-            <div className="relative w-20 h-20 mx-auto mb-4 flex items-center justify-center">
-              <span className={cn("absolute inset-0 rounded-2xl", !shouldReduceMotion && "pulse-gold")} />
-              <div
-                className="relative w-full h-full rounded-2xl border-2 flex items-center justify-center"
-                style={{
-                  borderColor: "hsl(var(--gold-glow) / 0.6)",
-                  background: "linear-gradient(160deg, hsl(var(--gold) / 0.35), hsl(var(--gold) / 0.15))",
-                  boxShadow: "var(--shadow-card), var(--shadow-inset-highlight)",
-                }}
-              >
-                <Users className="w-10 h-10 text-primary" />
-              </div>
-            </div>
-            <h1 className="font-display text-3xl mb-2">
-              Play with Friends
-            </h1>
+          <motion.div className="text-center mb-10" variants={fade}>
+            <h1 className="glow-heading mb-2">Multiplayer Battle</h1>
             <p className="text-muted-foreground">
-              Create or join a room to play together
+              Challenge your friends or join a room to battle in real-time music trivia.
             </p>
           </motion.div>
 
           {/* Name Input — hidden once we already know their nickname */}
           {!hasKnownName && (
-            <motion.div className="mb-6" variants={fade}>
+            <motion.div className="max-w-md mx-auto mb-6" variants={fade}>
               <label htmlFor="mp-player-name" className="block text-sm font-medium mb-2">Your Name</label>
               <Input
                 id="mp-player-name"
@@ -239,49 +223,60 @@ const Multiplayer = () => {
             </motion.div>
           )}
 
-          {/* Create Room */}
-          <motion.div className="raised-panel p-6 mb-4" variants={pop}>
-            <Button
-              variant="gold"
-              size="lg"
-              className="w-full"
-              onClick={handleCreateRoom}
-              disabled={isCreating}
-            >
-              <Plus className="w-5 h-5 mr-2" />
-              {isCreating ? "Creating..." : "Create a Room"}
-            </Button>
-          </motion.div>
+          <div className="grid md:grid-cols-2 gap-6 mt-[100px]">
+            {/* Create Room */}
+            <motion.div className="raised-panel p-8 text-center flex flex-col items-center" variants={pop}>
+              <div className="w-14 h-14 rounded-full bg-gold flex items-center justify-center mb-4">
+                <Plus className="w-7 h-7 text-primary-foreground" />
+              </div>
+              <h2 className="font-display text-xl uppercase tracking-wide mb-1">Create Private Room</h2>
+              <p className="text-muted-foreground text-sm mb-6">Battle with friends</p>
+              <Button
+                variant="gold"
+                size="lg"
+                className="w-full mt-auto"
+                onClick={handleCreateRoom}
+                disabled={isCreating}
+              >
+                <Plus className="w-5 h-5 mr-2" />
+                {isCreating ? "Creating..." : "Create Room"}
+              </Button>
+            </motion.div>
 
-          {/* Divider */}
-          <motion.div className="flex items-center gap-4 my-6" variants={fade}>
-            <div className="flex-1 h-px bg-border" />
-            <span className="text-muted-foreground text-sm">or</span>
-            <div className="flex-1 h-px bg-border" />
-          </motion.div>
-
-          {/* Join Room */}
-          <motion.div className="raised-panel p-6" variants={pop}>
-            <label htmlFor="mp-room-code" className="block text-sm font-medium mb-2">Room Code</label>
-            <Input
-              id="mp-room-code"
-              value={roomCode}
-              onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
-              placeholder="ABCD12"
-              maxLength={6}
-              className="text-center text-2xl tracking-widest font-bold mb-4"
-            />
-            <Button
-              variant="outline"
-              size="lg"
-              className="w-full"
-              onClick={handleJoinRoom}
-              disabled={isJoining}
+            {/* Join Room */}
+            <motion.div
+              className="relative rounded-2xl border-2 p-8 text-center flex flex-col items-center overflow-hidden"
+              style={{
+                borderColor: "hsl(var(--gold-glow) / 0.8)",
+                background: "var(--gradient-gold)",
+                boxShadow: "0 8px 16px hsl(45 100% 60% / 0.35), var(--shadow-inset-highlight)",
+              }}
+              variants={pop}
             >
-              <LogIn className="w-5 h-5 mr-2" />
-              {isJoining ? "Joining..." : "Join Room"}
-            </Button>
-          </motion.div>
+              <div className="w-14 h-14 rounded-full bg-background/15 flex items-center justify-center mb-4">
+                <LogIn className="w-7 h-7 text-primary-foreground" />
+              </div>
+              <h2 className="font-display text-xl uppercase tracking-wide mb-1 text-primary-foreground">Join a Room</h2>
+              <p className="text-primary-foreground/70 text-sm mb-6">Enter a code from a friend</p>
+              <Input
+                id="mp-room-code"
+                value={roomCode}
+                onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
+                placeholder="ABCD12"
+                maxLength={6}
+                className="text-center text-2xl tracking-widest font-bold mb-4 bg-background/15 border-background/30 text-primary-foreground placeholder:text-primary-foreground/50"
+              />
+              <Button
+                size="lg"
+                className="w-full mt-auto bg-background text-foreground hover:bg-background/90"
+                onClick={handleJoinRoom}
+                disabled={isJoining}
+              >
+                <LogIn className="w-5 h-5 mr-2" />
+                {isJoining ? "Joining..." : "Join Room"}
+              </Button>
+            </motion.div>
+          </div>
         </motion.div>
       </main>
     </div>

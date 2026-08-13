@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
 
 @layer base {
   :root {
@@ -89,17 +89,45 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    font-family: 'Nunito', sans-serif;
+    font-family: 'Inter', sans-serif;
+    line-height: 1.4;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Fredoka', sans-serif;
+    font-family: 'Montserrat', sans-serif;
     font-weight: 700;
     letter-spacing: normal;
+  }
+
+  /* Hero-level headings get the heavier, tighter branding treatment;
+     pages/components can still override with their own utility classes
+     (e.g. SeoLanding's uppercase tracking-wide h1s). line-height is
+     !important because Tailwind's text-{size} utilities (e.g. text-6xl)
+     bundle their own line-height and, being in the same utilities layer,
+     can silently win over a per-instance `leading-*` class depending on
+     Tailwind's internal generation order -- !important guarantees this
+     always applies regardless of which text-size utility a page uses. */
+  h1 {
+    font-weight: 900;
+    letter-spacing: -0.05em;
+    line-height: 1.1 !important;
+  }
+
+  h2 {
+    font-weight: 800;
+    letter-spacing: -0.07em;
   }
 }
 
 @layer components {
+  /* Glow heading -- reusable branded heading treatment: bold, tight,
+     uppercase, with a soft gold glow. Apply as className="glow-heading"
+     to any heading on request; not applied globally by default. */
+  .glow-heading {
+    @apply font-black text-4xl sm:text-5xl md:text-7xl tracking-tighter text-primary;
+    filter: drop-shadow(0 0 20px hsl(var(--gold) / 0.6));
+  }
+
   /* Starfield background animation */
   .starfield {
     position: fixed;
@@ -167,6 +195,34 @@
     @apply relative rounded-2xl border-2 border-border/60;
     background: hsl(var(--card) / 0.5);
     box-shadow: var(--shadow-card), var(--shadow-inset-highlight);
+  }
+
+  /* Daily Challenge panel -- outer shell for the homepage's daily-challenge card. */
+  .daily-panel {
+    @apply relative rounded-2xl border-2 border-border/60 overflow-hidden;
+    background: hsl(var(--card) / 0.5);
+    box-shadow: var(--shadow-card), var(--shadow-inset-highlight);
+  }
+
+  /* Left column: glassmorphism gradient + blurred backdrop + a gold-tinted
+     stroke on the top/left edges to "catch the light", plus a radial glow
+     seated behind the challenge heading for a neon-lift effect. */
+  .daily-panel-hero {
+    position: relative;
+    background: linear-gradient(135deg, hsl(var(--muted) / 0.35), hsl(var(--background) / 0.65));
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    border-top: 1px solid hsl(var(--gold) / 0.2);
+    border-left: 1px solid hsl(var(--gold) / 0.2);
+  }
+
+  .daily-panel-hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background: radial-gradient(ellipse 420px 220px at 28% 42%, hsl(var(--gold) / 0.18), transparent 70%);
+    pointer-events: none;
   }
 
   /* Category card */

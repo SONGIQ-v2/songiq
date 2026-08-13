@@ -427,7 +427,7 @@ export default function RoomLobby() {
         </div>
       </header>
 
-      <main className={cn("relative z-10 pt-24 px-4", isHost ? "pb-28" : "pb-12")}>
+      <main className={cn("relative z-10 pt-[119px] md:pt-[149px] px-4", isHost ? "pb-28" : "pb-12")}>
         <h1 className="sr-only">Multiplayer Room Lobby</h1>
         <div className="max-w-2xl lg:max-w-[1400px] mx-auto">
           {/* Waiting message for non-host */}

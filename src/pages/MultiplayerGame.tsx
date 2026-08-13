@@ -6,10 +6,8 @@ import { Music2, Trophy, X, AlertTriangle, LogOut, UserCircle, Share2, Star, Wif
 import { toast } from "sonner";
 import { Starfield } from "@/components/Starfield";
 import songiqLogo from "@/assets/songiq-logo.png";
-import { RoundIndicator } from "@/components/RoundIndicator";
 import { AudioVisualizer } from "@/components/AudioVisualizer";
 import { AnswerOption } from "@/components/AnswerOption";
-import { TimerBar } from "@/components/TimerBar";
 import { Leaderboard } from "@/components/Leaderboard";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { Podium } from "@/components/Podium";
@@ -20,6 +18,7 @@ import { useVolume } from "@/hooks/useVolume";
 import { logError, logWarn, logInfo } from "@/lib/clientLogger";
 import { warmAudioUrl, preloadAudio, playWithWatchdog } from "@/lib/audioPreload";
 import { CARD_SPRING } from "@/lib/motion";
+import { cn } from "@/lib/utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -542,7 +541,7 @@ export default function MultiplayerGame() {
             animate={{ scale: 1, opacity: 1 }}
             className="p-8 max-w-xl w-full text-center z-10"
           >
-            <h1 className="sr-only">Game Over!</h1>
+            <h1 className="sr-only">Game Complete!</h1>
             <div className="relative flex flex-col items-center mb-6">
               <div className="relative flex items-end justify-center gap-1 mb-[-16px] z-10">
                 <motion.div
@@ -572,20 +571,26 @@ export default function MultiplayerGame() {
                 initial={{ scale: 0.5, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ ...CARD_SPRING, delay: 0.25 }}
-                className="relative px-10 py-3 rounded-2xl border-2"
+                className="relative rounded-2xl p-[2px]"
                 style={{
-                  background: "linear-gradient(180deg, hsl(150 65% 48%), hsl(150 65% 36%))",
-                  borderColor: "hsl(150 70% 60% / 0.8)",
-                  boxShadow: "0 4px 0 hsl(150 70% 24%), 0 0 30px hsl(150 60% 45% / 0.5), var(--shadow-inset-highlight)",
+                  background: "linear-gradient(90deg, #ffef00, #bf00ff)",
+                  boxShadow: "0 0 30px rgba(255, 239, 0, 0.3)",
                 }}
               >
-                <span className="pulse-kente absolute inset-0 rounded-2xl" />
-                <p
-                  className="relative text-2xl font-bold text-white"
-                  style={{ textShadow: "0 2px 3px hsl(150 70% 15% / 0.6)" }}
+                <div
+                  className="relative rounded-2xl px-10 py-3"
+                  style={{ background: "rgba(17, 20, 23, 0.8)", backdropFilter: "blur(24px)" }}
                 >
-                  Game Over!
-                </p>
+                  <p
+                    className="font-display italic font-black uppercase tracking-tighter text-2xl text-white"
+                    style={{
+                      textShadow:
+                        "0 0 10px rgba(255, 239, 0, 0.8), 0 0 22px rgba(191, 0, 255, 0.6), 0 0 32px rgba(255, 239, 0, 0.35)",
+                    }}
+                  >
+                    Game Complete!
+                  </p>
+                </div>
               </motion.div>
             </div>
 
@@ -595,12 +600,17 @@ export default function MultiplayerGame() {
               </div>
             )}
 
-            <div className="bg-background/50 rounded-xl p-4 mb-6">
-              <p className="text-muted-foreground mb-2">Your Position</p>
-              <p className="text-4xl font-bold text-primary">#{currentPlayerRank}</p>
+            <div className="bg-background/50 rounded-xl border border-gold/20 p-6 mb-6">
+              <p className="text-xs font-bold uppercase tracking-wider text-foreground/60 mb-1">Your Position</p>
+              <p
+                className="font-display text-5xl font-black text-gold mb-1"
+                style={{ filter: "drop-shadow(0 0 16px hsl(var(--gold) / 0.5))" }}
+              >
+                #{currentPlayerRank}
+              </p>
               <p className="text-foreground/60">{myScore} points</p>
               {myResults.length > 0 && (
-                <p className="text-lg mt-2 tracking-wider" aria-hidden="true">
+                <p className="text-lg mt-3 tracking-wider" aria-hidden="true">
                   {myResults.map((r) => (r ? "🟩" : "🟥")).join("")}
                 </p>
               )}
@@ -824,6 +834,8 @@ export default function MultiplayerGame() {
   }
 
   // Main game screen
+  const isTimeLow = (timeLeft / ROUND_TIME) * 100 < 30;
+
   return (
     <div className="min-h-screen bg-background relative overflow-auto">
       <Helmet>
@@ -851,17 +863,19 @@ export default function MultiplayerGame() {
         {/* Main Game Area */}
         <div className="flex-1 flex flex-col">
           {/* Header */}
-          <div className="p-4 flex items-center justify-between safe-area-inset-top">
+          <div className="p-4 safe-area-inset-top">
+            <div className="raised-panel px-4 py-3 md:px-6 md:py-4 max-w-[1000px] mx-auto">
+            <div className="flex items-center justify-between gap-4 mb-3">
             <div className="flex items-center gap-3">
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button
-                    variant="ghost"
+                    variant="destructive"
                     size="icon"
                     aria-label="Leave game"
-                    className="text-foreground/60 hover:text-destructive hover:bg-destructive/10"
+                    className="bg-destructive/90 hover:bg-destructive shadow-md w-9 h-9 shrink-0"
                   >
-                    <X className="w-5 h-5" />
+                    <X className="w-4 h-4" />
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
@@ -882,17 +896,21 @@ export default function MultiplayerGame() {
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
-              <RoundIndicator currentRound={roundNumber} totalRounds={room.total_rounds} />
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground hidden sm:inline">Round</span>
+                <span className="round-dot active w-7 h-7 text-sm shrink-0">{Math.max(roundNumber, 1)}</span>
+                <span className="text-sm text-muted-foreground">/ {room.total_rounds}</span>
+              </div>
               {isHostPlayer && (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button
                       variant="outline"
                       size="sm"
-                      className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive gap-1.5"
+                      className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive gap-1.5 shrink-0"
                     >
                       <Trophy className="w-4 h-4" />
-                      End Game
+                      <span className="hidden sm:inline">End Game</span>
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
@@ -919,24 +937,75 @@ export default function MultiplayerGame() {
               )}
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="hidden md:flex flex-col items-center">
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Time Remaining</span>
+              <motion.span
+                className={cn("text-2xl md:text-3xl font-black", isTimeLow ? "text-red-400" : "text-gold")}
+                style={{
+                  filter: isTimeLow
+                    ? "drop-shadow(0 0 16px hsl(0 84% 60% / 0.6))"
+                    : "drop-shadow(0 0 16px hsl(var(--gold) / 0.6))",
+                }}
+                animate={isTimeLow ? { scale: [1, 1.1, 1] } : {}}
+                transition={{ repeat: Infinity, duration: 0.5 }}
+              >
+                {Math.ceil(timeLeft / 1000)}s
+              </motion.span>
+            </div>
+
+            <div className="flex items-center gap-4 shrink-0">
               <div className="text-right">
-                <p className="text-sm text-foreground/60">Your Score</p>
-                <p className="text-xl font-bold text-gold">
+                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Your Score</p>
+                <p className="text-2xl md:text-3xl font-black text-foreground">
                   {players.find((p) => p.player_id === playerId)?.score || 0}
                 </p>
               </div>
               <VolumeControl volume={volume} onVolumeChange={setVolume} />
             </div>
-          </div>
+            </div>
 
-          {/* Timer */}
-          <div className="px-4">
-            <TimerBar timeLeft={timeLeft} maxTime={ROUND_TIME} />
+            {/* Time remaining — mobile only, original label-left/value-right row */}
+            <div className="flex md:hidden justify-between items-center mb-2">
+              <span className="text-sm text-muted-foreground">Time remaining</span>
+              <motion.span
+                className={cn("font-bold", isTimeLow ? "text-red-400" : "text-primary")}
+                animate={isTimeLow ? { scale: [1, 1.1, 1] } : {}}
+                transition={{ repeat: Infinity, duration: 0.5 }}
+              >
+                {Math.ceil(timeLeft / 1000)}s
+              </motion.span>
+            </div>
+
+            {/* Progress bar */}
+            <div className="progress-track h-1.5">
+              <motion.div
+                className="progress-fill"
+                initial={{ width: "100%" }}
+                animate={{ width: `${(timeLeft / ROUND_TIME) * 100}%` }}
+                transition={{ duration: 0.5 }}
+                style={{
+                  background: isTimeLow
+                    ? "linear-gradient(90deg, hsl(0 70% 50%), hsl(0 70% 60%))"
+                    : undefined,
+                  boxShadow: isTimeLow ? undefined : "0 0 8px hsl(45 100% 60% / 0.5)",
+                }}
+              />
+            </div>
+            </div>
           </div>
 
           {/* Main game area */}
-          <div className="flex-1 flex flex-col items-center justify-center px-4 py-8">
+          <div className="flex-1 flex flex-col items-center justify-start px-4 py-8">
+            {/* Question type indicator */}
+            <div
+              className="mb-4 px-4 py-2 rounded-full bg-gold"
+              style={{ boxShadow: "var(--shadow-glow), var(--shadow-inset-highlight)" }}
+            >
+              <p className="font-display text-xs font-extrabold text-background tracking-wide">
+                {currentQuestionType === "Guess the Song" ? "🎵 GUESS THE SONG" : "🎤 GUESS THE ARTIST"}
+              </p>
+            </div>
+
             {/* Album art / Visualizer */}
             <motion.div
               key={roundNumber}
@@ -997,13 +1066,6 @@ export default function MultiplayerGame() {
                 </motion.div>
               )}
             </AnimatePresence>
-
-            {/* Question type indicator */}
-            <div className="mb-4 text-center">
-              <span className="text-lg font-bold text-gold">
-                {currentQuestionType === "Guess the Song" ? "🎵 GUESS THE SONG" : "🎤 GUESS THE ARTIST"}
-              </span>
-            </div>
 
             {/* Answer options - 2x2 grid. Grading is deferred: nothing turns
                 green/red until the round's reveal window, when everyone's

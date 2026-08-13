@@ -1,16 +1,16 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { motion } from "framer-motion";
 import { Music2, Play, Swords, Clock, Hash, Crown, Copy, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { Starfield } from "@/components/Starfield";
+import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
-import songiqLogo from "@/assets/songiq-logo.png";
 import { useGameStore } from "@/lib/gameStore";
 import { trackEvent } from "@/lib/analytics";
 import { shareResult, buildChallengeResultShareText } from "@/lib/shareCard";
@@ -153,13 +153,14 @@ export default function ChallengePage() {
   };
 
   return (
-    <div className="min-h-screen bg-background relative overflow-hidden flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background relative overflow-hidden flex items-center justify-center p-4 pt-20 md:pt-[149px]">
       <Helmet>
         <title>Music Challenge — Beat My Score | SongIQ</title>
         <meta name="description" content="A friend challenged you to a music quiz on SongIQ. Same songs, same options — can you beat their score?" />
         <meta name="robots" content="noindex, follow" />
       </Helmet>
       <Starfield />
+      <Header />
 
       {status === "loading" && (
         <div className="text-center z-10">
@@ -188,10 +189,6 @@ export default function ChallengePage() {
 
       {status === "ready" && challenge && (
         <div className="z-10 max-w-md w-full flex flex-col items-center">
-          <Link to="/" className="mb-6">
-            <img src={songiqLogo} alt="SongIQ — Music Trivia Game" className="h-12" />
-          </Link>
-
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -202,7 +199,7 @@ export default function ChallengePage() {
               Challenge
             </Badge>
 
-            <h1 className="text-2xl font-bold text-foreground mb-1">
+            <h1 className="glow-heading !text-[2.5rem] mb-4">
               {isCreator
                 ? "Your challenge"
                 : myAttempt

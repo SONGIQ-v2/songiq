@@ -107,7 +107,7 @@ const SoloPlay = () => {
       <Starfield />
       <Header />
 
-      <main className="relative z-10 pt-24 pb-12 px-4">
+      <main className="relative z-10 pt-[119px] md:pt-[149px] pb-12 px-4">
         <motion.div className="max-w-[1400px] mx-auto" variants={container(0.1)} initial="hidden" animate="show">
           {/* Back button */}
           <motion.div variants={fade}>
@@ -121,39 +121,18 @@ const SoloPlay = () => {
             </Button>
           </motion.div>
 
-          {/* Title */}
-          <motion.div className="text-center mb-8" variants={fade}>
-            <h1 className="font-display text-3xl md:text-4xl mb-2">
-              Choose Your <span className="text-primary">Vibe</span>
-            </h1>
-            <p className="text-muted-foreground">
-              Select a playlist to start your music quiz
-            </p>
-          </motion.div>
-
-          {/* Category Tabs + search — same row on desktop (tabs left, search right), stacked/centered on mobile */}
-          <motion.div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6" variants={fade}>
-            <div className="flex flex-wrap justify-center md:justify-start gap-2">
-              {PLAYLIST_CATEGORIES.map((cat) => (
-                <button
-                  key={cat.id}
-                  onClick={() => {
-                    setActiveCategory(cat.id);
-                    setArtistsOnly(false);
-                  }}
-                  className={cn(
-                    "px-4 py-2 rounded-full text-sm font-medium uppercase tracking-wide transition-all border",
-                    activeCategory === cat.id
-                      ? "bg-primary text-primary-foreground border-primary shadow-[0_0_20px_hsl(var(--primary)/0.5)]"
-                      : "bg-card/40 text-muted-foreground border-border/40 hover:text-foreground hover:border-border"
-                  )}
-                >
-                  {cat.label}
-                </button>
-              ))}
+          {/* Title + search — heading left, search right on desktop; stacked/centered on mobile */}
+          <motion.div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-6" variants={fade}>
+            <div className="text-center md:text-left">
+              <h1 className="font-display text-4xl md:text-6xl mb-2">
+                Browse All <span className="text-primary">Playlists</span>
+              </h1>
+              <p className="text-muted-foreground">
+                Select a playlist to start your music quiz
+              </p>
             </div>
 
-            <div className="relative w-full max-w-xs mx-auto md:mx-0">
+            <div className="relative w-full max-w-xs mx-auto md:mx-0 md:mt-2">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 value={searchQuery}
@@ -163,6 +142,29 @@ const SoloPlay = () => {
                 className="pl-9"
               />
             </div>
+          </motion.div>
+
+          <motion.div className="border-t border-white/15 mb-6" variants={fade} />
+
+          {/* Category Tabs */}
+          <motion.div className="flex flex-wrap justify-center md:justify-start gap-2 mb-6" variants={fade}>
+            {PLAYLIST_CATEGORIES.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => {
+                  setActiveCategory(cat.id);
+                  setArtistsOnly(false);
+                }}
+                className={cn(
+                  "px-4 py-2 rounded-full text-sm font-medium uppercase tracking-wide transition-all border",
+                  activeCategory === cat.id
+                    ? "bg-primary text-primary-foreground border-primary shadow-[0_0_20px_hsl(var(--primary)/0.5)]"
+                    : "bg-card/40 text-muted-foreground border-border/40 hover:text-foreground hover:border-border"
+                )}
+              >
+                {cat.label}
+              </button>
+            ))}
           </motion.div>
 
           {/* Sub-filter: only artist spotlights within the active category */}
