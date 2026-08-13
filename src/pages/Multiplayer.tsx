@@ -192,7 +192,7 @@ const Multiplayer = () => {
       <Starfield />
       <Header />
 
-      <main className="relative z-10 pt-[119px] md:pt-[149px] pb-12 px-4">
+      <main className="relative z-10 pt-[79px] md:pt-[149px] pb-12 px-4">
         <motion.div className="max-w-[1000px] mx-auto" variants={container(0.1)} initial="hidden" animate="show">
           <motion.div variants={fade}>
             <Button variant="ghost" onClick={() => navigate("/")} className="mb-6">
@@ -223,7 +223,7 @@ const Multiplayer = () => {
             </motion.div>
           )}
 
-          <div className="grid md:grid-cols-2 gap-6 mt-[100px]">
+          <div className="grid md:grid-cols-2 gap-6 mt-[20px] md:mt-[100px]">
             {/* Create Room */}
             <motion.div className="raised-panel p-8 text-center flex flex-col items-center" variants={pop}>
               <div className="w-14 h-14 rounded-full bg-gold flex items-center justify-center mb-4">
