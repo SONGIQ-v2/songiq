@@ -123,8 +123,8 @@ export function useMultiplayerGame(roomCode: string) {
   // rendering the round screen.
   const [revealActive, setRevealActive] = useState(false);
   // Who picked what this round (option text -> player_ids), for the reveal.
-  // Fed live by the player_answers broadcast, reconciled by a fetch at
-  // reveal start in case a broadcast was dropped.
+  // Fed by player_answers UPDATE broadcasts when the round ends (full
+  // rows); a REST fetch at reveal start covers any that were dropped.
   const [roundAnswers, setRoundAnswers] = useState<Record<string, string[]>>({});
 
   // Emoji reactions -- ephemeral, not persisted anywhere. Floats up the
@@ -422,27 +422,40 @@ export function useMultiplayerGame(roomCode: string) {
     }
 
     if (table === "player_answers") {
-      if (operation === "INSERT" && record) {
-        // answer/is_correct/points_earned are stripped from this broadcast
-        // server-side now (see broadcast_player_answers_change()) -- an
-        // opponent's pick and correctness are only knowable after the
-        // round's reveal, not live as each player answers. Only the
-        // presence of the event itself (hasAnswered) is safe to use here;
-        // roundAnswers and roundScore are populated by the reveal-time
-        // reconciliation fetch below instead, once player_answers' own RLS
-        // allows seeing them (round_id references a game_rounds row with
-        // ended_at set).
-        const answer = record as unknown as { player_id: string; round_id: string };
+      if ((operation === "INSERT" || operation === "UPDATE") && record) {
+        // Mid-round INSERTs are stripped (answer/points null) — hasAnswered
+        // only, so an opponent's pick isn't knowable live. When the round
+        // ends, the DB re-broadcasts full rows as UPDATE; those populate
+        // roundAnswers and roundScore for the reveal. Own grade still
+        // arrives via submitAnswer()'s insert response, not from here.
+        const answer = record as unknown as {
+          player_id: string;
+          round_id: string;
+          answer?: string | null;
+          points_earned?: number | null;
+        };
         if (answer.round_id !== roundRef.current?.id) return; // stale round
         setPlayers((prev) =>
-          prev.map((p) => (p.player_id === answer.player_id ? { ...p, hasAnswered: true } : p))
+          prev.map((p) => {
+            if (p.player_id !== answer.player_id) return p;
+            return {
+              ...p,
+              hasAnswered: true,
+              ...(answer.points_earned != null ? { roundScore: answer.points_earned } : {}),
+            };
+          })
         );
-        // Own server-graded result arrives via submitAnswer()'s own insert
-        // response (select("is_correct, points_earned") on the just-
-        // inserted row, which own-row RLS always allows) -- not from here.
+        const pick = typeof answer.answer === "string" ? answer.answer.trim() : "";
+        if (pick) {
+          setRoundAnswers((prev) => {
+            const list = prev[pick] ?? [];
+            if (list.includes(answer.player_id)) return prev;
+            return { ...prev, [pick]: [...list, answer.player_id] };
+          });
+        }
       }
     }
-  }, [playerId, scheduleFlushPlayers, ingestRound]);
+  }, [scheduleFlushPlayers, ingestRound]);
 
   // realtime.messages now gates room:<id> broadcasts to actual room
   // participants (see 20260824090000_gate_realtime_to_members.sql) -- a
@@ -707,12 +720,10 @@ export function useMultiplayerGame(roomCode: string) {
     })();
   }, [gameStatus, currentRound?.id, room?.id, hasAnswered, playerId, roundNumber]);
 
-  // Reveal reconciliation. Other players' answer/points_earned are stripped
-  // from the live broadcast now (see broadcast_player_answers_change()) and
-  // player_answers' own RLS only exposes them once the round's ended_at is
-  // set -- so this fetch is the sole source for both roundAnswers (who
-  // picked what) and everyone's roundScore, not just a missed-broadcast
-  // backstop like it used to be.
+  // Reveal reconciliation fallback. Full player_answers rows are
+  // re-broadcast as UPDATE when the round ends (see handleBroadcast); this
+  // fetch covers any that were dropped. player_answers' own RLS only
+  // exposes other players' answer/points_earned once ended_at is set.
   useEffect(() => {
     if (!revealActive || !currentRound) return;
     if (revealFetchedForRef.current === currentRound.id) return;
