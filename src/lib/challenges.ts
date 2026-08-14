@@ -146,11 +146,13 @@ export async function fetchChallengeAttempts(code: string): Promise<ChallengeAtt
 }
 
 export async function fetchChallenge(code: string): Promise<Challenge | null> {
-  const { data, error } = await (supabase as any)
-    .from("challenges")
-    .select("code, creator_id, creator_name, creator_score, category_name, time_per_round, plan")
-    .eq("code", code.toUpperCase())
-    .maybeSingle();
+  // Via the RPC, not a direct table select -- challenges is now scoped to
+  // "your own creations" at the RLS level; a shared link's recipient is
+  // neither the creator nor signed in as them, so this is the only
+  // legitimate way to look one up by its code.
+  const { data, error } = await (supabase as any).rpc("get_challenge_by_code", {
+    p_code: code.toUpperCase(),
+  });
 
   if (error || !data) return null;
 

@@ -126,19 +126,23 @@ const Multiplayer = () => {
     setIsJoining(true);
 
     try {
-      const { data: room, error: roomError } = await supabase
-        .from("game_rooms")
-        .select()
-        .eq("room_code", roomCode.toUpperCase())
-        .maybeSingle();
+      // Via the RPC, not a direct table select -- game_rooms/room_players
+      // are members-only now, and this caller isn't one yet. Also returns
+      // the current player list, covering the capacity check below without
+      // a second query.
+      const { data: rpcData, error: roomError } = await (supabase as any).rpc("get_room_by_code", {
+        p_code: roomCode.toUpperCase(),
+      });
 
       if (roomError) throw roomError;
-      
-      if (!room) {
+
+      if (!rpcData) {
         toast.error("Room not found");
         setIsJoining(false);
         return;
       }
+      const room = rpcData.room;
+      const players = rpcData.players as unknown[];
 
       if (room.status === "finished") {
         toast.error("This game has already ended");
@@ -146,11 +150,7 @@ const Multiplayer = () => {
         return;
       }
 
-      const { count: playerCount } = await supabase
-        .from("room_players")
-        .select("*", { count: "exact", head: true })
-        .eq("room_id", room.id);
-      if ((playerCount ?? 0) >= room.max_players) {
+      if (players.length >= room.max_players) {
         toast.error("Room is full");
         setIsJoining(false);
         return;

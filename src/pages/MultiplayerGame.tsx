@@ -484,9 +484,13 @@ export default function MultiplayerGame() {
 
       // Snapshot the rounds as a challenge link (before Play Again deletes
       // them), so sharing can hand out a replay of the exact same songs.
+      // Via the public view, not the base table -- authenticated no longer
+      // has column access to track_name/artist_name directly, by design
+      // (the view unmasks them once ended_at is set, which it always is by
+      // the results screen).
       if (!challengeCodeRef.current) {
         const { data: rounds } = await (supabase as any)
-          .from("game_rounds")
+          .from("game_rounds_public")
           .select("*")
           .eq("room_id", room.id)
           .order("round_number", { ascending: true });

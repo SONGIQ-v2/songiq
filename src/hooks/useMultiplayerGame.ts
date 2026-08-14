@@ -280,28 +280,25 @@ export function useMultiplayerGame(roomCode: string) {
 
   const fetchRoom = useCallback(async () => {
     try {
-      const { data: roomData, error: roomError } = await supabase
-        .from("game_rooms")
-        .select("*")
-        .eq("room_code", roomCode)
-        .single();
+      // Via the RPC, not a direct table select -- game_rooms/room_players
+      // are now members-only, but a brand-new visitor calling this before
+      // they've joined legitimately needs to see the room (and who's
+      // already in it) to render the lobby at all. See
+      // 20260823090000_stop_listing_every_room.sql.
+      const { data: rpcData, error: rpcError } = await (supabase as any).rpc("get_room_by_code", {
+        p_code: roomCode,
+      });
+      if (rpcError) throw rpcError;
+      if (!rpcData) throw new Error("Room not found");
+      const roomData = rpcData.room as RoomData;
+      const playersData = rpcData.players as MultiplayerPlayer[];
 
-      if (roomError) throw roomError;
       setRoom(roomData);
 
       // Sync isHost in the game store based on actual room data
       if (playerId) {
         setStoreRoom(roomData.id, roomData.room_code, roomData.host_id === playerId);
       }
-
-      // Fetch players
-      const { data: playersData, error: playersError } = await supabase
-        .from("room_players")
-        .select("*")
-        .eq("room_id", roomData.id)
-        .order("score", { ascending: false });
-
-      if (playersError) throw playersError;
 
       const rankedPlayers = (playersData || []).map((p, idx) => ({
         ...p,
@@ -426,38 +423,36 @@ export function useMultiplayerGame(roomCode: string) {
 
     if (table === "player_answers") {
       if (operation === "INSERT" && record) {
-        const answer = record as unknown as {
-          player_id: string;
-          round_id: string;
-          answer: string;
-          points_earned: number;
-          is_correct: boolean;
-        };
+        // answer/is_correct/points_earned are stripped from this broadcast
+        // server-side now (see broadcast_player_answers_change()) -- an
+        // opponent's pick and correctness are only knowable after the
+        // round's reveal, not live as each player answers. Only the
+        // presence of the event itself (hasAnswered) is safe to use here;
+        // roundAnswers and roundScore are populated by the reveal-time
+        // reconciliation fetch below instead, once player_answers' own RLS
+        // allows seeing them (round_id references a game_rounds row with
+        // ended_at set).
+        const answer = record as unknown as { player_id: string; round_id: string };
         if (answer.round_id !== roundRef.current?.id) return; // stale round
         setPlayers((prev) =>
-          prev.map((p) =>
-            p.player_id === answer.player_id
-              ? { ...p, hasAnswered: true, roundScore: answer.points_earned }
-              : p
-          )
+          prev.map((p) => (p.player_id === answer.player_id ? { ...p, hasAnswered: true } : p))
         );
-        // Collect the pick for the reveal (empty answer = timed out, skip)
-        if ((answer.answer ?? "").trim()) {
-          setRoundAnswers((prev) => {
-            const list = prev[answer.answer] ?? [];
-            if (list.includes(answer.player_id)) return prev;
-            return { ...prev, [answer.answer]: [...list, answer.player_id] };
-          });
-        }
-        // Our own server-graded result: held back until the reveal window
-        // (the ticker flushes it into isCorrect) so answering never gives
-        // instant right/wrong feedback.
-        if (answer.player_id === playerId) {
-          pendingGradeRef.current = { roundId: answer.round_id, isCorrect: answer.is_correct };
-        }
+        // Own server-graded result arrives via submitAnswer()'s own insert
+        // response (select("is_correct, points_earned") on the just-
+        // inserted row, which own-row RLS always allows) -- not from here.
       }
     }
   }, [playerId, scheduleFlushPlayers, ingestRound]);
+
+  // realtime.messages now gates room:<id> broadcasts to actual room
+  // participants (see 20260824090000_gate_realtime_to_members.sql) -- a
+  // visitor who fetched the room before joining (every new joiner, since
+  // fetchRoom always runs first) would have this subscription denied on
+  // the very first attempt. Re-running the effect once membership is
+  // confirmed retries it, this time successfully. Without this, anyone who
+  // joined via this path would be silently stuck on the 3s poll for their
+  // entire session instead of getting broadcasts.
+  const isConfirmedMember = players.some((p) => p.player_id === playerId);
 
   // Subscribe to the room's private Broadcast channel. Database triggers
   // broadcast every relevant table change to topic room:<id>. This replaces
@@ -514,7 +509,7 @@ export function useMultiplayerGame(roomCode: string) {
       channelRef.current = null;
       if (channel) supabase.removeChannel(channel);
     };
-  }, [room?.id, playerId, handleBroadcast, addReaction]);
+  }, [room?.id, playerId, isConfirmedMember, handleBroadcast, addReaction]);
 
   // Heartbeat: refresh this player's own last_seen every 15s while mounted
   // in the room. transfer_host_if_inactive() treats a stale last_seen as the
@@ -712,19 +707,33 @@ export function useMultiplayerGame(roomCode: string) {
     })();
   }, [gameStatus, currentRound?.id, room?.id, hasAnswered, playerId, roundNumber]);
 
-  // Reveal reconciliation: broadcasts normally fill roundAnswers live, but
-  // one fetch at reveal start covers any that were dropped.
+  // Reveal reconciliation. Other players' answer/points_earned are stripped
+  // from the live broadcast now (see broadcast_player_answers_change()) and
+  // player_answers' own RLS only exposes them once the round's ended_at is
+  // set -- so this fetch is the sole source for both roundAnswers (who
+  // picked what) and everyone's roundScore, not just a missed-broadcast
+  // backstop like it used to be.
   useEffect(() => {
     if (!revealActive || !currentRound) return;
     if (revealFetchedForRef.current === currentRound.id) return;
     revealFetchedForRef.current = currentRound.id;
 
-    (async () => {
+    const roundId = currentRound.id;
+    const expectedCount = players.length;
+    // Applies whatever rows come back (never discards partial data), and
+    // separately reports whether it looked complete -- fewer rows than
+    // players in the room means either the ended_at RLS gate above hasn't
+    // opened for us yet (only our own row visible), or another client's own
+    // timeout-answer insert is still in flight. Either way that's worth one
+    // retry, but a still-incomplete result after the retry is still better
+    // shown than discarded.
+    const fetchAnswers = async () => {
       const { data, error } = await supabase
         .from("player_answers")
-        .select("answer, player_id")
-        .eq("round_id", currentRound.id);
-      if (error || !data) return;
+        .select("answer, player_id, points_earned")
+        .eq("round_id", roundId);
+      if (error || !data) return false;
+
       setRoundAnswers((prev) => {
         const merged = { ...prev };
         for (const row of data) {
@@ -734,8 +743,56 @@ export function useMultiplayerGame(roomCode: string) {
         }
         return merged;
       });
+      setPlayers((prev) =>
+        prev.map((p) => {
+          const row = data.find((r) => r.player_id === p.player_id);
+          return row ? { ...p, roundScore: row.points_earned } : p;
+        })
+      );
+      return data.length >= expectedCount;
+    };
+
+    (async () => {
+      const complete = await fetchAnswers();
+      // player_answers' "full room" visibility only opens once ended_at is
+      // set server-side; revealActive is a client-clock guess that can
+      // fire a beat before that DB write lands. One retry shortly after
+      // covers that race -- unlike the round's own answer (game_rounds),
+      // there's no separate polling fallback for this data.
+      if (!complete) {
+        await new Promise((resolve) => setTimeout(resolve, 800));
+        await fetchAnswers();
+      }
     })();
   }, [revealActive, currentRound?.id]);
+
+  // Learn the real answer once the round is confirmed ended server-side.
+  // Broadcasts no longer carry track_name/artist_name at all (see
+  // broadcast_game_rounds_change()), so this fetch -- not a missed-
+  // broadcast fallback -- is now the primary way a non-host client ever
+  // learns it. Keyed off ended_at itself (not revealActive, which is a
+  // client-clock guess that can fire slightly before the server has
+  // actually set ended_at in the rare case nothing has called
+  // advance_game_round() yet) rather than a fixed delay -- the existing 3s
+  // polling fallback below independently re-syncs the same field too, so a
+  // dropped broadcast here still self-heals within a few seconds either way.
+  const revealedAnswerFetchedForRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!currentRound?.id || !currentRound.ended_at || currentRound.track_name) return;
+    if (revealedAnswerFetchedForRef.current === currentRound.id) return;
+    revealedAnswerFetchedForRef.current = currentRound.id;
+
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("game_rounds_public")
+        .select("id, track_name, artist_name")
+        .eq("id", currentRound.id)
+        .maybeSingle();
+      if (data?.track_name) {
+        ingestRound({ ...currentRound, ...data } as RoundData);
+      }
+    })();
+  }, [currentRound?.id, currentRound?.ended_at, currentRound?.track_name, ingestRound]);
 
   // ---- Server-side round advancement ----
   // When the current round is over, ask the server for the next round (or the
@@ -803,19 +860,21 @@ export function useMultiplayerGame(roomCode: string) {
 
     const pollInterval = setInterval(async () => {
       try {
-        const { data: roomData, error: roomErr } = await supabase
-          .from("game_rooms")
-          .select("*")
-          .eq("id", room.id)
-          .maybeSingle();
+        // Via the RPC (see fetchRoom above) -- also returns the players
+        // list in the same call, so this replaces the separate
+        // room_players reconciliation query below too.
+        const { data: rpcData, error: roomErr } = await (supabase as any).rpc("get_room_by_code", {
+          p_code: roomCode,
+        });
 
         if (roomErr) return; // transient error — don't treat as room-deleted
-        if (!roomData) {
+        if (!rpcData) {
           // Room was deleted (host left)
           setRoom(null);
           setGameStatus("terminated");
           return;
         }
+        const roomData = rpcData.room as RoomData;
 
         if (roomData.status === "finished") {
           setGameStatus("results");
@@ -862,11 +921,7 @@ export function useMultiplayerGame(roomCode: string) {
         }
 
         // Players reconciliation — rebuilds the map then schedules a flush
-        const { data: playersData } = await supabase
-          .from("room_players")
-          .select("*")
-          .eq("room_id", room.id)
-          .order("score", { ascending: false });
+        const playersData = rpcData.players as MultiplayerPlayer[];
 
         if (playersData) {
           const next = new Map<string, MultiplayerPlayer>();
@@ -1251,5 +1306,6 @@ export function useMultiplayerGame(roomCode: string) {
     isHost,
     playerId,
     ROUND_TIME,
+    fetchRoom,
   };
 }

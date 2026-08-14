@@ -115,6 +115,7 @@ export default function RoomLobby() {
     reactions,
     sendReaction,
     verifiedPlayerIds,
+    fetchRoom,
   } = useMultiplayerGame(code || "");
 
   // Kicked detection: if I was in the room but my row is gone, redirect.
@@ -195,25 +196,23 @@ export default function RoomLobby() {
 
     setIsJoiningRoom(true);
     try {
-      // Fresh read, not the locally-cached `room` (which can lag a beat
-      // behind a broadcast) -- mid-round joins are allowed, only a game
-      // that's genuinely over is rejected.
-      const { data: freshRoom } = await supabase
-        .from("game_rooms")
-        .select("status")
-        .eq("id", room.id)
-        .maybeSingle();
+      // Fresh read via the RPC, not the locally-cached `room` (which can
+      // lag a beat behind a broadcast) -- mid-round joins are allowed, only
+      // a game that's genuinely over is rejected. game_rooms/room_players
+      // are members-only now and this caller isn't one yet, so this also
+      // covers the capacity check below without a second query.
+      const { data: rpcData } = await (supabase as any).rpc("get_room_by_code", {
+        p_code: room.room_code,
+      });
+      const freshRoom = rpcData?.room;
+      const freshPlayers = (rpcData?.players ?? []) as unknown[];
       if (freshRoom?.status === "finished") {
         toast.error("This game has already ended");
         setIsJoiningRoom(false);
         return;
       }
 
-      const { count: playerCount } = await supabase
-        .from("room_players")
-        .select("*", { count: "exact", head: true })
-        .eq("room_id", room.id);
-      if ((playerCount ?? 0) >= room.max_players) {
+      if (freshPlayers.length >= room.max_players) {
         toast.error("Room is full");
         setIsJoiningRoom(false);
         return;
@@ -233,6 +232,13 @@ export default function RoomLobby() {
       setStoreRoom(room.id, room.room_code, false);
       setUsernameCookie(joinName.trim());
       setShowNameModal(false);
+      // The hook's initial channel subscription attempt (made before this
+      // join) was denied under the members-only Realtime policy -- refetch
+      // now so `players` reflects the new membership immediately, which
+      // re-triggers that subscription effect to retry (see
+      // isConfirmedMember in useMultiplayerGame.ts) instead of waiting on
+      // the 3s poll to notice.
+      fetchRoom();
     } catch (err) {
       console.error("Error joining room:", err);
       // A capacity race (two people squeezing into the last slot at once)
