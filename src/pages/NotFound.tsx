@@ -15,10 +15,10 @@ const NotFound = () => {
         <title>Page Not Found (404) | SongIQ</title>
         <meta name="description" content="The page you're looking for doesn't exist. Head back to SongIQ to play the music quiz." />
         <meta name="robots" content="noindex, follow" />
-        <link rel="canonical" href={`https://songiq.xyz${location.pathname}`} />
+        <link rel="canonical" href={`https://songiq.io${location.pathname}`} />
         <meta property="og:title" content="Page Not Found (404) | SongIQ" />
         <meta property="og:description" content="The page you're looking for doesn't exist on SongIQ." />
-        <meta property="og:url" content={`https://songiq.xyz${location.pathname}`} />
+        <meta property="og:url" content={`https://songiq.io${location.pathname}`} />
       </Helmet>
       <div className="flex min-h-screen items-center justify-center bg-muted">
         <div className="text-center">

@@ -10,6 +10,11 @@ import Multiplayer from "./pages/Multiplayer";
 import RoomLobby from "./pages/RoomLobby";
 import MultiplayerGame from "./pages/MultiplayerGame";
 import NotFound from "./pages/NotFound";
+import ChallengePage from "./pages/Challenge";
+import Daily from "./pages/Daily";
+import Leaderboard from "./pages/Leaderboard";
+import Admin from "./pages/Admin";
+import Privacy from "./pages/Privacy";
 import GuessTheSongGame from "./pages/landing/GuessTheSongGame";
 import GuessTheArtistGame from "./pages/landing/GuessTheArtistGame";
 import SongQuizOnline from "./pages/landing/SongQuizOnline";
@@ -18,6 +23,8 @@ import HeardleAlternative from "./pages/landing/HeardleAlternative";
 import AfrobeatsQuiz from "./pages/landing/AfrobeatsQuiz";
 import AmapianoQuiz from "./pages/landing/AmapianoQuiz";
 import AfricanMusicQuiz from "./pages/landing/AfricanMusicQuiz";
+import { FeedbackWidget } from "./components/FeedbackWidget";
+import { SignInModal } from "./components/SignInModal";
 
 const queryClient = new QueryClient();
 
@@ -26,6 +33,7 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
+      <SignInModal />
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
@@ -34,6 +42,11 @@ const App = () => (
           <Route path="/multiplayer" element={<Multiplayer />} />
           <Route path="/room/:code" element={<RoomLobby />} />
           <Route path="/room/:code/game" element={<MultiplayerGame />} />
+          <Route path="/c/:code" element={<ChallengePage />} />
+          <Route path="/daily" element={<Daily />} />
+          <Route path="/leaderboard" element={<Leaderboard />} />
+          <Route path="/anonymous" element={<Admin />} />
+          <Route path="/privacy" element={<Privacy />} />
           <Route path="/guess-the-song-game" element={<GuessTheSongGame />} />
           <Route path="/guess-the-artist-game" element={<GuessTheArtistGame />} />
           <Route path="/song-quiz-online" element={<SongQuizOnline />} />
@@ -44,6 +57,7 @@ const App = () => (
           <Route path="/african-music-quiz" element={<AfricanMusicQuiz />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
+        <FeedbackWidget />
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

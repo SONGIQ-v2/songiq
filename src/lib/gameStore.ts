@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { supabase } from "@/integrations/supabase/client";
+import { clearSavedUsername } from "@/lib/challenges";
 
 export interface Player {
   id: string;
@@ -43,7 +44,13 @@ export interface GameState {
   // Solo game state
   soloScore: number;
   soloRound: number;
-  
+
+  // Sign-in modal — shared across pages so a "Sign in to save your
+  // progress" hint anywhere in the app can open the same modal, not just
+  // wherever Header happens to be rendered (e.g. the Daily Challenge page
+  // has no Header at all).
+  showSignInModal: boolean;
+
   // Actions
   initializeAuth: () => Promise<string | null>;
   setPlayer: (name: string, avatarIndex: number) => void;
@@ -58,6 +65,8 @@ export interface GameState {
   setCategory: (category: string) => void;
   resetSoloGame: () => void;
   reset: () => void;
+  openSignInModal: () => void;
+  closeSignInModal: () => void;
 }
 
 export const useGameStore = create<GameState>((set, get) => ({
@@ -80,7 +89,9 @@ export const useGameStore = create<GameState>((set, get) => ({
   
   soloScore: 0,
   soloRound: 0,
-  
+
+  showSignInModal: false,
+
   // Actions
   initializeAuth: async () => {
     // Check if already initialized
@@ -155,4 +166,68 @@ export const useGameStore = create<GameState>((set, get) => ({
       soloScore: 0,
       soloRound: 0,
     }),
+
+  openSignInModal: () => set({ showSignInModal: true }),
+  closeSignInModal: () => set({ showSignInModal: false }),
 }));
+
+// Set by SignInModal.tsx right before starting Google OAuth (while still
+// anonymous), read here once a real session shows up. Exported so both
+// sides share the exact same key instead of duplicating the string.
+export const PENDING_MERGE_TOKEN_KEY = "songiq_pending_merge_token";
+
+// Keeps playerId honest across auth changes -- without this, initializeAuth()'s
+// cached-return guard (`if isInitialized && playerId, return it`) would keep
+// handing back a just-invalidated id after sign-out until a full page reload,
+// since nothing else ever clears that cache.
+supabase.auth.onAuthStateChange((_event, session) => {
+  if (session?.user) {
+    const idChanged = useGameStore.getState().playerId !== session.user.id;
+    if (idChanged) {
+      useGameStore.setState({ playerId: session.user.id, isInitialized: true });
+    }
+    // Only on an actual sign-in transition, not every token refresh of the
+    // same session -- resolveSignedInIdentity is a one-time-per-account
+    // operation server-side, but there's no reason to re-call it on a
+    // no-op timer.
+    if (idChanged && !session.user.is_anonymous) {
+      resolveSignedInIdentity(session.user);
+    }
+  } else {
+    // No session -- in practice this only happens right after an explicit
+    // sign-out (anonymous sessions otherwise persist/auto-recreate). Clear
+    // the local nickname too, not just the id: otherwise the browser keeps
+    // showing the just-signed-out account's name, reads as "am I still
+    // signed in?", and a fresh anonymous session would silently inherit it
+    // -- including on the leaderboard, where it'd look like a duplicate row.
+    localStorage.removeItem("songiq_player_name");
+    clearSavedUsername();
+    useGameStore.setState({ playerId: null, isInitialized: false, playerName: "" });
+  }
+});
+
+// The single call site for establishing a signed-in account's identity --
+// deliberately not split across multiple independent listeners (that
+// previously raced a separate merge-claim effect over who got to decide
+// whether the account was "already established"). Registered at module
+// scope so it runs regardless of which page is mounted -- Daily.tsx, for
+// instance, renders no Header at all.
+async function resolveSignedInIdentity(user: { id: string; user_metadata?: Record<string, unknown> | null }) {
+  const pendingToken = localStorage.getItem(PENDING_MERGE_TOKEN_KEY);
+  if (pendingToken) localStorage.removeItem(PENDING_MERGE_TOKEN_KEY);
+
+  const googleName = (user.user_metadata?.full_name ?? user.user_metadata?.name) as string | undefined;
+  const { data, error } = await (supabase as any).rpc("resolve_signin_identity", {
+    p_token: pendingToken,
+    p_fallback_name: googleName || "Player",
+  });
+  if (error) {
+    console.error("resolveSignedInIdentity failed:", error.message);
+    return;
+  }
+  const dbName = data?.[0]?.player_name as string | null | undefined;
+  if (dbName) {
+    useGameStore.getState().setPlayer(dbName, useGameStore.getState().avatarIndex);
+    localStorage.setItem("songiq_player_name", dbName);
+  }
+}

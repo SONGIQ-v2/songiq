@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
 
 @layer base {
   :root {
@@ -47,6 +47,7 @@
     
     /* Gradients */
     --gradient-gold: linear-gradient(135deg, hsl(45 100% 60%), hsl(35 100% 50%));
+    --gradient-kente: linear-gradient(135deg, hsl(150 60% 48%), hsl(150 65% 34%));
     --gradient-sunset: linear-gradient(135deg, hsl(15 85% 55%), hsl(45 100% 60%));
     --gradient-card: linear-gradient(180deg, hsl(230 30% 16%), hsl(230 30% 12%));
     --gradient-hero: radial-gradient(ellipse at top, hsl(230 30% 18%), hsl(230 35% 8%));
@@ -55,6 +56,7 @@
     --shadow-glow: 0 0 40px hsl(45 100% 60% / 0.2);
     --shadow-card: 0 8px 32px hsl(0 0% 0% / 0.3);
     --shadow-gold: 0 4px 20px hsl(45 100% 60% / 0.3);
+    --shadow-inset-highlight: inset 0 1px 0 hsl(0 0% 100% / 0.12), inset 0 -3px 8px hsl(0 0% 0% / 0.25);
   }
 
   .dark {
@@ -87,16 +89,45 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: 'Inter', sans-serif;
+    line-height: 1.4;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Archivo Black', sans-serif;
-    letter-spacing: 0.02em;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 700;
+    letter-spacing: normal;
+  }
+
+  /* Hero-level headings get the heavier, tighter branding treatment;
+     pages/components can still override with their own utility classes
+     (e.g. SeoLanding's uppercase tracking-wide h1s). line-height is
+     !important because Tailwind's text-{size} utilities (e.g. text-6xl)
+     bundle their own line-height and, being in the same utilities layer,
+     can silently win over a per-instance `leading-*` class depending on
+     Tailwind's internal generation order -- !important guarantees this
+     always applies regardless of which text-size utility a page uses. */
+  h1 {
+    font-weight: 900;
+    letter-spacing: -0.05em;
+    line-height: 1.1 !important;
+  }
+
+  h2 {
+    font-weight: 800;
+    letter-spacing: -0.07em;
   }
 }
 
 @layer components {
+  /* Glow heading -- reusable branded heading treatment: bold, tight,
+     uppercase, with a soft gold glow. Apply as className="glow-heading"
+     to any heading on request; not applied globally by default. */
+  .glow-heading {
+    @apply font-black text-4xl sm:text-5xl md:text-7xl tracking-tighter text-primary;
+    filter: drop-shadow(0 0 20px hsl(var(--gold) / 0.6));
+  }
+
   /* Starfield background animation */
   .starfield {
     position: fixed;
@@ -139,24 +170,59 @@
   .game-card {
     @apply relative overflow-hidden rounded-2xl p-6 transition-all duration-300;
     background: var(--gradient-card);
-    border: 1px solid hsl(var(--border));
-    box-shadow: var(--shadow-card);
+    border: 2px solid hsl(var(--border));
+    box-shadow: var(--shadow-card), var(--shadow-inset-highlight);
   }
 
   .game-card:hover {
     transform: translateY(-4px);
-    box-shadow: var(--shadow-glow);
+    box-shadow: var(--shadow-glow), var(--shadow-inset-highlight);
     border-color: hsl(var(--gold) / 0.5);
   }
 
   .game-card-primary {
     @apply game-card;
-    border: 2px solid hsl(var(--gold) / 0.3);
-    box-shadow: var(--shadow-glow);
+    border: 3px solid hsl(var(--gold-glow) / 0.4);
+    box-shadow: var(--shadow-glow), var(--shadow-inset-highlight);
   }
 
   .game-card-primary:hover {
     border-color: hsl(var(--gold));
+  }
+
+  /* Raised panel — chunky-border/layered-shadow surface for non-button panels */
+  .raised-panel {
+    @apply relative rounded-2xl border-2 border-border/60;
+    background: hsl(var(--card) / 0.5);
+    box-shadow: var(--shadow-card), var(--shadow-inset-highlight);
+  }
+
+  /* Daily Challenge panel -- outer shell for the homepage's daily-challenge card. */
+  .daily-panel {
+    @apply relative rounded-2xl border-2 border-border/60 overflow-hidden;
+    background: hsl(var(--card) / 0.5);
+    box-shadow: var(--shadow-card), var(--shadow-inset-highlight);
+  }
+
+  /* Left column: glassmorphism gradient + blurred backdrop + a gold-tinted
+     stroke on the top/left edges to "catch the light", plus a radial glow
+     seated behind the challenge heading for a neon-lift effect. */
+  .daily-panel-hero {
+    position: relative;
+    background: linear-gradient(135deg, hsl(var(--muted) / 0.35), hsl(var(--background) / 0.65));
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    border-top: 1px solid hsl(var(--gold) / 0.2);
+    border-left: 1px solid hsl(var(--gold) / 0.2);
+  }
+
+  .daily-panel-hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background: radial-gradient(ellipse 420px 220px at 28% 42%, hsl(var(--gold) / 0.18), transparent 70%);
+    pointer-events: none;
   }
 
   /* Category card */
@@ -176,12 +242,19 @@
     box-shadow: var(--shadow-gold);
   }
 
-  /* Gold button glow effect */
+  /* Gold button — hard-offset "arcade" press, not a soft glow */
   .btn-gold {
-    @apply relative overflow-hidden font-bold uppercase tracking-wider;
+    @apply relative overflow-hidden font-bold uppercase tracking-wider border-2;
+    border-color: hsl(var(--gold-glow) / 0.8);
     background: var(--gradient-gold);
     color: hsl(var(--primary-foreground));
-    text-shadow: 0 1px 2px hsl(0 0% 0% / 0.2);
+    text-shadow: none;
+    box-shadow: 0 4px 0 hsl(35 90% 38%), 0 8px 16px hsl(45 100% 60% / 0.35), var(--shadow-inset-highlight);
+    transition: box-shadow 0.15s ease-out;
+  }
+
+  .btn-gold:active {
+    box-shadow: 0 1px 0 hsl(35 90% 38%), 0 3px 8px hsl(45 100% 60% / 0.3), var(--shadow-inset-highlight);
   }
 
   .btn-gold::before {
@@ -197,11 +270,40 @@
     transform: translateX(100%);
   }
 
+  /* Kente-green button — same hard-offset "arcade" press as gold, distinct color for Daily Challenge CTAs */
+  .btn-kente {
+    @apply relative overflow-hidden font-bold uppercase tracking-wider border-2;
+    border-color: hsl(var(--kente-green) / 0.8);
+    background: var(--gradient-kente);
+    color: hsl(45 100% 96%);
+    text-shadow: none;
+    box-shadow: 0 4px 0 hsl(150 70% 22%), 0 8px 16px hsl(150 60% 40% / 0.35), var(--shadow-inset-highlight);
+    transition: box-shadow 0.15s ease-out;
+  }
+
+  .btn-kente:active {
+    box-shadow: 0 1px 0 hsl(150 70% 22%), 0 3px 8px hsl(150 60% 40% / 0.3), var(--shadow-inset-highlight);
+  }
+
+  .btn-kente::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, hsl(0 0% 100% / 0.15), transparent);
+    transform: translateX(-100%);
+    transition: transform 0.5s;
+  }
+
+  .btn-kente:hover::before {
+    transform: translateX(100%);
+  }
+
   /* Audio visualizer bars */
   .audio-bar {
-    @apply w-1 rounded-full;
+    @apply w-1.5 rounded-full;
     background: var(--gradient-gold);
     animation: audioWave 0.5s ease-in-out infinite;
+    box-shadow: 0 0 6px hsl(var(--gold) / 0.4);
   }
 
   .audio-bar:nth-child(1) { animation-delay: 0s; height: 20px; }
@@ -219,6 +321,7 @@
   .progress-track {
     @apply h-2 rounded-full overflow-hidden;
     background: hsl(var(--muted));
+    box-shadow: var(--shadow-inset-highlight);
   }
 
   .progress-fill {
@@ -231,11 +334,19 @@
     @apply w-full p-4 rounded-xl text-left font-medium transition-all duration-200;
     background: hsl(var(--secondary));
     border: 2px solid hsl(var(--border));
+    box-shadow: var(--shadow-card), var(--shadow-inset-highlight);
   }
 
   .answer-option:hover:not(:disabled) {
     border-color: hsl(var(--gold));
-    transform: translateX(4px);
+  }
+
+  /* Selected but not yet graded — the "locked in" state shown while
+     waiting for the round's reveal */
+  .answer-option.locked {
+    border-color: hsl(var(--gold));
+    background: hsl(var(--gold) / 0.12);
+    box-shadow: var(--shadow-card), var(--shadow-inset-highlight), 0 0 12px hsl(var(--gold) / 0.35);
   }
 
   .answer-option.correct {
@@ -261,13 +372,14 @@
     @apply w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all duration-300;
     background: hsl(var(--secondary));
     border: 2px solid hsl(var(--border));
+    box-shadow: var(--shadow-card);
   }
 
   .round-dot.active {
     background: var(--gradient-gold);
     border-color: hsl(var(--gold));
     color: hsl(var(--primary-foreground));
-    box-shadow: var(--shadow-gold);
+    box-shadow: var(--shadow-gold), var(--shadow-inset-highlight);
   }
 
   .round-dot.completed {
@@ -298,6 +410,53 @@
   @keyframes pulseGold {
     0%, 100% { box-shadow: 0 0 0 0 hsl(45 100% 60% / 0.4); }
     50% { box-shadow: 0 0 0 20px hsl(45 100% 60% / 0); }
+  }
+
+  /* Pulse animation for an active daily streak */
+  .pulse-kente {
+    animation: pulseKente 2s ease-in-out infinite;
+  }
+
+  @keyframes pulseKente {
+    0%, 100% { box-shadow: 0 0 0 0 hsl(var(--kente-green) / 0.4); }
+    50% { box-shadow: 0 0 0 20px hsl(var(--kente-green) / 0); }
+  }
+
+  /* Room lobby layout — Room Code first on mobile, grouped with Players in a
+     sidebar column alongside Game Settings on desktop */
+  .room-lobby-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "roomcode"
+      "settings"
+      "players";
+    gap: 1.5rem;
+  }
+
+  @media (min-width: 1024px) {
+    .room-lobby-grid {
+      grid-template-columns: 1fr 400px;
+      grid-template-areas: "settings sidebar";
+      align-items: start;
+    }
+  }
+
+  /* Room Code + Players share a column: plain stacked items on mobile
+     (display: contents so each keeps its own grid-area in the 3-row
+     mobile layout above), a self-contained flex column on desktop so
+     their spacing never depends on the taller Settings panel's height */
+  .room-lobby-sidebar {
+    display: contents;
+  }
+
+  @media (min-width: 1024px) {
+    .room-lobby-sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      grid-area: sidebar;
+    }
   }
 }
 

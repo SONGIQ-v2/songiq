@@ -3,6 +3,9 @@ import type { Config } from "tailwindcss";
 export default {
   darkMode: ["class"],
   content: ["./pages/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./app/**/*.{ts,tsx}", "./src/**/*.{ts,tsx}"],
+  // Custom @layer components classes that aren't referenced in any JSX yet
+  // still need to survive Tailwind's content-based tree-shaking.
+  safelist: ["glow-heading"],
   prefix: "",
   theme: {
     container: {
@@ -14,8 +17,8 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['Space Grotesk', 'sans-serif'],
-        display: ['Archivo Black', 'sans-serif'],
+        sans: ['Inter', 'sans-serif'],
+        display: ['Montserrat', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -53,6 +56,9 @@ export default {
         },
         gold: "hsl(var(--gold))",
         terracotta: "hsl(var(--terracotta))",
+        "kente-green": "hsl(var(--kente-green))",
+        "kente-red": "hsl(var(--kente-red))",
+        "deep-purple": "hsl(var(--deep-purple))",
       },
       borderRadius: {
         lg: "var(--radius)",

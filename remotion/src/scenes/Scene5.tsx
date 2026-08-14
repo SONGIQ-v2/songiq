@@ -52,7 +52,7 @@ export const Scene5: React.FC = () => {
         transform: `scale(${play * pulse})`,
         boxShadow: `0 0 80px ${COLORS.gold}AA`,
       }}>
-        SONGIQ.XYZ
+        SONGIQ.IO
       </div>
 
       <div style={{

@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Starfield } from "@/components/Starfield";
 import { Header } from "@/components/Header";
+import { SiteFooter } from "@/components/SiteFooter";
 import { Button } from "@/components/ui/button";
 import { Music, Users, Headphones, Zap, Trophy, Play } from "lucide-react";
 
@@ -45,7 +46,7 @@ export const SeoLanding = ({
   secondaryCta = { label: "Play Multiplayer", to: "/multiplayer" },
 }: SeoLandingProps) => {
   const navigate = useNavigate();
-  const url = `https://songiq.xyz${path}`;
+  const url = `https://songiq.io${path}`;
 
   const faqJsonLd = {
     "@context": "https://schema.org",
@@ -128,7 +129,7 @@ export const SeoLanding = ({
           <section className="prose prose-invert max-w-none mb-16 space-y-8">
             {body.map((b) => (
               <div key={b.heading}>
-                <h2 className="font-display text-2xl md:text-3xl uppercase tracking-wide mb-3 text-foreground">
+                <h2 className="font-display text-4xl uppercase tracking-wide mb-3 text-foreground">
                   {b.heading}
                 </h2>
                 <p className="text-muted-foreground leading-relaxed">{b.paragraph}</p>
@@ -138,7 +139,7 @@ export const SeoLanding = ({
 
           {/* FAQ */}
           <section className="mb-16">
-            <h2 className="font-display text-2xl md:text-3xl uppercase tracking-wide mb-6 text-center">
+            <h2 className="font-display text-4xl uppercase tracking-wide mb-6 text-center">
               Frequently Asked Questions
             </h2>
             <div className="space-y-4">
@@ -159,7 +160,7 @@ export const SeoLanding = ({
 
           {/* Final CTA */}
           <section className="game-card text-center p-8">
-            <h2 className="font-display text-2xl md:text-3xl uppercase tracking-wide mb-3">
+            <h2 className="font-display text-4xl uppercase tracking-wide mb-3">
               Ready to play?
             </h2>
             <p className="text-muted-foreground mb-6">Free, no signup required. Jump in and start guessing.</p>
@@ -181,6 +182,8 @@ export const SeoLanding = ({
           </section>
         </article>
       </main>
+
+      <SiteFooter />
     </div>
   );
 };

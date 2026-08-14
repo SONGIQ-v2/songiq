@@ -14,6 +14,80 @@ export type Database = {
   }
   public: {
     Tables: {
+      challenge_attempts: {
+        Row: {
+          challenge_code: string
+          correct_count: number
+          created_at: string
+          id: string
+          player_id: string
+          player_name: string
+          score: number
+        }
+        Insert: {
+          challenge_code: string
+          correct_count?: number
+          created_at?: string
+          id?: string
+          player_id: string
+          player_name?: string
+          score?: number
+        }
+        Update: {
+          challenge_code?: string
+          correct_count?: number
+          created_at?: string
+          id?: string
+          player_id?: string
+          player_name?: string
+          score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "challenge_attempts_challenge_code_fkey"
+            columns: ["challenge_code"]
+            isOneToOne: false
+            referencedRelation: "challenges"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      challenges: {
+        Row: {
+          category_name: string
+          code: string
+          created_at: string
+          creator_id: string | null
+          creator_name: string
+          creator_score: number
+          id: string
+          plan: Json
+          time_per_round: number
+        }
+        Insert: {
+          category_name?: string
+          code: string
+          created_at?: string
+          creator_id?: string | null
+          creator_name?: string
+          creator_score?: number
+          id?: string
+          plan: Json
+          time_per_round?: number
+        }
+        Update: {
+          category_name?: string
+          code?: string
+          created_at?: string
+          creator_id?: string | null
+          creator_name?: string
+          creator_score?: number
+          id?: string
+          plan?: Json
+          time_per_round?: number
+        }
+        Relationships: []
+      }
       client_logs: {
         Row: {
           context: Json
@@ -56,6 +130,209 @@ export type Database = {
           stack?: string | null
           url?: string | null
           user_agent?: string | null
+        }
+        Relationships: []
+      }
+      creation_log: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: number
+        }
+        Insert: {
+          created_at: string
+          event_type: string
+          id?: never
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: never
+        }
+        Relationships: []
+      }
+      daily_attempts: {
+        Row: {
+          challenge_date: string
+          correct_count: number
+          created_at: string
+          id: string
+          player_id: string
+          player_name: string
+          score: number
+        }
+        Insert: {
+          challenge_date: string
+          correct_count?: number
+          created_at?: string
+          id?: string
+          player_id: string
+          player_name?: string
+          score?: number
+        }
+        Update: {
+          challenge_date?: string
+          correct_count?: number
+          created_at?: string
+          id?: string
+          player_id?: string
+          player_name?: string
+          score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_attempts_challenge_date_fkey"
+            columns: ["challenge_date"]
+            isOneToOne: false
+            referencedRelation: "daily_challenges"
+            referencedColumns: ["challenge_date"]
+          },
+        ]
+      }
+      daily_challenges: {
+        Row: {
+          category_name: string
+          challenge_date: string
+          created_at: string
+          number: number
+          plan: Json
+          points_settled_at: string | null
+          time_per_round: number
+        }
+        Insert: {
+          category_name: string
+          challenge_date: string
+          created_at?: string
+          number: number
+          plan: Json
+          points_settled_at?: string | null
+          time_per_round?: number
+        }
+        Update: {
+          category_name?: string
+          challenge_date?: string
+          created_at?: string
+          number?: number
+          plan?: Json
+          points_settled_at?: string | null
+          time_per_round?: number
+        }
+        Relationships: []
+      }
+      daily_stats: {
+        Row: {
+          best_streak: number
+          current_streak: number
+          last_played: string | null
+          player_id: string
+          player_name: string
+          plays: number
+          total_score: number
+        }
+        Insert: {
+          best_streak?: number
+          current_streak?: number
+          last_played?: string | null
+          player_id: string
+          player_name?: string
+          plays?: number
+          total_score?: number
+        }
+        Update: {
+          best_streak?: number
+          current_streak?: number
+          last_played?: string | null
+          player_id?: string
+          player_name?: string
+          plays?: number
+          total_score?: number
+        }
+        Relationships: []
+      }
+      email_send_log: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          message_id: string | null
+          metadata: Json | null
+          recipient_email: string
+          status: string
+          template_name: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          message_id?: string | null
+          metadata?: Json | null
+          recipient_email: string
+          status: string
+          template_name: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          message_id?: string | null
+          metadata?: Json | null
+          recipient_email?: string
+          status?: string
+          template_name?: string
+        }
+        Relationships: []
+      }
+      email_send_state: {
+        Row: {
+          auth_email_ttl_minutes: number
+          batch_size: number
+          id: number
+          retry_after_until: string | null
+          send_delay_ms: number
+          transactional_email_ttl_minutes: number
+          updated_at: string
+        }
+        Insert: {
+          auth_email_ttl_minutes?: number
+          batch_size?: number
+          id?: number
+          retry_after_until?: string | null
+          send_delay_ms?: number
+          transactional_email_ttl_minutes?: number
+          updated_at?: string
+        }
+        Update: {
+          auth_email_ttl_minutes?: number
+          batch_size?: number
+          id?: number
+          retry_after_until?: string | null
+          send_delay_ms?: number
+          transactional_email_ttl_minutes?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      email_unsubscribe_tokens: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          token: string
+          used_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          token: string
+          used_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          token?: string
+          used_at?: string | null
         }
         Relationships: []
       }
@@ -223,6 +500,72 @@ export type Database = {
           },
         ]
       }
+      google_oauth_tokens: {
+        Row: {
+          id: number
+          refresh_token: string
+          updated_at: string
+        }
+        Insert: {
+          id?: number
+          refresh_token: string
+          updated_at?: string
+        }
+        Update: {
+          id?: number
+          refresh_token?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      merge_requests: {
+        Row: {
+          anonymous_id: string
+          created_at: string
+          expires_at: string
+          token: string
+        }
+        Insert: {
+          anonymous_id: string
+          created_at?: string
+          expires_at?: string
+          token?: string
+        }
+        Update: {
+          anonymous_id?: string
+          created_at?: string
+          expires_at?: string
+          token?: string
+        }
+        Relationships: []
+      }
+      play_sessions: {
+        Row: {
+          created_at: string
+          id: number
+          mode: string
+          player_id: string
+          player_name: string | null
+          seconds: number
+        }
+        Insert: {
+          created_at?: string
+          id?: never
+          mode: string
+          player_id: string
+          player_name?: string | null
+          seconds: number
+        }
+        Update: {
+          created_at?: string
+          id?: never
+          mode?: string
+          player_id?: string
+          player_name?: string | null
+          seconds?: number
+        }
+        Relationships: []
+      }
       player_answers: {
         Row: {
           answer: string
@@ -278,6 +621,132 @@ export type Database = {
           },
         ]
       }
+      player_points: {
+        Row: {
+          games: number
+          player_id: string
+          player_name: string | null
+          points: number
+          updated_at: string
+        }
+        Insert: {
+          games?: number
+          player_id: string
+          player_name?: string | null
+          points?: number
+          updated_at?: string
+        }
+        Update: {
+          games?: number
+          player_id?: string
+          player_name?: string | null
+          points?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      playlist_cache: {
+        Row: {
+          image_url: string
+          is_artist: boolean
+          playlist_name: string
+          search_terms: Json
+          tracks: Json
+          updated_at: string
+        }
+        Insert: {
+          image_url?: string
+          is_artist?: boolean
+          playlist_name: string
+          search_terms?: Json
+          tracks?: Json
+          updated_at?: string
+        }
+        Update: {
+          image_url?: string
+          is_artist?: boolean
+          playlist_name?: string
+          search_terms?: Json
+          tracks?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      points_log: {
+        Row: {
+          created_at: string
+          id: number
+          player_id: string
+          points: number
+          source: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: never
+          player_id: string
+          points: number
+          source?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: never
+          player_id?: string
+          points?: number
+          source?: string | null
+        }
+        Relationships: []
+      }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          id: string
+          last_notified_slot: string | null
+          p256dh: string
+          player_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          last_notified_slot?: string | null
+          p256dh: string
+          player_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          last_notified_slot?: string | null
+          p256dh?: string
+          player_id?: string
+        }
+        Relationships: []
+      }
+      push_vapid: {
+        Row: {
+          created_at: string
+          id: number
+          private_key: string
+          public_key: string
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          private_key: string
+          public_key: string
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          private_key?: string
+          public_key?: string
+        }
+        Relationships: []
+      }
       room_players: {
         Row: {
           avatar_index: number
@@ -285,6 +754,7 @@ export type Database = {
           is_host: boolean
           is_ready: boolean
           joined_at: string
+          last_seen: string
           player_id: string
           player_name: string
           room_id: string
@@ -296,6 +766,7 @@ export type Database = {
           is_host?: boolean
           is_ready?: boolean
           joined_at?: string
+          last_seen?: string
           player_id: string
           player_name: string
           room_id: string
@@ -307,6 +778,7 @@ export type Database = {
           is_host?: boolean
           is_ready?: boolean
           joined_at?: string
+          last_seen?: string
           player_id?: string
           player_name?: string
           room_id?: string
@@ -322,8 +794,118 @@ export type Database = {
           },
         ]
       }
+      room_tracks: {
+        Row: {
+          created_at: string
+          plan: Json
+          room_id: string
+        }
+        Insert: {
+          created_at?: string
+          plan?: Json
+          room_id: string
+        }
+        Update: {
+          created_at?: string
+          plan?: Json
+          room_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_tracks_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: true
+            referencedRelation: "game_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      suppressed_emails: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          metadata: Json | null
+          reason: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          metadata?: Json | null
+          reason: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          metadata?: Json | null
+          reason?: string
+        }
+        Relationships: []
+      }
+      user_feedback: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          message: string
+          name: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          message: string
+          name: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          message?: string
+          name?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
+      daily_stats_leaderboard: {
+        Row: {
+          best_streak: number | null
+          current_streak: number | null
+          effective_streak: number | null
+          last_played: string | null
+          player_id: string | null
+          player_name: string | null
+          plays: number | null
+          total_score: number | null
+        }
+        Insert: {
+          best_streak?: number | null
+          current_streak?: number | null
+          effective_streak?: never
+          last_played?: string | null
+          player_id?: string | null
+          player_name?: string | null
+          plays?: number | null
+          total_score?: number | null
+        }
+        Update: {
+          best_streak?: number | null
+          current_streak?: number | null
+          effective_streak?: never
+          last_played?: string | null
+          player_id?: string | null
+          player_name?: string | null
+          plays?: number | null
+          total_score?: number | null
+        }
+        Relationships: []
+      }
       game_rounds_public: {
         Row: {
           artist_name: string | null
@@ -379,8 +961,102 @@ export type Database = {
       }
     }
     Functions: {
+      add_player_points: {
+        Args: {
+          p_count_game?: boolean
+          p_name: string
+          p_player_id: string
+          p_points: number
+          p_source?: string
+        }
+        Returns: undefined
+      }
+      advance_game_round: { Args: { _room_id: string }; Returns: Json }
+      count_unique_players: { Args: never; Returns: number }
+      delete_email: {
+        Args: { message_id: number; queue_name: string }
+        Returns: boolean
+      }
+      email_queue_dispatch: { Args: never; Returns: undefined }
+      enqueue_email: {
+        Args: { payload: Json; queue_name: string }
+        Returns: number
+      }
+      get_vapid_public_key: { Args: never; Returns: string }
+      global_leaderboard: {
+        Args: { p_player?: string; p_range?: string; p_sort?: string }
+        Returns: {
+          is_caller: boolean
+          minutes: number
+          player_id: string
+          player_name: string
+          points: number
+          rank: number
+          streak: number
+        }[]
+      }
+      merge_player_data: {
+        Args: { v_new: string; v_old: string }
+        Returns: undefined
+      }
+      minutes_played_stats: {
+        Args: { p_cutoff?: string }
+        Returns: {
+          minutes: number
+          mode: string
+        }[]
+      }
+      move_to_dlq: {
+        Args: {
+          dlq_name: string
+          message_id: number
+          payload: Json
+          source_queue: string
+        }
+        Returns: number
+      }
       normalize_quiz_answer: { Args: { _value: string }; Returns: string }
+      read_email_batch: {
+        Args: { batch_size: number; queue_name: string; vt: number }
+        Returns: {
+          message: Json
+          msg_id: number
+          read_ct: number
+        }[]
+      }
+      recompute_daily_stats: {
+        Args: { p_player_id: string }
+        Returns: undefined
+      }
+      record_game_session: {
+        Args: {
+          p_mode: string
+          p_name: string
+          p_rounds: number
+          p_score: number
+          p_seconds: number
+        }
+        Returns: {
+          points_earned: number
+          total_points: number
+        }[]
+      }
+      resolve_signin_identity: {
+        Args: { p_fallback_name: string; p_token: string }
+        Returns: {
+          player_name: string
+        }[]
+      }
       server_time_ms: { Args: never; Returns: number }
+      set_nickname: { Args: { p_name: string }; Returns: undefined }
+      settle_daily_bonus: { Args: never; Returns: undefined }
+      stage_anonymous_merge: { Args: never; Returns: string }
+      verified_player_ids: {
+        Args: { p_ids: string[] }
+        Returns: {
+          player_id: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

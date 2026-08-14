@@ -1,75 +1,93 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://songiq.xyz/</loc>
+    <loc>https://songiq.io/</loc>
     <lastmod>2026-05-17</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://songiq.xyz/solo</loc>
+    <loc>https://songiq.io/solo</loc>
     <lastmod>2026-05-17</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://songiq.xyz/solo/game</loc>
+    <loc>https://songiq.io/solo/game</loc>
     <lastmod>2026-05-27</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://songiq.xyz/multiplayer</loc>
+    <loc>https://songiq.io/multiplayer</loc>
     <lastmod>2026-05-17</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://songiq.xyz/guess-the-song-game</loc>
+    <loc>https://songiq.io/guess-the-song-game</loc>
     <lastmod>2026-05-17</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://songiq.xyz/guess-the-artist-game</loc>
+    <loc>https://songiq.io/guess-the-artist-game</loc>
     <lastmod>2026-05-17</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://songiq.xyz/song-quiz-online</loc>
+    <loc>https://songiq.io/song-quiz-online</loc>
     <lastmod>2026-05-17</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://songiq.xyz/music-quiz-multiplayer</loc>
+    <loc>https://songiq.io/music-quiz-multiplayer</loc>
     <lastmod>2026-05-17</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://songiq.xyz/heardle-alternative</loc>
+    <loc>https://songiq.io/heardle-alternative</loc>
     <lastmod>2026-05-17</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://songiq.xyz/afrobeats-quiz</loc>
+    <loc>https://songiq.io/afrobeats-quiz</loc>
     <lastmod>2026-05-17</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://songiq.xyz/amapiano-quiz</loc>
+    <loc>https://songiq.io/amapiano-quiz</loc>
     <lastmod>2026-05-17</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://songiq.xyz/african-music-quiz</loc>
+    <loc>https://songiq.io/african-music-quiz</loc>
     <lastmod>2026-05-17</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://songiq.io/daily</loc>
+    <lastmod>2026-08-12</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://songiq.io/leaderboard</loc>
+    <lastmod>2026-08-12</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://songiq.io/privacy</loc>
+    <lastmod>2026-08-05</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
   </url>
 </urlset>

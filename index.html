@@ -2,16 +2,37 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <!-- Google Tag Manager -->
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-PFGQD534');</script>
+    <!-- End Google Tag Manager -->
+    <!-- Meta Pixel Code -->
+    <script>
+    !function(f,b,e,v,n,t,s)
+    {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+    if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+    n.queue=[];t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];
+    s.parentNode.insertBefore(t,s)}(window, document,'script',
+    'https://connect.facebook.net/en_US/fbevents.js');
+    fbq('init', '1582626956565231');
+    fbq('track', 'PageView');
+    </script>
+    <!-- End Meta Pixel Code -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="google-site-verification" content="KqEnOVl_-hIhYHg3KJLC48fMxXdGym1iKYFWNfJgPcM" />
+    <link rel="icon" href="/favicon.ico" sizes="any">
     <link rel="icon" href="/favicon.png" type="image/png">
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-2CEH26V0BY"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', 'G-2CEH26V0BY');
-    </script>
+    <link rel="apple-touch-icon" href="/icons/icon-180.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#ffcc33">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="SongIQ">
     <title>SongIQ — Guess the Song Music Quiz Game</title>
     <meta name="description" content="Play SongIQ — the guess-the-song music quiz. Challenge friends in multiplayer across Afrobeats, Pop, Hip-Hop and more. Free online." />
     <meta name="author" content="SongIQ" />
@@ -21,22 +42,22 @@
     <meta property="og:title" content="SongIQ – Guess the Song & Music Quiz Game" />
     <meta property="og:description" content="Think you know music? Play SongIQ — guess songs from Afrobeats, Pop, Hip-Hop & more. Challenge friends in real-time multiplayer!" />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://songiq.xyz/" />
-    <meta property="og:image" content="https://songiq.xyz/og-image.png" />
+    <meta property="og:url" content="https://songiq.io/" />
+    <meta property="og:image" content="https://songiq.io/og-image.png" />
     <meta property="og:site_name" content="SongIQ" />
     <meta property="og:locale" content="en_US" />
 
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="SongIQ – Guess the Song & Music Quiz Game" />
     <meta name="twitter:description" content="Test your music IQ! Guess songs, challenge friends & compete in real-time. Free online music quiz." />
-    <meta name="twitter:image" content="https://songiq.xyz/og-image.png" />
+    <meta name="twitter:image" content="https://songiq.io/og-image.png" />
 
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@type": "WebApplication",
       "name": "SongIQ",
-      "url": "https://songiq.xyz",
+      "url": "https://songiq.io",
       "description": "The ultimate guess-the-song music quiz game. Play solo or challenge friends in multiplayer across Afrobeats, Pop, Hip-Hop and more genres.",
       "applicationCategory": "GameApplication",
       "operatingSystem": "Web",
@@ -53,8 +74,8 @@
       "@context": "https://schema.org",
       "@type": "Organization",
       "name": "SongIQ",
-      "url": "https://songiq.xyz",
-      "logo": "https://songiq.xyz/og-image.png",
+      "url": "https://songiq.io",
+      "logo": "https://songiq.io/og-image.png",
       "description": "Free online music quiz game with Solo and Multiplayer modes, focused on Afrobeats, Amapiano, Highlife and global hits."
     }
     </script>
@@ -109,6 +130,15 @@
   </head>
 
   <body>
+    <!-- Google Tag Manager (noscript) -->
+    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-PFGQD534"
+    height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+    <!-- End Google Tag Manager (noscript) -->
+    <!-- Meta Pixel Code (noscript) -->
+    <noscript><img height="1" width="1" style="display:none"
+    src="https://www.facebook.com/tr?id=1582626956565231&ev=PageView&noscript=1"
+    /></noscript>
+    <!-- End Meta Pixel Code (noscript) -->
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

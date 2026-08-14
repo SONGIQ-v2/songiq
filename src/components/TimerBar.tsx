@@ -32,6 +32,7 @@ export const TimerBar = ({ timeLeft, maxTime }: TimerBarProps) => {
             background: isLow
               ? "linear-gradient(90deg, hsl(0 70% 50%), hsl(0 70% 60%))"
               : undefined,
+            boxShadow: isLow ? undefined : "0 0 8px hsl(45 100% 60% / 0.5)",
           }}
         />
       </div>

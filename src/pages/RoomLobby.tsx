@@ -1,9 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
-import { motion, AnimatePresence } from "framer-motion";
-import { Copy, Check, Users, Play, Crown, LogOut, Loader2, UserCircle, Music, Clock, Hash, ChevronLeft, ChevronRight, UserX } from "lucide-react";
-import { useRef } from "react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { Copy, Check, Users, Play, Crown, LogOut, Loader2, UserCircle, Clock, Hash, UserX, Lightbulb, Search } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Starfield } from "@/components/Starfield";
 import songiqLogo from "@/assets/songiq-logo.png";
@@ -11,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { PlaylistCard } from "@/components/PlaylistCard";
+import { DoubleTapHint } from "@/components/DoubleTapHint";
+import { ReactionBar, FloatingReactions } from "@/components/EmojiReactions";
 import { useAppleMusic } from "@/hooks/useAppleMusic";
 import {
   Dialog,
@@ -32,9 +33,36 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useMultiplayerGame } from "@/hooks/useMultiplayerGame";
 import { useGameStore } from "@/lib/gameStore";
+import { getKnownPlayerName } from "@/lib/challenges";
 import { supabase } from "@/integrations/supabase/client";
-import { PLAYLISTS } from "@/lib/playlists";
+import { PLAYLISTS, PLAYLIST_CATEGORIES, getPlaylistById, type PlaylistCategory } from "@/lib/playlists";
+import { getMotionVariants, CARD_SPRING } from "@/lib/motion";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { trackEvent } from "@/lib/analytics";
+
+const MUSIC_FACTS = [
+  "Fela Kuti pioneered Afrobeat in the 1970s, fusing highlife, jazz and funk with Yoruba rhythms.",
+  "Nigeria's music industry is estimated to be worth hundreds of millions of dollars, one of Africa's largest.",
+  "Amapiano, born in South African townships in the mid-2010s, blends deep house, jazz and kwaito.",
+  "Miriam Makeba, \"Mama Africa,\" was the first African artist to win a Grammy Award, in 1966.",
+  "Highlife music originated in Ghana in the early 20th century, blending Akan melodies with Western instruments.",
+  "Burna Boy's \"Twice As Tall\" made him the first Nigerian artist to win a Grammy for Best Global Music Album.",
+  "The talking drum, used across West Africa, can mimic the tones and rhythms of spoken language.",
+  "Youssou N'Dour helped popularize mbalax, blending Senegalese sabar drumming with Cuban and jazz influences.",
+  "Wizkid's \"Essence\" was the first Nigerian song to enter the Billboard Hot 100.",
+  "King Sunny Adé turned down major label deals in the 1980s to keep creative control of his juju music.",
+  "Bongo Flava emerged in Tanzania in the 1990s, mixing American hip-hop with taarab and dansi music.",
+  "The kora, a 21-string harp-lute, has been played by West African griots for over 700 years.",
+  "South Africa's kwaito genre slowed down house music tempos to create its own distinct township sound.",
+  "Angélique Kidjo has won five Grammy Awards and is one of Africa's best-selling music exports.",
+  "Ghana's hiplife genre, pioneered in the 1990s, blends highlife with hip-hop and rap in local languages.",
+  "Tems became the first Nigerian and African woman to win a Grammy for a featured performance, on \"Wait for U.\"",
+  "The human ear can typically distinguish over 1,400 different pitches within its hearing range.",
+  "Music streaming from Africa has grown faster than almost any other region over the past five years.",
+  "Davido's \"Timeless\" album debuted at number one on Billboard's Top Current Albums chart in the US.",
+  "The djembe drum's name comes from a Bambara phrase meaning \"everyone gather together.\"",
+] as const;
 
 export default function RoomLobby() {
   const { code } = useParams<{ code: string }>();
@@ -50,16 +78,22 @@ export default function RoomLobby() {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [editName, setEditName] = useState("");
   const [playlistImages, setPlaylistImages] = useState<Record<string, string>>({});
-  const categoryScrollRef = useRef<HTMLDivElement>(null);
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(true);
+  const [activeCategory, setActiveCategory] = useState<"all" | PlaylistCategory>("all");
+  const [artistsOnly, setArtistsOnly] = useState(false);
+  const [playlistSearch, setPlaylistSearch] = useState("");
+  const [hostTab, setHostTab] = useState<"playlist" | "settings">("playlist");
+  const [factIndex, setFactIndex] = useState(0);
+  const [showFactsModal, setShowFactsModal] = useState(false);
 
-  const updateScrollArrows = () => {
-    const el = categoryScrollRef.current;
-    if (!el) return;
-    setCanScrollLeft(el.scrollLeft > 0);
-    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
-  };
+  // Ambient "Did You Know" facts — rotate one every few seconds while people wait
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setFactIndex((i) => (i + 1) % MUSIC_FACTS.length);
+    }, 7000);
+    return () => clearInterval(interval);
+  }, []);
+  const shouldReduceMotion = useReducedMotion();
+  const { container, pop } = getMotionVariants(!!shouldReduceMotion);
 
   const { getPlaylistTracks } = useAppleMusic();
 
@@ -78,6 +112,10 @@ export default function RoomLobby() {
     playerId,
     isTerminated,
     kickPlayer,
+    reactions,
+    sendReaction,
+    verifiedPlayerIds,
+    fetchRoom,
   } = useMultiplayerGame(code || "");
 
   // Kicked detection: if I was in the room but my row is gone, redirect.
@@ -93,11 +131,8 @@ export default function RoomLobby() {
     }
   }, [players, playerId, loading, room, isHost, navigate]);
 
-  // Helper: get/set username cookie
-  const getUsernameCookie = () => {
-    const match = document.cookie.match(/(?:^|; )songiq_username=([^;]*)/);
-    return match ? decodeURIComponent(match[1]) : "";
-  };
+  // Helper: set username cookie (reading goes through getKnownPlayerName,
+  // which also checks the profile's saved name)
   const setUsernameCookie = (name: string) => {
     const maxAge = 365 * 24 * 60 * 60; // 1 year
     document.cookie = `songiq_username=${encodeURIComponent(name)}; path=/; max-age=${maxAge}; SameSite=Lax`;
@@ -115,11 +150,14 @@ export default function RoomLobby() {
     initializeAuth();
   }, [initializeAuth]);
 
-  // Pre-fill join name from cookie
+  // Pre-fill join name from the profile/cookie, so returning players never
+  // see an empty field even when the modal below still shows the input.
   useEffect(() => {
-    const saved = getUsernameCookie();
+    const saved = getKnownPlayerName();
     if (saved) setJoinName(saved);
   }, []);
+
+  const hasKnownName = Boolean(getKnownPlayerName());
 
 
   // Fetch playlist images from API
@@ -127,7 +165,7 @@ export default function RoomLobby() {
     const fetchImages = async () => {
       for (const playlist of PLAYLISTS) {
         try {
-          const result = await getPlaylistTracks(playlist.searchTerms, playlist.name, 5);
+          const result = await getPlaylistTracks(playlist.searchTerms, playlist.name, 5, playlist.isArtist);
           if (result?.playlistImage) {
             setPlaylistImages((prev) => ({ ...prev, [playlist.id]: result.playlistImage }));
           }
@@ -158,14 +196,29 @@ export default function RoomLobby() {
 
     setIsJoiningRoom(true);
     try {
-      // Check if room is still accepting players
-      if (room.status !== "waiting") {
-        toast.error("Game already in progress");
+      // Fresh read via the RPC, not the locally-cached `room` (which can
+      // lag a beat behind a broadcast) -- mid-round joins are allowed, only
+      // a game that's genuinely over is rejected. game_rooms/room_players
+      // are members-only now and this caller isn't one yet, so this also
+      // covers the capacity check below without a second query.
+      const { data: rpcData } = await (supabase as any).rpc("get_room_by_code", {
+        p_code: room.room_code,
+      });
+      const freshRoom = rpcData?.room;
+      const freshPlayers = (rpcData?.players ?? []) as unknown[];
+      if (freshRoom?.status === "finished") {
+        toast.error("This game has already ended");
         setIsJoiningRoom(false);
         return;
       }
 
-      await supabase.from("room_players").insert({
+      if (freshPlayers.length >= room.max_players) {
+        toast.error("Room is full");
+        setIsJoiningRoom(false);
+        return;
+      }
+
+      const { error: joinErr } = await supabase.from("room_players").insert({
         room_id: room.id,
         player_id: playerId,
         player_name: joinName.trim(),
@@ -173,25 +226,47 @@ export default function RoomLobby() {
         is_host: false,
         is_ready: true,
       });
+      if (joinErr) throw joinErr;
 
       setPlayer(joinName.trim(), 1);
       setStoreRoom(room.id, room.room_code, false);
       setUsernameCookie(joinName.trim());
       setShowNameModal(false);
+      // The hook's initial channel subscription attempt (made before this
+      // join) was denied under the members-only Realtime policy -- refetch
+      // now so `players` reflects the new membership immediately, which
+      // re-triggers that subscription effect to retry (see
+      // isConfirmedMember in useMultiplayerGame.ts) instead of waiting on
+      // the 3s poll to notice.
+      fetchRoom();
     } catch (err) {
       console.error("Error joining room:", err);
-      toast.error("Failed to join room");
+      // A capacity race (two people squeezing into the last slot at once)
+      // surfaces here as an RLS rejection from the DB-level cap, not the
+      // pre-check above -- same friendly message either way.
+      const isCapacityRejection = (err as { code?: string })?.code === "42501";
+      toast.error(isCapacityRejection ? "Room is full" : "Failed to join room");
     } finally {
       setIsJoiningRoom(false);
     }
   };
 
-  // Navigate to game when it starts
+  // Navigate to game when it starts (pre_game = synchronized 5s countdown
+  // before round 1, shown on the game screen so audio can preload there).
+  // Gated on actually being a room member: a brand-new visitor opening a
+  // shared link to an already-playing room would otherwise get redirected
+  // here on the very first render -- before the name modal even appears --
+  // landing on the game screen as a phantom non-member who was never
+  // inserted into room_players (invisible on the leaderboard, never
+  // recognized as a mid-round joiner).
   useEffect(() => {
-    if (gameStatus === "playing" && room) {
+    if (!playerId) return;
+    const isInRoom = players.some((p) => p.player_id === playerId);
+    if (!isInRoom) return;
+    if ((gameStatus === "pre_game" || gameStatus === "playing") && room) {
       navigate(`/room/${code}/game`);
     }
-  }, [gameStatus, room, code, navigate]);
+  }, [gameStatus, room, code, navigate, players, playerId]);
 
   // Redirect home when host terminates the room
   useEffect(() => {
@@ -207,10 +282,11 @@ export default function RoomLobby() {
     await navigator.clipboard.writeText(shareUrl);
     setCopied(true);
     toast.success("Room link copied!");
+    trackEvent("room_link_copy", { room_code: room.room_code });
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleStartGame = async () => {
+  const handleStartGame = async (playlistId: string = selectedCategory) => {
     setIsStarting(true);
     // Update room settings before starting
     if (room) {
@@ -219,7 +295,15 @@ export default function RoomLobby() {
         time_per_round: selectedTime,
       }).eq("id", room.id);
     }
-    await startGame(selectedCategory);
+    trackEvent("multiplayer_game_start", {
+      room_code: room?.room_code,
+      category: playlistId,
+      playlist_name: getPlaylistById(playlistId)?.name,
+      rounds: selectedRounds,
+      time_per_round: selectedTime,
+      player_count: players.length,
+    });
+    await startGame(playlistId);
     setIsStarting(false);
   };
 
@@ -279,31 +363,33 @@ export default function RoomLobby() {
         <title>{`Join Room ${code ?? ""} — Multiplayer Music Quiz | SongIQ`}</title>
         <meta name="description" content="Join a private SongIQ multiplayer music quiz room. Pick a nickname and play live with friends across Afrobeats, Pop and more." />
         <meta name="robots" content="noindex, follow" />
-        <link rel="canonical" href={`https://songiq.xyz/room/${code ?? ""}`} />
+        <link rel="canonical" href={`https://songiq.io/room/${code ?? ""}`} />
         <meta property="og:title" content={`Join Room ${code ?? ""} — Multiplayer Music Quiz | SongIQ`} />
         <meta property="og:description" content="A friend invited you to a live multiplayer music quiz on SongIQ. Tap to join." />
-        <meta property="og:url" content={`https://songiq.xyz/room/${code ?? ""}`} />
+        <meta property="og:url" content={`https://songiq.io/room/${code ?? ""}`} />
       </Helmet>
       {/* Name Modal for joining players */}
       <Dialog open={showNameModal} onOpenChange={() => {}}>
         <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
           <DialogHeader>
-            <DialogTitle>Enter Your Name</DialogTitle>
+            <DialogTitle>{hasKnownName ? `Join as ${joinName}?` : "Enter Your Name"}</DialogTitle>
             <DialogDescription>
-              Choose a nickname to join the room
+              {hasKnownName ? "You're about to join this room" : "Choose a nickname to join the room"}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 pt-2">
-            <Input
-              value={joinName}
-              onChange={(e) => setJoinName(e.target.value)}
-              placeholder="Your nickname"
-              aria-label="Your nickname"
-              maxLength={20}
-              className="text-center text-lg"
-              onKeyDown={(e) => e.key === "Enter" && handleJoinWithName()}
-              autoFocus
-            />
+            {!hasKnownName && (
+              <Input
+                value={joinName}
+                onChange={(e) => setJoinName(e.target.value)}
+                placeholder="Your nickname"
+                aria-label="Your nickname"
+                maxLength={20}
+                className="text-center text-lg"
+                onKeyDown={(e) => e.key === "Enter" && handleJoinWithName()}
+                autoFocus
+              />
+            )}
             <Button
               variant="gold"
               size="lg"
@@ -317,9 +403,19 @@ export default function RoomLobby() {
         </DialogContent>
       </Dialog>
       <Starfield />
+
+      <FloatingReactions reactions={reactions} />
+      {/* Vertically centered on the right edge -- bottom-right is the
+          FeedbackWidget's spot, and the mobile leaderboard sheet during
+          gameplay spans the whole bottom edge, so this stays clear of both
+          in the lobby and in-game alike. */}
+      <div className="fixed right-2 top-1/2 -translate-y-1/2 z-[80]">
+        <ReactionBar onSend={sendReaction} orientation="vertical" />
+      </div>
+
       {/* Custom header with Leave Room instead of menu */}
       <header className="fixed top-0 left-0 right-0 z-50 px-4 py-3 bg-background/60 backdrop-blur-xl border-b border-white/10">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
+        <div className="max-w-[1400px] mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link to="/" className="flex items-center">
               <img src={songiqLogo} alt="SongIQ — Music Trivia Game" className="h-8 md:h-10 w-auto" />
@@ -336,7 +432,9 @@ export default function RoomLobby() {
                   <AlertDialogTitle>Leave Room?</AlertDialogTitle>
                   <AlertDialogDescription>
                     {isHost
-                      ? "As the host, leaving will close the room for everyone."
+                      ? players.length > 1
+                        ? "As the host, leaving will hand the room over to the next player."
+                        : "As the host, leaving will close the room since no one else is here."
                       : "Are you sure you want to leave the room?"}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
@@ -368,9 +466,9 @@ export default function RoomLobby() {
         </div>
       </header>
 
-      <main className="relative z-10 pt-24 pb-12 px-4">
+      <main className={cn("relative z-10 pt-[79px] md:pt-[149px] px-4", isHost ? "pb-28" : "pb-12")}>
         <h1 className="sr-only">Multiplayer Room Lobby</h1>
-        <div className="max-w-2xl mx-auto">
+        <div className="max-w-2xl lg:max-w-[1400px] mx-auto">
           {/* Waiting message for non-host */}
           {!isHost && (
             <motion.div
@@ -389,264 +487,428 @@ export default function RoomLobby() {
             </motion.div>
           )}
 
-          {/* Room Code Card */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="game-card text-center mb-6"
+            className="room-lobby-grid"
+            variants={container(0.1)}
+            initial="hidden"
+            animate="show"
           >
-            <p className="text-sm text-muted-foreground mb-2">Room Code</p>
-            <div className="flex items-center justify-center gap-3">
-              <span className="text-4xl font-bold tracking-widest text-primary">
-                {room.room_code}
-              </span>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Copy room invite link"
-                onClick={handleCopyCode}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                {copied ? <Check className="w-5 h-5 text-green-500" /> : <Copy className="w-5 h-5" />}
-              </Button>
-            </div>
-            <p className="text-sm text-muted-foreground mt-2">
-              Share this code with friends to join
-            </p>
-          </motion.div>
-
-          <div className="flex flex-col-reverse">
-          {/* Players Grid */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="game-card mb-6"
-          >
-            <div className="flex items-center gap-2 mb-4">
-              <Users className="w-5 h-5 text-primary" />
-              <h2 className="font-bold">Players ({players.length}/{room.max_players})</h2>
-            </div>
-
-            <div className="grid grid-cols-4 gap-4">
-              <AnimatePresence mode="popLayout">
-                {[...players].sort((a, b) => {
-                  if (a.is_host) return -1;
-                  if (b.is_host) return 1;
-                  return 0;
-                }).map((player) => (
-                  <motion.div
-                    key={player.player_id}
-                    layout
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.8 }}
-                    className="relative"
-                  >
-                    <PlayerAvatar
-                      name={player.player_name}
-                      avatarIndex={player.avatar_index}
-                      isHost={player.is_host}
-                      size="md"
-                    />
-                    {isHost && !player.is_host && (
-                      <button
-                        onClick={async () => {
-                          try {
-                            await kickPlayer(player.player_id);
-                            toast.success(`Removed ${player.player_name}`);
-                          } catch {
-                            toast.error("Failed to remove player");
-                          }
-                        }}
-                        title={`Remove ${player.player_name}`}
-                        className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
-                      >
-                        <UserX className="w-3.5 h-3.5" />
-                      </button>
+            {/* Host Controls or Guest Settings View, plus Did You Know facts underneath */}
+            <div style={{ gridArea: "settings" }} className="space-y-6">
+            {isHost ? (
+              <motion.div variants={pop} className="raised-panel p-6">
+                {/* Select Playlist / Game Settings tabs */}
+                <div className="flex rounded-xl bg-card/60 border border-border p-1 mb-5">
+                  <button
+                    onClick={() => setHostTab("playlist")}
+                    className={cn(
+                      "flex-1 py-2 rounded-lg text-xs font-bold uppercase tracking-[0.12em] transition-all",
+                      hostTab === "playlist"
+                        ? "bg-primary text-primary-foreground shadow-lg"
+                        : "text-muted-foreground hover:text-foreground"
                     )}
-                  </motion.div>
-                ))}
-
-                {/* Empty slots */}
-                {Array.from({ length: room.max_players - players.length }).map((_, i) => (
-                  <motion.div
-                    key={`empty-${i}`}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="flex flex-col items-center gap-1"
                   >
-                    <div className="w-14 h-14 rounded-full border-2 border-dashed border-muted-foreground/30 flex items-center justify-center">
-                      <span className="text-2xl text-muted-foreground/30">?</span>
-                    </div>
-                    <span className="text-sm text-muted-foreground">Waiting...</span>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
-          </motion.div>
-
-          {/* Host Controls or Guest Settings View */}
-          {isHost ? (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="game-card mb-6"
-            >
-              <div className="flex items-center gap-2 mb-4">
-                <Crown className="w-5 h-5 text-gold" />
-                <h2 className="font-bold">Game Settings</h2>
-              </div>
-
-              <div className="space-y-5">
-                {/* Category Cards - Horizontal Scroll */}
-                <div>
-                  <label className="flex items-center gap-1.5 text-sm font-medium mb-3">
-                    <Music className="w-4 h-4 text-primary" />
-                    Category
-                  </label>
-                  <div className="relative">
-                    {canScrollLeft && (
-                      <button
-                        onClick={() => { categoryScrollRef.current?.scrollBy({ left: -140, behavior: 'smooth' }); }}
-                        className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-background/80 backdrop-blur border border-border flex items-center justify-center text-foreground/70 hover:text-foreground hover:bg-background transition-colors"
-                      >
-                        <ChevronLeft className="w-4 h-4" />
-                      </button>
+                    1. Select Playlist
+                  </button>
+                  <button
+                    onClick={() => setHostTab("settings")}
+                    className={cn(
+                      "flex-1 py-2 rounded-lg text-xs font-bold uppercase tracking-[0.12em] transition-all",
+                      hostTab === "settings"
+                        ? "bg-primary text-primary-foreground shadow-lg"
+                        : "text-muted-foreground hover:text-foreground"
                     )}
-                    <div ref={categoryScrollRef} onScroll={updateScrollArrows} className="flex gap-3 overflow-x-auto pb-2 px-10 scrollbar-hide">
-                      {PLAYLISTS.map((playlist) => (
-                        <div key={playlist.id} className="flex-shrink-0 w-32">
-                          <PlaylistCard
-                            playlist={playlist}
-                            imageUrl={playlistImages[playlist.id]}
-                            isSelected={selectedCategory === playlist.id}
-                            onClick={async () => {
-                              setSelectedCategory(playlist.id);
-                              if (room) {
-                                await supabase.from("game_rooms").update({ category: playlist.id }).eq("id", room.id);
-                              }
-                            }}
-                          />
-                        </div>
+                  >
+                    2. Game Settings
+                  </button>
+                </div>
+
+                {hostTab === "playlist" ? (
+                  <div>
+                    <DoubleTapHint />
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {PLAYLIST_CATEGORIES.map((cat) => (
+                        <button
+                          key={cat.id}
+                          onClick={() => {
+                            setActiveCategory(cat.id);
+                            setArtistsOnly(false);
+                          }}
+                          className={cn(
+                            "px-3 py-1.5 rounded-full text-xs font-medium uppercase tracking-wide transition-all border",
+                            activeCategory === cat.id
+                              ? "bg-primary text-primary-foreground border-primary shadow-[0_0_20px_hsl(var(--primary)/0.5)]"
+                              : "bg-card/40 text-muted-foreground border-border/40 hover:text-foreground hover:border-border"
+                          )}
+                        >
+                          {cat.label}
+                        </button>
                       ))}
                     </div>
-                    {canScrollRight && (
-                      <button
-                        onClick={() => { categoryScrollRef.current?.scrollBy({ left: 140, behavior: 'smooth' }); }}
-                        className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-background/80 backdrop-blur border border-border flex items-center justify-center text-foreground/70 hover:text-foreground hover:bg-background transition-colors"
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
+                    {(() => {
+                      const categoryPlaylists = activeCategory === "all"
+                        ? PLAYLISTS
+                        : PLAYLISTS.filter((p) => p.category === activeCategory);
+                      const hasArtistsInCategory = categoryPlaylists.some((p) => p.isArtist);
+                      const artistFiltered = artistsOnly
+                        ? categoryPlaylists.filter((p) => p.isArtist)
+                        : categoryPlaylists;
+                      const query = playlistSearch.trim().toLowerCase();
+                      const gridPlaylists = query
+                        ? artistFiltered.filter((p) => p.name.toLowerCase().includes(query))
+                        : artistFiltered;
+                      return (
+                        <>
+                          {hasArtistsInCategory && (
+                            <div className="flex gap-2 mb-3">
+                              <button
+                                onClick={() => setArtistsOnly(false)}
+                                className={cn(
+                                  "px-3 py-1 rounded-full text-xs font-semibold transition-colors",
+                                  !artistsOnly ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground"
+                                )}
+                              >
+                                All
+                              </button>
+                              <button
+                                onClick={() => setArtistsOnly(true)}
+                                className={cn(
+                                  "px-3 py-1 rounded-full text-xs font-semibold transition-colors",
+                                  artistsOnly ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground"
+                                )}
+                              >
+                                Artists
+                              </button>
+                            </div>
+                          )}
+                    <div className="relative max-w-xs mb-3">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        value={playlistSearch}
+                        onChange={(e) => setPlaylistSearch(e.target.value)}
+                        placeholder="Search playlists…"
+                        aria-label="Search playlists"
+                        className="pl-9 h-9 text-sm"
+                      />
+                    </div>
+                    {gridPlaylists.length === 0 ? (
+                      <p className="text-sm text-muted-foreground py-2">
+                        No playlists match "{playlistSearch.trim()}"
+                      </p>
+                    ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {gridPlaylists.map((playlist) => (
+                        <PlaylistCard
+                          key={playlist.id}
+                          playlist={playlist}
+                          imageUrl={playlistImages[playlist.id]}
+                          isSelected={selectedCategory === playlist.id}
+                          onClick={async () => {
+                            setSelectedCategory(playlist.id);
+                            if (room) {
+                              await supabase.from("game_rooms").update({ category: playlist.id }).eq("id", room.id);
+                            }
+                          }}
+                          onDoubleClick={() => {
+                            if (canStart && !isStarting) handleStartGame(playlist.id);
+                          }}
+                        />
+                      ))}
+                    </div>
                     )}
+                        </>
+                      );
+                    })()}
                   </div>
-                </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="flex items-center gap-1.5 text-sm font-medium mb-3">
+                        <Hash className="w-4 h-4 text-primary" />
+                        Number of Songs
+                      </label>
+                      <div className="flex gap-1.5">
+                        {[5, 10, 15, 20].map((n) => (
+                          <button
+                            key={n}
+                            onClick={async () => {
+                              setSelectedRounds(n);
+                              if (room) {
+                                await supabase.from("game_rooms").update({ total_rounds: n }).eq("id", room.id);
+                              }
+                            }}
+                            className={`flex-1 py-2 rounded-lg border-2 text-xs font-bold transition-all duration-200 ${
+                              selectedRounds === n
+                                ? "border-primary bg-primary/10 text-primary shadow-[0_0_12px_hsl(var(--primary)/0.2)]"
+                                : "border-border/50 bg-card/50 text-muted-foreground hover:border-border hover:bg-card/80"
+                            }`}
+                          >
+                            {n}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
 
-                {/* Number of Songs */}
-                <div>
-                  <label className="flex items-center gap-1.5 text-sm font-medium mb-3">
-                    <Hash className="w-4 h-4 text-primary" />
-                    Number of Songs
-                  </label>
-                  <div className="flex gap-2">
-                    {[5, 10, 15, 20].map((n) => (
-                      <button
-                        key={n}
-                        onClick={async () => {
-                          setSelectedRounds(n);
-                          if (room) {
-                            await supabase.from("game_rooms").update({ total_rounds: n }).eq("id", room.id);
-                          }
-                        }}
-                        className={`flex-1 py-2.5 rounded-xl border-2 text-sm font-bold transition-all duration-200 ${
-                          selectedRounds === n
-                            ? "border-primary bg-primary/10 text-primary shadow-[0_0_12px_hsl(var(--primary)/0.2)]"
-                            : "border-border/50 bg-card/50 text-muted-foreground hover:border-border hover:bg-card/80"
-                        }`}
-                      >
-                        {n}
-                      </button>
-                    ))}
+                    <div>
+                      <label className="flex items-center gap-1.5 text-sm font-medium mb-3">
+                        <Clock className="w-4 h-4 text-primary" />
+                        Time per Song
+                      </label>
+                      <div className="flex gap-1.5">
+                        {[10, 15, 20, 30].map((t) => (
+                          <button
+                            key={t}
+                            onClick={async () => {
+                              setSelectedTime(t);
+                              if (room) {
+                                await supabase.from("game_rooms").update({ time_per_round: t }).eq("id", room.id);
+                              }
+                            }}
+                            className={`flex-1 py-2 rounded-lg border-2 text-xs font-bold transition-all duration-200 ${
+                              selectedTime === t
+                                ? "border-primary bg-primary/10 text-primary shadow-[0_0_12px_hsl(var(--primary)/0.2)]"
+                                : "border-border/50 bg-card/50 text-muted-foreground hover:border-border hover:bg-card/80"
+                            }`}
+                          >
+                            {t}s
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
+                )}
+              </motion.div>
+            ) : (
+              <motion.div variants={pop} className="raised-panel p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Crown className="w-5 h-5 text-gold" />
+                  <h2 className="font-bold text-xl">Game Settings</h2>
                 </div>
+                <div className="space-y-4">
+                  {/* Selected playlist — same card the host sees while picking, broadcast live */}
+                  {(() => {
+                    const playlistDisplay = (
+                      <div className="w-full max-w-[220px] mx-auto pointer-events-none">
+                        <PlaylistCard
+                          playlist={PLAYLISTS.find((p) => p.id === selectedCategory) ?? PLAYLISTS[0]}
+                          imageUrl={playlistImages[selectedCategory]}
+                          isSelected
+                          onClick={() => {}}
+                        />
+                      </div>
+                    );
+                    const songsStat = (
+                      <div className="text-center p-3 rounded-xl bg-card/50 border border-border/50">
+                        <Hash className="w-4 h-4 text-primary mx-auto mb-1" />
+                        <p className="text-xs text-muted-foreground">Songs</p>
+                        <p className="text-sm font-bold text-foreground mt-0.5">{selectedRounds}</p>
+                      </div>
+                    );
+                    const timeStat = (
+                      <div className="text-center p-3 rounded-xl bg-card/50 border border-border/50">
+                        <Clock className="w-4 h-4 text-primary mx-auto mb-1" />
+                        <p className="text-xs text-muted-foreground">Time</p>
+                        <p className="text-sm font-bold text-foreground mt-0.5">{selectedTime}s</p>
+                      </div>
+                    );
+                    return (
+                      <>
+                        {/* Mobile: playlist row, then Songs + Time side by side */}
+                        <div className="sm:hidden space-y-4">
+                          {playlistDisplay}
+                          <div className="grid grid-cols-2 gap-3">
+                            {songsStat}
+                            {timeStat}
+                          </div>
+                        </div>
 
-                {/* Time per Round */}
-                <div>
-                  <label className="flex items-center gap-1.5 text-sm font-medium mb-3">
-                    <Clock className="w-4 h-4 text-primary" />
-                    Time per Song
-                  </label>
-                  <div className="flex gap-2">
-                    {[10, 15, 20, 30].map((t) => (
-                      <button
-                        key={t}
-                        onClick={async () => {
-                          setSelectedTime(t);
-                          if (room) {
-                            await supabase.from("game_rooms").update({ time_per_round: t }).eq("id", room.id);
-                          }
-                        }}
-                        className={`flex-1 py-2.5 rounded-xl border-2 text-sm font-bold transition-all duration-200 ${
-                          selectedTime === t
-                            ? "border-primary bg-primary/10 text-primary shadow-[0_0_12px_hsl(var(--primary)/0.2)]"
-                            : "border-border/50 bg-card/50 text-muted-foreground hover:border-border hover:bg-card/80"
-                        }`}
-                      >
-                        {t}s
-                      </button>
-                    ))}
+                        {/* Desktop: 2 columns — playlist spans both rows, Songs/Time stacked beside it */}
+                        <div className="hidden sm:grid sm:grid-cols-2 sm:gap-4">
+                          <div className="row-span-2 flex items-center">{playlistDisplay}</div>
+                          {songsStat}
+                          {timeStat}
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              </motion.div>
+            )}
+
+            {/* Did You Know — guests only, ambient facts on desktop, tap-to-open modal on mobile */}
+            {!isHost && (
+              <>
+                <motion.div variants={pop} className="raised-panel px-6 py-10 hidden lg:block text-center">
+                  <div className="flex items-center justify-center gap-2 mb-4">
+                    <Lightbulb className="w-5 h-5 text-gold" />
+                    <h2 className="font-bold text-xl">Did You Know?</h2>
                   </div>
-                </div>
+                  <AnimatePresence mode="wait">
+                    <motion.p
+                      key={factIndex}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      transition={CARD_SPRING}
+                      className="text-xl text-muted-foreground leading-relaxed max-w-md mx-auto"
+                    >
+                      {MUSIC_FACTS[factIndex]}
+                    </motion.p>
+                  </AnimatePresence>
+                </motion.div>
 
-                <Button
-                  variant="gold"
-                  size="lg"
-                  className="w-full"
-                  onClick={handleStartGame}
-                  disabled={!canStart || isStarting}
+                <motion.button
+                  variants={pop}
+                  onClick={() => setShowFactsModal(true)}
+                  className="raised-panel p-4 flex items-center justify-center gap-2 text-sm font-semibold text-gold w-full lg:hidden"
                 >
-                  <Play className="w-5 h-5 mr-2" />
-                  {isStarting ? "Starting..." : players.length < 2 ? "Need at least 2 players" : "Start Game"}
+                  <Lightbulb className="w-4 h-4" />
+                  Wanna see some music facts while you wait?
+                </motion.button>
+              </>
+            )}
+            </div>
+
+            <div className="room-lobby-sidebar">
+            {/* Room Code */}
+            <motion.div variants={pop} style={{ gridArea: "roomcode" }} className="raised-panel p-6 text-center">
+              <p className="text-sm text-muted-foreground mb-2">Room Code</p>
+              <div className="flex items-center justify-center gap-3">
+                <span className="text-4xl font-bold tracking-widest text-primary">
+                  {room.room_code}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Copy room invite link"
+                  onClick={handleCopyCode}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  {copied ? <Check className="w-5 h-5 text-green-500" /> : <Copy className="w-5 h-5" />}
                 </Button>
               </div>
+              <p className="text-sm text-muted-foreground mt-2">
+                Share this code with friends to join
+              </p>
             </motion.div>
-          ) : (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="game-card mb-6"
-            >
-              <div className="flex items-center gap-2 mb-4">
-                <Crown className="w-5 h-5 text-gold" />
-                <h2 className="font-bold">Game Settings</h2>
-              </div>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="text-center p-3 rounded-xl bg-card/50 border border-border/50">
-                  <Music className="w-4 h-4 text-primary mx-auto mb-1" />
-                  <p className="text-xs text-muted-foreground">Category</p>
-                  <p className="text-sm font-bold text-foreground mt-0.5">
-                    {PLAYLISTS.find((p) => p.id === selectedCategory)?.name || selectedCategory}
-                  </p>
-                </div>
-                <div className="text-center p-3 rounded-xl bg-card/50 border border-border/50">
-                  <Hash className="w-4 h-4 text-primary mx-auto mb-1" />
-                  <p className="text-xs text-muted-foreground">Songs</p>
-                  <p className="text-sm font-bold text-foreground mt-0.5">{selectedRounds}</p>
-                </div>
-                <div className="text-center p-3 rounded-xl bg-card/50 border border-border/50">
-                  <Clock className="w-4 h-4 text-primary mx-auto mb-1" />
-                  <p className="text-xs text-muted-foreground">Time</p>
-                  <p className="text-sm font-bold text-foreground mt-0.5">{selectedTime}s</p>
-                </div>
-              </div>
-            </motion.div>
-          )}
-          </div>
 
+            {/* Players */}
+            <motion.div variants={pop} style={{ gridArea: "players" }} className="raised-panel p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Users className="w-5 h-5 text-primary" />
+                <h2 className="font-bold">Players ({players.length}/{room.max_players})</h2>
+              </div>
+
+                <div className="grid grid-cols-5 gap-3">
+                  <AnimatePresence mode="popLayout">
+                    {[...players].sort((a, b) => {
+                      if (a.is_host) return -1;
+                      if (b.is_host) return 1;
+                      return 0;
+                    }).map((player) => (
+                      <motion.div
+                        key={player.player_id}
+                        layout
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.8 }}
+                        className="relative"
+                      >
+                        <PlayerAvatar
+                          name={player.player_name}
+                          avatarIndex={player.avatar_index}
+                          isHost={player.is_host}
+                          verified={verifiedPlayerIds.has(player.player_id)}
+                          size="md"
+                        />
+                        {isHost && !player.is_host && (
+                          <button
+                            onClick={async () => {
+                              try {
+                                await kickPlayer(player.player_id);
+                                toast.success(`Removed ${player.player_name}`);
+                              } catch {
+                                toast.error("Failed to remove player");
+                              }
+                            }}
+                            title={`Remove ${player.player_name}`}
+                            className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
+                          >
+                            <UserX className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </motion.div>
+                    ))}
+
+                    {/* Empty slots */}
+                    {Array.from({ length: room.max_players - players.length }).map((_, i) => (
+                      <motion.div
+                        key={`empty-${i}`}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="flex flex-col items-center gap-1"
+                      >
+                        <div className="w-14 h-14 rounded-full border-2 border-dashed border-muted-foreground/30 flex items-center justify-center">
+                          <span className="text-2xl text-muted-foreground/30">?</span>
+                        </div>
+                        <span className="text-sm text-muted-foreground">Waiting...</span>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </div>
+              </motion.div>
+            </div>
+          </motion.div>
         </div>
       </main>
+
+      {/* Fixed to the viewport (not just sticky within the panel above) so
+          the host never has to scroll to find it -- a motion.div ancestor
+          with a resting transform (from the pop-in spring) would otherwise
+          constrain position:sticky/fixed to that panel's own box instead of
+          the real viewport. Aligned under the settings column, not the
+          400px sidebar, to match the grid above it on desktop. */}
+      {isHost && (
+        <div className="fixed inset-x-0 bottom-0 z-30 bg-card/95 backdrop-blur-sm border-t border-border/60 px-4 py-3">
+          <div className="max-w-2xl lg:max-w-[1400px] mx-auto lg:grid lg:grid-cols-[1fr_400px] lg:gap-6">
+            <Button
+              variant="gold"
+              size="lg"
+              className="w-full"
+              onClick={() => handleStartGame()}
+              disabled={!canStart || isStarting}
+            >
+              <Play className="w-5 h-5 mr-2" />
+              {isStarting ? "Starting..." : players.length < 2 ? "Need at least 2 players" : "Start Game"}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Music Facts Modal (mobile) */}
+      <Dialog open={showFactsModal} onOpenChange={setShowFactsModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-center gap-2">
+              <Lightbulb className="w-5 h-5 text-gold" />
+              Did You Know?
+            </DialogTitle>
+            <DialogDescription className="sr-only">A fun music fact while you wait</DialogDescription>
+          </DialogHeader>
+          <AnimatePresence mode="wait">
+            <motion.p
+              key={factIndex}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={CARD_SPRING}
+              className="text-lg text-center text-foreground/90 leading-relaxed py-6"
+            >
+              {MUSIC_FACTS[factIndex]}
+            </motion.p>
+          </AnimatePresence>
+        </DialogContent>
+      </Dialog>
 
       {/* Profile / Change Name Modal */}
       <Dialog open={showProfileModal} onOpenChange={setShowProfileModal}>
