@@ -6,6 +6,7 @@ import { getPlaylistById, PLAYLISTS } from "@/lib/playlists";
 import { toast } from "sonner";
 import { logError, logWarn, logInfo } from "@/lib/clientLogger";
 import { fetchVerifiedPlayerIds } from "@/lib/verifiedPlayers";
+import { prefetchAudio } from "@/lib/audioPreload";
 
 export interface MultiplayerPlayer {
   id: string;
@@ -15,6 +16,7 @@ export interface MultiplayerPlayer {
   score: number;
   is_host: boolean;
   is_ready: boolean;
+  joined_at: string;
   previousRank?: number;
   currentRank?: number;
   roundScore?: number;
@@ -137,6 +139,12 @@ export function useMultiplayerGame(roomCode: string) {
   // in the subscription effect below) so sendReaction can use it from
   // outside that effect.
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  // Player IDs currently tracked as present on the room's realtime channel --
+  // kept in a ref (not state) since it's read by an interval, not rendered.
+  const onlinePlayerIdsRef = useRef<Set<string>>(new Set());
+  // Host id this client last saw -- used only to fire a toast on the
+  // transition (initial fetch shouldn't toast "so-and-so is now the host").
+  const lastKnownHostIdRef = useRef<string | null>(null);
   // Declared here (rather than with the rest of the player-delta state
   // below) so sendReaction can read the room's own record of this player's
   // name -- the same name everyone else already sees on avatars/leaderboard
@@ -253,6 +261,22 @@ export function useMultiplayerGame(roomCode: string) {
     setNextQuestionType(qType);
     setCurrentQuestionType(qType);
   }, []);
+
+  // Prefetch the current round's clip into the browser's HTTP cache the
+  // instant its preview_url is public -- this hook is mounted on RoomLobby
+  // too, so a game started while a player is still on that route already
+  // has a head start on the fetch by the time MultiplayerGame.tsx mounts
+  // and actually needs to play it. Never touches round N+1: game_rounds
+  // only gets a round's row inserted 5s before that round starts, so
+  // there's nothing to prefetch ahead of time even if this wanted to.
+  const prefetchedUrlsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const url = currentRound?.preview_url;
+    if (!url || gameStatus === "playing") return;
+    if (prefetchedUrlsRef.current.has(url)) return;
+    prefetchedUrlsRef.current.add(url);
+    prefetchAudio(url);
+  }, [currentRound?.preview_url, gameStatus]);
 
   const fetchRoom = useCallback(async () => {
     try {
@@ -454,7 +478,7 @@ export function useMultiplayerGame(roomCode: string) {
       if (cancelled) return;
 
       channel = supabase
-        .channel(`room:${room.id}`, { config: { private: true } })
+        .channel(`room:${room.id}`, { config: { private: true, presence: { key: playerId ?? undefined } } })
         .on("broadcast", { event: "INSERT" }, (msg) => handleBroadcast(msg.payload))
         .on("broadcast", { event: "UPDATE" }, (msg) => handleBroadcast(msg.payload))
         .on("broadcast", { event: "DELETE" }, (msg) => handleBroadcast(msg.payload))
@@ -466,9 +490,18 @@ export function useMultiplayerGame(roomCode: string) {
           // arrival here is genuinely from someone else.
           addReaction({ emoji: p.emoji, playerName: p.playerName || "Player", avatarIndex: p.avatarIndex ?? 1, isSelf: false });
         })
-        .subscribe((status) => {
+        // Presence: who's actually connected right now. Drives the "host
+        // went inactive" watcher below -- a disconnect (closed tab, crash,
+        // dropped connection) drops out of sync/leave within seconds,
+        // without any polling.
+        .on("presence", { event: "sync" }, () => {
+          const state = channel!.presenceState();
+          onlinePlayerIdsRef.current = new Set(Object.keys(state));
+        })
+        .subscribe(async (status) => {
           if (status === "SUBSCRIBED") {
             logInfo("realtime.subscribed", "Room broadcast channel subscribed", { roomId: room.id, roomCode: room.room_code });
+            if (playerId) await channel!.track({ player_id: playerId, online_at: new Date().toISOString() });
           } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
             logWarn("realtime.disconnected", `Room broadcast channel ${status}`, { roomId: room.id, roomCode: room.room_code, status });
           }
@@ -481,7 +514,66 @@ export function useMultiplayerGame(roomCode: string) {
       channelRef.current = null;
       if (channel) supabase.removeChannel(channel);
     };
-  }, [room?.id, handleBroadcast, addReaction]);
+  }, [room?.id, playerId, handleBroadcast, addReaction]);
+
+  // Heartbeat: refresh this player's own last_seen every 15s while mounted
+  // in the room. transfer_host_if_inactive() treats a stale last_seen as the
+  // ground truth for "host is actually gone" -- Presence alone (above) can
+  // false-positive on a brief reconnect, this can't.
+  useEffect(() => {
+    if (!room?.id || !playerId) return;
+    const beat = () => {
+      supabase
+        .from("room_players")
+        .update({ last_seen: new Date().toISOString() })
+        .eq("room_id", room.id)
+        .eq("player_id", playerId)
+        .then(() => {});
+    };
+    beat();
+    const interval = setInterval(beat, 15000);
+    return () => clearInterval(interval);
+  }, [room?.id, playerId]);
+
+  // Host-inactivity watcher: any non-host player, while Presence shows the
+  // host missing from the room's realtime channel, periodically asks the
+  // server to hand off host. transfer_host_if_inactive() re-verifies via
+  // last_seen before acting, so this is safe to call speculatively --
+  // harmless no-op if the host is just mid-reconnect.
+  useEffect(() => {
+    if (!room?.id || !playerId || room.host_id === playerId) return;
+
+    const check = () => {
+      if (onlinePlayerIdsRef.current.size === 0) return; // presence not synced yet
+      if (onlinePlayerIdsRef.current.has(room.host_id)) return; // host is here
+      (supabase as any).rpc("transfer_host_if_inactive", { p_room_id: room.id }).then(
+        ({ error }: { error: { message: string } | null }) => {
+          if (error) {
+            logWarn("multiplayer.host_transfer_check_failed", error.message, { roomId: room.id });
+          }
+        }
+      );
+    };
+    const interval = setInterval(check, 10000);
+    return () => clearInterval(interval);
+  }, [room?.id, room?.host_id, playerId]);
+
+  // Toast on host handoff -- both for the newly-promoted host and everyone
+  // else. Skips the very first render's assignment (that's just the initial
+  // fetch, not a real transition).
+  useEffect(() => {
+    if (!room) return;
+    const prevHostId = lastKnownHostIdRef.current;
+    lastKnownHostIdRef.current = room.host_id;
+    if (prevHostId === null || prevHostId === room.host_id) return;
+
+    if (room.host_id === playerId) {
+      toast.info("You're the host now — the previous host left or disconnected.");
+    } else {
+      const newHostName = playersMapRef.current.get(room.host_id)?.player_name ?? room.host_name;
+      toast.info(`${newHostName} is now the host.`);
+    }
+  }, [room, playerId]);
 
   // ---- Wall-clock phase ticker ----
   // Derives the game phase, round timer and countdowns from the round's
@@ -948,7 +1040,12 @@ export function useMultiplayerGame(roomCode: string) {
       if (advErr) throw advErr;
     } catch (err) {
       console.error("Error starting game:", err);
-      toast.error("Failed to start game");
+      // The disabled Start Game button already covers the common case; this
+      // is the DB-level backstop (a player leaving in the split second
+      // between the button click and the update landing) surfacing as an
+      // RLS rejection -- worth a specific message rather than the generic one.
+      const notEnoughPlayers = (err as { code?: string })?.code === "42501";
+      toast.error(notEnoughPlayers ? "Need at least 2 players to start" : "Failed to start game");
       logError("multiplayer.start_game_failed", "Failed to start multiplayer game", {
         roomId: room.id,
         roomCode: room.room_code,
@@ -1042,21 +1139,25 @@ export function useMultiplayerGame(roomCode: string) {
     scoreSnapshotRef.current = new Map();
   }, [room, playerId, isHost]);
 
-  // Leave room
+  // Leave room. If the leaving player is the host, hands off to whoever
+  // joined earliest instead of ending the game for everyone else -- only
+  // closes the room outright when no one else remains. game_rooms' RLS
+  // requires auth.uid() = host_id in WITH CHECK, so even the outgoing host
+  // can't reassign host_id via a plain client update; the SECURITY DEFINER
+  // RPC is what actually performs the handoff.
   const leaveRoom = useCallback(async () => {
     if (!room || !playerId) return;
-
-    await supabase
-      .from("room_players")
-      .delete()
-      .eq("room_id", room.id)
-      .eq("player_id", playerId);
-
-    // If host leaves, delete the room
-    if (isHost) {
-      await supabase.from("game_rooms").delete().eq("id", room.id);
+    const { error: leaveErr } = await (supabase as any).rpc("leave_room_with_handoff", {
+      p_room_id: room.id,
+    });
+    if (leaveErr) {
+      logError("multiplayer.leave_failed", "leave_room_with_handoff RPC failed", {
+        roomId: room.id,
+        roomCode: room.room_code,
+        error: leaveErr.message,
+      });
     }
-  }, [room, playerId, isHost]);
+  }, [room, playerId]);
 
   // Host: kick a player from the room
   const kickPlayer = useCallback(async (targetPlayerId: string) => {

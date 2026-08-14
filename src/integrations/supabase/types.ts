@@ -754,6 +754,7 @@ export type Database = {
           is_host: boolean
           is_ready: boolean
           joined_at: string
+          last_seen: string
           player_id: string
           player_name: string
           room_id: string
@@ -765,6 +766,7 @@ export type Database = {
           is_host?: boolean
           is_ready?: boolean
           joined_at?: string
+          last_seen?: string
           player_id: string
           player_name: string
           room_id: string
@@ -776,6 +778,7 @@ export type Database = {
           is_host?: boolean
           is_ready?: boolean
           joined_at?: string
+          last_seen?: string
           player_id?: string
           player_name?: string
           room_id?: string

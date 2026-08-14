@@ -26,32 +26,37 @@ export function warmAudioUrl(url: string | null | undefined) {
 
 /**
  * Preload an audio element and resolve when it can play through (or after a
- * timeout fallback). Returns the prepared HTMLAudioElement.
+ * timeout fallback). Returns the prepared HTMLAudioElement, plus a `ready`
+ * promise that tells the caller *why* it resolved -- "ready" (canplay/
+ * canplaythrough actually fired), "timeout" (still loading, budget expired,
+ * probably fine to attempt playback anyway), or "error" (the element itself
+ * reported an error -- worth logging distinctly rather than silently
+ * treating the same as a clean ready state).
  */
 export function preloadAudio(
   url: string,
   { timeoutMs = 2500, volume = 0.7 }: { timeoutMs?: number; volume?: number } = {}
-): { audio: HTMLAudioElement; ready: Promise<void> } {
+): { audio: HTMLAudioElement; ready: Promise<"ready" | "timeout" | "error"> } {
   const audio = new Audio();
   audio.preload = "auto";
   audio.volume = volume;
   audio.src = url;
 
-  const ready = new Promise<void>((resolve) => {
+  const ready = new Promise<"ready" | "timeout" | "error">((resolve) => {
     let done = false;
-    const finish = () => {
+    const finish = (result: "ready" | "timeout" | "error") => {
       if (done) return;
       done = true;
-      resolve();
+      resolve(result);
     };
-    audio.addEventListener("canplaythrough", finish, { once: true });
-    audio.addEventListener("canplay", finish, { once: true });
-    audio.addEventListener("error", finish, { once: true });
-    setTimeout(finish, timeoutMs);
+    audio.addEventListener("canplaythrough", () => finish("ready"), { once: true });
+    audio.addEventListener("canplay", () => finish("ready"), { once: true });
+    audio.addEventListener("error", () => finish("error"), { once: true });
+    setTimeout(() => finish("timeout"), timeoutMs);
     try {
       audio.load();
     } catch {
-      finish();
+      finish("error");
     }
   });
 

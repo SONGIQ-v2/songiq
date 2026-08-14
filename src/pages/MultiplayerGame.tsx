@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { motion, AnimatePresence } from "framer-motion";
-import { Music2, Trophy, X, AlertTriangle, LogOut, UserCircle, Share2, Star, WifiOff } from "lucide-react";
+import { Music2, Trophy, X, AlertTriangle, LogOut, UserCircle, Share2, Star, WifiOff, Loader2, Volume2 } from "lucide-react";
 import { toast } from "sonner";
 import { Starfield } from "@/components/Starfield";
 import songiqLogo from "@/assets/songiq-logo.png";
@@ -17,6 +17,7 @@ import { ReactionBar, FloatingReactions } from "@/components/EmojiReactions";
 import { useVolume } from "@/hooks/useVolume";
 import { logError, logWarn, logInfo } from "@/lib/clientLogger";
 import { warmAudioUrl, preloadAudio, playWithWatchdog } from "@/lib/audioPreload";
+import { isIOS } from "@/lib/ios";
 import { CARD_SPRING } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import {
@@ -51,13 +52,28 @@ export default function MultiplayerGame() {
   const [volume, setVolume] = useVolume();
   const [isPlaying, setIsPlaying] = useState(false);
   const [slowConnection, setSlowConnection] = useState(false);
+  // iOS Safari-only autoplay fallback: the automatic playWithWatchdog call
+  // below never runs inside a user gesture, so unmuted playback routinely
+  // stalls or rejects with NotAllowedError there specifically. When that
+  // happens on iOS, this drives a small "Tap for sound" chip whose click
+  // handler calls play() synchronously in the gesture -- the only reliable
+  // way to unlock audible sound. Never set on Android/desktop, where
+  // autoplay already just works.
+  const [needsSoundUnlock, setNeedsSoundUnlock] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   // Tracks which element the waiting/playing listeners below are currently
   // attached to, so they can be detached from the right element when a new
   // round's audio replaces it (the element itself persists across
   // between_rounds/pre_game/playing transitions within the same round).
   const audioListenersRef = useRef<{ audio: HTMLAudioElement; onWaiting: () => void; onPlaying: () => void } | null>(null);
-  
+  // The raw preview_url audioRef.current was last prepared for. Compared
+  // against currentRound.preview_url as-is, not via audioRef.current.src --
+  // the DOM resolves .src to an absolute, normalized URL that isn't
+  // guaranteed to string-match the raw value, which would wrongly read as
+  // "different track" and discard an element that's already preloaded (or
+  // fully cached) for no reason.
+  const preloadedForUrlRef = useRef<string | null>(null);
+
   // Per-round correctness for the share card, fetched once the game ends
   const [myResults, setMyResults] = useState<boolean[]>([]);
   const challengeCodeRef = useRef<string | null>(null);
@@ -101,6 +117,18 @@ export default function MultiplayerGame() {
     isTerminated,
     endGameNow,
   } = useMultiplayerGame(code || "");
+
+  // True for a player who joined after the current round already started
+  // (mid-round join) -- they can't meaningfully answer a question they
+  // arrived partway through, so they see a "waiting for next round" state
+  // instead of the live round UI. Self-resolving: once the next round's
+  // started_at moves past their joined_at, this naturally flips false.
+  const myPlayer = players.find((p) => p.player_id === playerId);
+  const joinedMidRound = Boolean(
+    myPlayer?.joined_at &&
+    currentRound?.started_at &&
+    new Date(myPlayer.joined_at) > new Date(currentRound.started_at)
+  );
 
   // Ensure anonymous auth is initialized for guests landing here from a shared link
   const initializeAuth = useGameStore((s) => s.initializeAuth);
@@ -217,6 +245,24 @@ export default function MultiplayerGame() {
     }
   }, [currentRound?.preview_url]);
 
+  // Kept in sync with needsSoundUnlock state so the onWaiting listener
+  // (attached once per track inside the audio-handling effect below, whose
+  // own closure is stale by the time needsSoundUnlock changes later) can
+  // read the current value instead of whatever it was when that effect ran.
+  const needsSoundUnlockRef = useRef(false);
+  useEffect(() => {
+    needsSoundUnlockRef.current = needsSoundUnlock;
+  }, [needsSoundUnlock]);
+
+  // The chip is scoped to gameStatus === "playing"; leaving that state (a
+  // new round's pre_game/between_rounds countdown, results, leaving the
+  // room) always clears it so it can't linger into a state it doesn't apply
+  // to. Round transitions themselves re-run the audio effect below, which
+  // determines fresh whether the new round needs it too.
+  useEffect(() => {
+    if (gameStatus !== "playing") setNeedsSoundUnlock(false);
+  }, [gameStatus, currentRound?.id]);
+
   // Audio handling — preload during between_rounds, play instantly when round starts
   useEffect(() => {
     let cancelled = false;
@@ -227,7 +273,7 @@ export default function MultiplayerGame() {
 
       const desiredVolume = volume;
       const existing = audioRef.current;
-      const sameTrack = existing && existing.src === currentRound.preview_url;
+      const sameTrack = existing && preloadedForUrlRef.current === currentRound.preview_url;
 
       if (!sameTrack) {
         setSlowConnection(false);
@@ -238,8 +284,16 @@ export default function MultiplayerGame() {
           audioListenersRef.current = null;
         }
         warmAudioUrl(currentRound.preview_url);
+        // Wait up to the actual time remaining before this round goes live
+        // (typically the full ~5s between-rounds gap), not a flat 2.5s --
+        // a connection that would've finished buffering at 4s previously
+        // got cut off at 2.5s for no reason. Floored at 1.5s for the case
+        // this fires after started_at already passed (a reload mid-round),
+        // capped at 8s as a sane ceiling if something's off with the clock.
+        const msUntilStart = new Date(currentRound.started_at).getTime() - Date.now();
+        const timeoutMs = Math.min(8000, Math.max(1500, msUntilStart));
         const { audio, ready } = preloadAudio(currentRound.preview_url, {
-          timeoutMs: 2500,
+          timeoutMs,
           volume: desiredVolume,
         });
         audio.onerror = (e) => {
@@ -256,7 +310,12 @@ export default function MultiplayerGame() {
         // "waiting" fires whenever that happens; "playing" fires both on
         // first start and every time it resumes, so one handler covers both.
         const onWaiting = () => {
-          setSlowConnection(true);
+          // While an iOS unlock is pending, "waiting" is a side effect of
+          // that (not a real buffer underrun) -- showing "Slow connection"
+          // here would flash the wrong banner right before "Tap for sound"
+          // settles. Once actually unlocked, waiting means what it always
+          // has and the wifi banner is accurate again.
+          if (!needsSoundUnlockRef.current) setSlowConnection(true);
           setIsPlaying(false);
         };
         const onPlaying = () => {
@@ -267,7 +326,21 @@ export default function MultiplayerGame() {
         audio.addEventListener("playing", onPlaying);
         audioListenersRef.current = { audio, onWaiting, onPlaying };
         audioRef.current = audio;
-        await ready;
+        preloadedForUrlRef.current = currentRound.preview_url;
+        const preloadResult = await ready;
+        // "timeout" just means still loading past our budget -- streaming
+        // can carry on via Range requests, so playback is still worth
+        // attempting. "error" is the element itself reporting a real
+        // failure (bad URL, CORS, etc.) -- not the same thing as "ready,"
+        // so it's worth its own signal rather than silently proceeding as
+        // if nothing happened.
+        if (preloadResult === "error") {
+          logWarn("audio.preload_error", "Multiplayer round audio element reported an error while preloading", {
+            roundNumber,
+            roundId: currentRound?.id,
+            preview_url: currentRound?.preview_url,
+          });
+        }
       }
 
       if (cancelled) return;
@@ -275,10 +348,26 @@ export default function MultiplayerGame() {
       // Only start playback once the round is actually live
       if (gameStatus === "playing" && audioRef.current) {
         setSlowConnection(false);
+        setNeedsSoundUnlock(false);
         const { stalled, error } = await playWithWatchdog(audioRef.current, desiredVolume);
+        if (cancelled) return;
         if (!stalled) {
           setIsPlaying(true);
           console.log("Audio playing for round:", roundNumber);
+        } else if (isIOS()) {
+          // Autoplay outside a user gesture is routinely blocked (or
+          // "succeeds" with no audible sound) on iOS Safari specifically --
+          // this isn't a network problem, so the slow-connection banner
+          // would be misleading. Show the tap-to-unlock chip instead; its
+          // click handler reuses this same element with a gesture-backed
+          // play() call.
+          setIsPlaying(false);
+          setNeedsSoundUnlock(true);
+          logWarn("audio.ios_autoplay_blocked", "iOS autoplay blocked or silent, showing tap-to-unlock", {
+            roundNumber,
+            roundId: currentRound?.id,
+            error: (error as Error)?.message ?? String(error),
+          });
         } else {
           console.error("Error playing audio:", error);
           setIsPlaying(false);
@@ -304,6 +393,27 @@ export default function MultiplayerGame() {
     };
   }, [currentRound?.id, gameStatus]);
 
+  // "Tap for sound" click handler -- the only reliable way to get audible
+  // playback past iOS Safari's autoplay gate is a play() call made
+  // synchronously inside the gesture that triggered it, on the exact
+  // element that's already been preloaded (a fresh Audio() or reassigned
+  // src would lose that buffering and restart from scratch).
+  const handleUnlockSound = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.muted = false;
+    audio.volume = volume;
+    audio.play().then(() => {
+      setNeedsSoundUnlock(false);
+      setIsPlaying(true);
+    }).catch((error) => {
+      logWarn("audio.unlock_tap_failed", "Tap-to-unlock play() failed", {
+        roundNumber,
+        roundId: currentRound?.id,
+        error: (error as Error)?.message ?? String(error),
+      });
+    });
+  }, [volume, roundNumber, currentRound?.id]);
 
   useEffect(() => {
     if (audioRef.current) {
@@ -311,10 +421,14 @@ export default function MultiplayerGame() {
     }
   }, [volume]);
 
-  // Stop playing when answered
+  // Stop playing when answered -- pause the actual element, not just the
+  // visualizer's isPlaying flag. Without this the clip kept buffering in
+  // the background after answering, competing for bandwidth with the next
+  // round's preload for no benefit (nothing is listening to it anymore).
   useEffect(() => {
     if (hasAnswered) {
       setIsPlaying(false);
+      audioRef.current?.pause();
     }
   }, [hasAnswered]);
 
@@ -996,6 +1110,27 @@ export default function MultiplayerGame() {
 
           {/* Main game area */}
           <div className="flex-1 flex flex-col items-center justify-start px-4 py-8">
+            {joinedMidRound ? (
+              // Joined after this round already started -- nothing to
+              // meaningfully answer here, so wait it out instead of dropping
+              // them into a question they never saw the start of. Flips back
+              // to the normal round UI automatically once the next round
+              // (started after they joined) begins.
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex flex-col items-center text-center gap-4 max-w-sm mt-12"
+              >
+                <div className="w-20 h-20 rounded-full bg-card border border-border flex items-center justify-center">
+                  <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                </div>
+                <h2 className="text-xl font-bold text-foreground">Game in progress</h2>
+                <p className="text-muted-foreground">
+                  Round {roundNumber} is already underway. You'll jump in when the next round starts.
+                </p>
+              </motion.div>
+            ) : (
+            <>
             {/* Question type indicator */}
             <div
               className="mb-4 px-4 py-2 rounded-full bg-gold"
@@ -1042,6 +1177,25 @@ export default function MultiplayerGame() {
                   <WifiOff className="w-3.5 h-3.5 shrink-0" />
                   Slow connection — audio may be delayed
                 </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* iOS-only autoplay fallback -- a real gesture is the only
+                reliable way to unlock audible sound there. Never appears on
+                Android/desktop, where autoplay already just works. */}
+            <AnimatePresence>
+              {needsSoundUnlock && gameStatus === "playing" && (
+                <motion.button
+                  type="button"
+                  onClick={handleUnlockSound}
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="mb-6 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gold/15 border border-gold/40 text-xs font-semibold text-gold hover:bg-gold/25 transition-colors"
+                >
+                  <Volume2 className="w-3.5 h-3.5 shrink-0" />
+                  Tap for sound
+                </motion.button>
               )}
             </AnimatePresence>
 
@@ -1132,6 +1286,8 @@ export default function MultiplayerGame() {
               >
                 Answer locked in 🔒 Waiting for other players...
               </motion.div>
+            )}
+            </>
             )}
           </div>
         </div>

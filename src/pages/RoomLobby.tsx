@@ -195,14 +195,31 @@ export default function RoomLobby() {
 
     setIsJoiningRoom(true);
     try {
-      // Check if room is still accepting players
-      if (room.status !== "waiting") {
-        toast.error("Game already in progress");
+      // Fresh read, not the locally-cached `room` (which can lag a beat
+      // behind a broadcast) -- mid-round joins are allowed, only a game
+      // that's genuinely over is rejected.
+      const { data: freshRoom } = await supabase
+        .from("game_rooms")
+        .select("status")
+        .eq("id", room.id)
+        .maybeSingle();
+      if (freshRoom?.status === "finished") {
+        toast.error("This game has already ended");
         setIsJoiningRoom(false);
         return;
       }
 
-      await supabase.from("room_players").insert({
+      const { count: playerCount } = await supabase
+        .from("room_players")
+        .select("*", { count: "exact", head: true })
+        .eq("room_id", room.id);
+      if ((playerCount ?? 0) >= room.max_players) {
+        toast.error("Room is full");
+        setIsJoiningRoom(false);
+        return;
+      }
+
+      const { error: joinErr } = await supabase.from("room_players").insert({
         room_id: room.id,
         player_id: playerId,
         player_name: joinName.trim(),
@@ -210,6 +227,7 @@ export default function RoomLobby() {
         is_host: false,
         is_ready: true,
       });
+      if (joinErr) throw joinErr;
 
       setPlayer(joinName.trim(), 1);
       setStoreRoom(room.id, room.room_code, false);
@@ -217,19 +235,32 @@ export default function RoomLobby() {
       setShowNameModal(false);
     } catch (err) {
       console.error("Error joining room:", err);
-      toast.error("Failed to join room");
+      // A capacity race (two people squeezing into the last slot at once)
+      // surfaces here as an RLS rejection from the DB-level cap, not the
+      // pre-check above -- same friendly message either way.
+      const isCapacityRejection = (err as { code?: string })?.code === "42501";
+      toast.error(isCapacityRejection ? "Room is full" : "Failed to join room");
     } finally {
       setIsJoiningRoom(false);
     }
   };
 
   // Navigate to game when it starts (pre_game = synchronized 5s countdown
-  // before round 1, shown on the game screen so audio can preload there)
+  // before round 1, shown on the game screen so audio can preload there).
+  // Gated on actually being a room member: a brand-new visitor opening a
+  // shared link to an already-playing room would otherwise get redirected
+  // here on the very first render -- before the name modal even appears --
+  // landing on the game screen as a phantom non-member who was never
+  // inserted into room_players (invisible on the leaderboard, never
+  // recognized as a mid-round joiner).
   useEffect(() => {
+    if (!playerId) return;
+    const isInRoom = players.some((p) => p.player_id === playerId);
+    if (!isInRoom) return;
     if ((gameStatus === "pre_game" || gameStatus === "playing") && room) {
       navigate(`/room/${code}/game`);
     }
-  }, [gameStatus, room, code, navigate]);
+  }, [gameStatus, room, code, navigate, players, playerId]);
 
   // Redirect home when host terminates the room
   useEffect(() => {
@@ -395,7 +426,9 @@ export default function RoomLobby() {
                   <AlertDialogTitle>Leave Room?</AlertDialogTitle>
                   <AlertDialogDescription>
                     {isHost
-                      ? "As the host, leaving will close the room for everyone."
+                      ? players.length > 1
+                        ? "As the host, leaving will hand the room over to the next player."
+                        : "As the host, leaving will close the room since no one else is here."
                       : "Are you sure you want to leave the room?"}
                   </AlertDialogDescription>
                 </AlertDialogHeader>

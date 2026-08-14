@@ -85,13 +85,14 @@ const Multiplayer = () => {
       if (roomError) throw roomError;
 
       const avatarIndex = Math.floor(Math.random() * 8) + 1;
-      await supabase.from("room_players").insert({
+      const { error: joinErr } = await supabase.from("room_players").insert({
         room_id: room.id,
         player_id: playerId, // Now using authenticated user ID
         player_name: sanitized,
         avatar_index: avatarIndex,
         is_host: true,
       });
+      if (joinErr) throw joinErr;
 
       setPlayer(sanitized, avatarIndex);
       setRoom(room.id, code, true);
@@ -139,20 +140,31 @@ const Multiplayer = () => {
         return;
       }
 
-      if (room.status !== "waiting") {
-        toast.error("Game already in progress");
+      if (room.status === "finished") {
+        toast.error("This game has already ended");
+        setIsJoining(false);
+        return;
+      }
+
+      const { count: playerCount } = await supabase
+        .from("room_players")
+        .select("*", { count: "exact", head: true })
+        .eq("room_id", room.id);
+      if ((playerCount ?? 0) >= room.max_players) {
+        toast.error("Room is full");
         setIsJoining(false);
         return;
       }
 
       const avatarIndex = Math.floor(Math.random() * 8) + 1;
-      await supabase.from("room_players").insert({
+      const { error: joinErr } = await supabase.from("room_players").insert({
         room_id: room.id,
         player_id: playerId, // Now using authenticated user ID
         player_name: sanitized,
         avatar_index: avatarIndex,
         is_host: false,
       });
+      if (joinErr) throw joinErr;
 
       setPlayer(sanitized, avatarIndex);
       setRoom(room.id, roomCode.toUpperCase(), false);
@@ -161,7 +173,11 @@ const Multiplayer = () => {
       navigate(`/room/${roomCode.toUpperCase()}`);
     } catch (error) {
       console.error("Error joining room:", error);
-      toast.error("Failed to join room");
+      // A capacity race (two people squeezing into the last slot at once)
+      // surfaces here as an RLS rejection from the DB-level cap, not the
+      // pre-check above -- same friendly message either way.
+      const isCapacityRejection = (error as { code?: string })?.code === "42501";
+      toast.error(isCapacityRejection ? "Room is full" : "Failed to join room");
     } finally {
       setIsJoining(false);
     }
