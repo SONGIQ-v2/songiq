@@ -11,6 +11,7 @@ import { AnswerOption } from "@/components/AnswerOption";
 import { Leaderboard } from "@/components/Leaderboard";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { Podium } from "@/components/Podium";
+import { SaveProgressPrompt } from "@/components/SaveProgressPrompt";
 import { Button } from "@/components/ui/button";
 import { VolumeControl } from "@/components/VolumeControl";
 import { ReactionBar, FloatingReactions } from "@/components/EmojiReactions";
@@ -728,7 +729,7 @@ export default function MultiplayerGame() {
               </p>
               <p className="text-foreground/60">{myScore} points</p>
               {myResults.length > 0 && (
-                <p className="text-lg mt-3 tracking-wider" aria-hidden="true">
+                <p className="text-base mt-3 tracking-wider" aria-hidden="true">
                   {myResults.map((r) => (r ? "🟩" : "🟥")).join("")}
                 </p>
               )}
@@ -746,6 +747,8 @@ export default function MultiplayerGame() {
                 <span className="text-gold/70 font-normal">· {pointsResult.total} total</span>
               </motion.button>
             )}
+
+            <SaveProgressPrompt />
 
             <div className="flex flex-col sm:flex-row gap-4 mb-6">
               <Button variant="gold" size="lg" className="w-full sm:flex-1" onClick={handleShare}>

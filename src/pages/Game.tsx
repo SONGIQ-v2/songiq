@@ -11,6 +11,7 @@ import { AnswerOption } from "@/components/AnswerOption";
 import { Button } from "@/components/ui/button";
 import { DailyReminderButton } from "@/components/DailyReminderButton";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
+import { SaveProgressPrompt } from "@/components/SaveProgressPrompt";
 import { VolumeControl } from "@/components/VolumeControl";
 import { useVolume } from "@/hooks/useVolume";
 import { CARD_SPRING } from "@/lib/motion";
@@ -1090,25 +1091,27 @@ export default function Game() {
             <p className="font-bold text-foreground">{playerName || getSavedUsername() || "You"}</p>
           </div>
 
-          <div className="bg-background/50 rounded-xl border border-gold/20 p-6 mb-6">
-            <p
-              className="font-display text-6xl font-black text-gold mb-1"
-              style={{ filter: "drop-shadow(0 0 16px hsl(var(--gold) / 0.5))" }}
-            >
-              {soloScore}
-            </p>
-            <p className="text-xs font-bold uppercase tracking-wider text-foreground/60">Points</p>
-            <div className="mt-4 h-2 bg-muted rounded-full overflow-hidden">
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${percentage}%` }}
-                transition={{ duration: 1, delay: 0.5 }}
-                className="h-full bg-gradient-to-r from-gold to-terracotta"
-              />
+          <div className="bg-background/50 rounded-xl border border-gold/20 p-5 mb-6">
+            <div className="flex items-center justify-center gap-4 sm:gap-6">
+              <div className="flex-1 text-center">
+                <p
+                  className="font-display text-4xl sm:text-5xl font-black text-gold"
+                  style={{ filter: "drop-shadow(0 0 16px hsl(var(--gold) / 0.5))" }}
+                >
+                  {soloScore}
+                </p>
+                <p className="text-xs font-bold uppercase tracking-wider text-foreground/60 mt-1">Points</p>
+              </div>
+              <div className="w-px h-12 bg-border shrink-0" />
+              <div className="flex-1 text-center">
+                <p className="font-display text-[2rem] font-black text-foreground">
+                  {percentage}%
+                </p>
+                <p className="text-xs font-bold uppercase tracking-wider text-foreground/60 mt-1">Accuracy</p>
+              </div>
             </div>
-            <p className="text-sm text-foreground/60 mt-2">{percentage}% accuracy</p>
             {roundResults.length > 0 && (
-              <p className="text-lg mt-3 tracking-wider" aria-hidden="true">
+              <p className="text-base mt-4 tracking-wider text-center" aria-hidden="true">
                 {roundResults.map((r) => (r ? "🟩" : "🟥")).join("")}
               </p>
             )}
@@ -1204,6 +1207,8 @@ export default function Game() {
               })()}
             </div>
           )}
+
+          <SaveProgressPrompt />
 
           <Button variant="gold" size="lg" className="w-full mb-4" onClick={handleShare}>
             <Share2 className="w-5 h-5 mr-2" />
