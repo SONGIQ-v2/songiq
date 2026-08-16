@@ -224,21 +224,6 @@ const Multiplayer = () => {
             </p>
           </motion.div>
 
-          {/* Name Input — hidden once we already know their nickname */}
-          {!hasKnownName && (
-            <motion.div className="max-w-md mx-auto mb-6" variants={fade}>
-              <label htmlFor="mp-player-name" className="block text-sm font-medium mb-2">Your Name</label>
-              <Input
-                id="mp-player-name"
-                value={playerName}
-                onChange={(e) => setPlayerName(e.target.value)}
-                placeholder="Enter your nickname"
-                maxLength={20}
-                className="text-center text-lg"
-              />
-            </motion.div>
-          )}
-
           <div className="grid md:grid-cols-2 gap-6 mt-[20px] md:mt-[100px]">
             {/* Create Room */}
             <motion.div className="raised-panel p-8 text-center flex flex-col items-center" variants={pop}>
@@ -247,6 +232,17 @@ const Multiplayer = () => {
               </div>
               <h2 className="font-display text-xl uppercase tracking-wide mb-1">Create Private Room</h2>
               <p className="text-muted-foreground text-sm mb-6">Battle with friends</p>
+              {/* Name input — hidden once we already know their nickname */}
+              {!hasKnownName && (
+                <Input
+                  value={playerName}
+                  onChange={(e) => setPlayerName(e.target.value)}
+                  placeholder="Enter your nickname"
+                  maxLength={20}
+                  className="text-center text-lg mb-3"
+                  aria-label="Your Name"
+                />
+              )}
               <Button
                 variant="gold"
                 size="lg"
