@@ -1473,7 +1473,7 @@ export default function Game() {
           <motion.div
             className="progress-fill"
             initial={{ width: "100%" }}
-            animate={{ width: `${(timeLeft / ROUND_TIME) * 100}%` }}
+            animate={{ width: `${Math.min(100, (timeLeft / ROUND_TIME) * 100)}%` }}
             transition={{ duration: 0.5 }}
             style={{
               background: isTimeLow

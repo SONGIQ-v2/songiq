@@ -166,6 +166,20 @@ export default function MultiplayerGame() {
     new Date(myPlayer.joined_at) > new Date(currentRound.started_at)
   );
 
+  // The between-rounds screen's "Loading Results" vs "Up Next" text needs to
+  // know whether the game has truly finished (the last round has been
+  // played) -- not just whether currentRound.round_number already equals
+  // total_rounds. Once round N-1 ends, the server can create round N (the
+  // last round) and broadcast it well before the between-rounds countdown
+  // even appears; the moment that happens, roundNumber flips to
+  // total_rounds even though round N itself hasn't been played yet. Gating
+  // on ended_at too -- only set once a round has actually been played and
+  // graded -- fixes that: round N existing-but-unplayed still correctly
+  // reads as "Up Next", not "Loading Results".
+  const isFinalRoundOver = Boolean(
+    room && roundNumber >= room.total_rounds && currentRound?.ended_at
+  );
+
   // Ensure anonymous auth is initialized for guests landing here from a shared link
   const initializeAuth = useGameStore((s) => s.initializeAuth);
   useEffect(() => {
@@ -457,16 +471,10 @@ export default function MultiplayerGame() {
     }
   }, [volume]);
 
-  // Stop playing when answered -- pause the actual element, not just the
-  // visualizer's isPlaying flag. Without this the clip kept buffering in
-  // the background after answering, competing for bandwidth with the next
-  // round's preload for no benefit (nothing is listening to it anymore).
-  useEffect(() => {
-    if (hasAnswered) {
-      setIsPlaying(false);
-      audioRef.current?.pause();
-    }
-  }, [hasAnswered]);
+  // Locking in an answer doesn't stop playback -- the clip keeps playing
+  // through the full round for everyone, same as before answering. Answered
+  // players still see "Answer locked in" via hasAnswered elsewhere; this
+  // just no longer silences their audio.
 
   // Cleanup on unmount
   useEffect(() => {
@@ -948,9 +956,9 @@ export default function MultiplayerGame() {
                     transition={{ delay: 0.2 }}
                     className="text-3xl font-bold text-gold mb-2"
                   >
-                    {room && roundNumber >= room.total_rounds ? "Loading Results" : "Up Next"}
+                    {isFinalRoundOver ? "Loading Results" : "Up Next"}
                   </motion.h3>
-                  {roundCeremony && room && roundNumber < room.total_rounds && (
+                  {roundCeremony && !isFinalRoundOver && (
                     <motion.p
                       initial={{ y: 10, opacity: 0 }}
                       animate={{ y: 0, opacity: 1 }}
@@ -1166,7 +1174,7 @@ export default function MultiplayerGame() {
               <motion.div
                 className="progress-fill"
                 initial={{ width: "100%" }}
-                animate={{ width: `${(timeLeft / ROUND_TIME) * 100}%` }}
+                animate={{ width: `${Math.min(100, (timeLeft / ROUND_TIME) * 100)}%` }}
                 transition={{ duration: 0.5 }}
                 style={{
                   background: isTimeLow
@@ -1442,9 +1450,9 @@ export default function MultiplayerGame() {
             </div>
           )}
           <h3 className="text-3xl font-bold text-gold mb-2">
-            {room && roundNumber >= room.total_rounds ? "Loading Results" : "Up Next"}
+            {isFinalRoundOver ? "Loading Results" : "Up Next"}
           </h3>
-          {roundCeremony && room && roundNumber < room.total_rounds && (
+          {roundCeremony && !isFinalRoundOver && (
             <p
               className={cn(
                 "text-lg font-extrabold mb-3",

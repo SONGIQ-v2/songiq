@@ -111,6 +111,20 @@ export function useMultiplayerGame(roomCode: string) {
   const [currentRound, setCurrentRound] = useState<RoundData | null>(null);
   const [roundNumber, setRoundNumber] = useState(0);
   const [timeLeft, setTimeLeft] = useState(DEFAULT_ROUND_TIME);
+  // timeLeft starts at DEFAULT_ROUND_TIME (20s) since the real room
+  // settings aren't known yet at first render. The instant room loads with
+  // a different time_per_round (e.g. 15s), ROUND_TIME jumps immediately
+  // (it's a derived const), but timeLeft doesn't -- it only gets corrected
+  // once the phase ticker's own effect starts running, which it can't do
+  // until room exists. In that gap, timeLeft/ROUND_TIME computes above
+  // 100%, which the progress bar then has to visibly correct back down
+  // from once the ticker catches up -- looks like the bar briefly running
+  // backward then forward before settling into its real countdown, only
+  // when the room's time_per_round isn't 20s. Clamping timeLeft to
+  // ROUND_TIME the moment it changes closes that gap before it can render.
+  useEffect(() => {
+    setTimeLeft((prev) => Math.min(prev, ROUND_TIME));
+  }, [ROUND_TIME]);
   const [hasAnswered, setHasAnswered] = useState(false);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
