@@ -20,6 +20,7 @@ import { logError, logWarn, logInfo } from "@/lib/clientLogger";
 import { warmAudioUrl, preloadAudio, playWithWatchdog } from "@/lib/audioPreload";
 import { isIOS } from "@/lib/ios";
 import { CARD_SPRING } from "@/lib/motion";
+import { getRoundCeremony, type RoundCeremony } from "@/lib/roundCeremony";
 import { cn } from "@/lib/utils";
 import {
   AlertDialog,
@@ -80,6 +81,11 @@ export default function MultiplayerGame() {
   const challengeCodeRef = useRef<string | null>(null);
   // Points earned this game + running total, for the results screen chip
   const [pointsResult, setPointsResult] = useState<{ earned: number; total: number } | null>(null);
+  // Kahoot-style one-liner for the round that just ended. Computed during
+  // reveal (when picks/scores land) and held through between_rounds so the
+  // line doesn't vanish when the next round row arrives.
+  const [roundCeremony, setRoundCeremony] = useState<RoundCeremony | null>(null);
+  const ceremonyRoundIdRef = useRef<string | null>(null);
 
   // Inactivity state
   const [showInactivityWarning, setShowInactivityWarning] = useState(false);
@@ -118,6 +124,35 @@ export default function MultiplayerGame() {
     isTerminated,
     endGameNow,
   } = useMultiplayerGame(code || "");
+
+  // Build / refresh the ceremony line while the reveal window is open.
+  // Kept in state (not only memo) so between_rounds can still show it after
+  // currentRound flips to the upcoming round.
+  useEffect(() => {
+    if (!revealActive || !currentRound) return;
+    const correctAnswer =
+      currentQuestionType === "Guess the Song"
+        ? currentRound.track_name
+        : currentRound.artist_name;
+    const next = getRoundCeremony({
+      players,
+      roundAnswers,
+      correctAnswer,
+    });
+    if (!next) return;
+    ceremonyRoundIdRef.current = currentRound.id;
+    setRoundCeremony(next);
+  }, [revealActive, currentRound, currentQuestionType, players, roundAnswers]);
+
+  // Drop the line once a new live round starts (post-reveal playing).
+  useEffect(() => {
+    if (gameStatus !== "playing" || revealActive) return;
+    if (!currentRound?.id) return;
+    if (ceremonyRoundIdRef.current && ceremonyRoundIdRef.current !== currentRound.id) {
+      ceremonyRoundIdRef.current = null;
+      setRoundCeremony(null);
+    }
+  }, [gameStatus, revealActive, currentRound?.id]);
 
   // True for a player who joined after the current round already started
   // (mid-round join) -- they can't meaningfully answer a question they
@@ -847,6 +882,20 @@ export default function MultiplayerGame() {
               className="text-center"
             >
               <h2 className="text-2xl font-bold text-foreground mb-4">Round {roundNumber} Complete!</h2>
+              {roundCeremony && (
+                <motion.p
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={cn(
+                    "text-lg font-extrabold mb-4",
+                    roundCeremony.tone === "hype" && "text-gold",
+                    roundCeremony.tone === "roast" && "text-terracotta",
+                    roundCeremony.tone === "neutral" && "text-foreground/80"
+                  )}
+                >
+                  {roundCeremony.text}
+                </motion.p>
+              )}
               
               {currentRound && (
                 <div className="game-card mb-6">
@@ -901,6 +950,21 @@ export default function MultiplayerGame() {
                   >
                     {room && roundNumber >= room.total_rounds ? "Loading Results" : "Up Next"}
                   </motion.h3>
+                  {roundCeremony && room && roundNumber < room.total_rounds && (
+                    <motion.p
+                      initial={{ y: 10, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      transition={{ delay: 0.3 }}
+                      className={cn(
+                        "text-lg font-extrabold mb-2",
+                        roundCeremony.tone === "hype" && "text-gold/90",
+                        roundCeremony.tone === "roast" && "text-terracotta",
+                        roundCeremony.tone === "neutral" && "text-foreground/70"
+                      )}
+                    >
+                      {roundCeremony.text}
+                    </motion.p>
+                  )}
                   {room && roundNumber < room.total_rounds && (
                   <motion.p
                     initial={{ y: 10, opacity: 0 }}
@@ -1224,6 +1288,21 @@ export default function MultiplayerGame() {
                   >
                     {isCorrect === true ? "Correct! 🎉" : hasAnswered ? "Wrong!" : "Time's up ⏰"}
                   </div>
+                  {roundCeremony && (
+                    <motion.p
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.25 }}
+                      className={cn(
+                        "mt-3 text-base font-extrabold tracking-wide",
+                        roundCeremony.tone === "hype" && "text-gold",
+                        roundCeremony.tone === "roast" && "text-terracotta",
+                        roundCeremony.tone === "neutral" && "text-foreground/80"
+                      )}
+                    >
+                      {roundCeremony.text}
+                    </motion.p>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -1365,6 +1444,18 @@ export default function MultiplayerGame() {
           <h3 className="text-3xl font-bold text-gold mb-2">
             {room && roundNumber >= room.total_rounds ? "Loading Results" : "Up Next"}
           </h3>
+          {roundCeremony && room && roundNumber < room.total_rounds && (
+            <p
+              className={cn(
+                "text-lg font-extrabold mb-3",
+                roundCeremony.tone === "hype" && "text-gold/90",
+                roundCeremony.tone === "roast" && "text-terracotta",
+                roundCeremony.tone === "neutral" && "text-foreground/70"
+              )}
+            >
+              {roundCeremony.text}
+            </p>
+          )}
           {room && roundNumber < room.total_rounds && (
             <p className="text-xl text-foreground/80 font-semibold">
               {nextQuestionType === "Guess the Artist" ? "🎤 Guess the Artist" : "🎵 Guess the Song"}
