@@ -1099,7 +1099,9 @@ export default function MultiplayerGame() {
                 <span className="round-dot active w-7 h-7 text-sm shrink-0">{Math.max(roundNumber, 1)}</span>
                 <span className="text-sm text-muted-foreground">/ {room.total_rounds}</span>
               </div>
-              <ConnectionBadge quality={connectionQuality} />
+              <div className="hidden md:block">
+                <ConnectionBadge quality={connectionQuality} />
+              </div>
               {isHostPlayer && (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
@@ -1216,6 +1218,11 @@ export default function MultiplayerGame() {
               </motion.div>
             ) : (
             <>
+            {/* Connection quality — header row is too cramped for it on mobile */}
+            <div className="mb-3 md:hidden">
+              <ConnectionBadge quality={connectionQuality} />
+            </div>
+
             {/* Question type indicator */}
             <div
               className="mb-4 px-4 py-2 rounded-full bg-gold"

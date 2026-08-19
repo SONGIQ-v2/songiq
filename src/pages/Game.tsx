@@ -9,10 +9,12 @@ import { Starfield } from "@/components/Starfield";
 import { AudioVisualizer } from "@/components/AudioVisualizer";
 import { AnswerOption } from "@/components/AnswerOption";
 import { Button } from "@/components/ui/button";
+import { ConnectionBadge } from "@/components/ConnectionBadge";
 import { DailyReminderButton } from "@/components/DailyReminderButton";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { SaveProgressPrompt } from "@/components/SaveProgressPrompt";
 import { VolumeControl } from "@/components/VolumeControl";
+import { useConnectionQuality } from "@/hooks/useConnectionQuality";
 import { useVolume } from "@/hooks/useVolume";
 import { CARD_SPRING } from "@/lib/motion";
 import {
@@ -127,6 +129,9 @@ export default function Game() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [slowConnection, setSlowConnection] = useState(false);
   const [playlistName, setPlaylistName] = useState("");
+
+  const isInGame = gameState === "playing" || gameState === "answered" || gameState === "countdown";
+  const connectionQuality = useConnectionQuality(isInGame, currentTrack?.previewUrl);
   const [countdown, setCountdown] = useState(COUNTDOWN_TIME);
   const [questionType, setQuestionType] = useState<QuestionType>("artist");
   const [nextQuestionType, setNextQuestionType] = useState<QuestionType>("song");
@@ -1421,6 +1426,9 @@ export default function Game() {
             <span className="round-dot active w-7 h-7 text-sm shrink-0">{Math.max(currentRound, 1)}</span>
             <span className="text-sm text-muted-foreground">/ {TOTAL_ROUNDS}</span>
           </div>
+          <div className="hidden md:block">
+            <ConnectionBadge quality={connectionQuality} />
+          </div>
         </div>
 
         <div className="hidden md:flex flex-col items-center">
@@ -1488,6 +1496,11 @@ export default function Game() {
 
       {/* Main game area */}
       <div className="relative z-10 flex flex-col items-center justify-center px-4 py-8">
+        {/* Connection quality — header row is too cramped for it on mobile */}
+        <div className="mb-3 md:hidden">
+          <ConnectionBadge quality={connectionQuality} />
+        </div>
+
         {/* Question Type Indicator */}
         <motion.div
           key={`${currentRound}-${questionType}`}
