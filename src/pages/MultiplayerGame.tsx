@@ -801,7 +801,7 @@ export default function MultiplayerGame() {
             <div className="flex flex-col sm:flex-row gap-4 mb-6">
               <Button variant="gold" size="lg" className="w-full sm:flex-1" onClick={handleShare}>
                 <Share2 className="w-5 h-5 mr-2" />
-                Share Result
+                Challenge your friends
               </Button>
 
               {isHostPlayer && (

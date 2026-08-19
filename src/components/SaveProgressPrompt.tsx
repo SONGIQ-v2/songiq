@@ -6,7 +6,7 @@ import { useSignInHint } from "@/hooks/useSignInHint";
 
 /**
  * Shown on a results screen (solo, challenge, daily, multiplayer) right
- * before Share Result -- the moment a guest is most likely to care that
+ * before Challenge your friends -- the moment a guest is most likely to care that
  * this run only exists on this device. Anonymous-only and dismissible via
  * useSignInHint's shared key, same as the other sign-in hint surfaces
  * (Leaderboard, Daily) -- saying "not now" once shouldn't mean getting
