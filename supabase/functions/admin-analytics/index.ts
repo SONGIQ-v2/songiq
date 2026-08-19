@@ -190,20 +190,31 @@ async function runVisitorCount(accessToken: string, startDate: string, endDate: 
   return Number(data.rows?.[0]?.metricValues?.[0]?.value ?? 0);
 }
 
-// Total pages visited (screenPageViews) for the selected date range -- same
-// shape as runVisitorCount/runBounceRate, one aggregate number, no dimension.
-async function runPageViews(accessToken: string, startDate: string, endDate: string): Promise<number> {
+// Most-visited pages (path, not just a raw total) for the selected date
+// range -- same shape as runTopLocations, keyed by URL path instead of
+// country/city.
+async function runTopPages(
+  accessToken: string,
+  startDate: string,
+  endDate: string
+): Promise<{ path: string; views: number }[]> {
   const res = await fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${GA4_PROPERTY_ID}:runReport`, {
     method: "POST",
     headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       dateRanges: [{ startDate, endDate }],
+      dimensions: [{ name: "pagePath" }],
       metrics: [{ name: "screenPageViews" }],
+      orderBys: [{ metric: { metricName: "screenPageViews" }, desc: true }],
+      limit: 10,
     }),
   });
-  if (!res.ok) throw new Error(`GA4 page-views report failed: ${await res.text()}`);
+  if (!res.ok) throw new Error(`GA4 top-pages report failed: ${await res.text()}`);
   const data = await res.json();
-  return Number(data.rows?.[0]?.metricValues?.[0]?.value ?? 0);
+  return (data.rows ?? []).map((r: { dimensionValues: { value: string }[]; metricValues: { value: string }[] }) => ({
+    path: r.dimensionValues[0].value || "/",
+    views: Number(r.metricValues[0].value),
+  }));
 }
 
 // GA4's session-level bounceRate (fraction of sessions with no engagement)
@@ -433,7 +444,7 @@ serve(async (req) => {
         soloGamesPlayedAllTime,
         visitorsInRange,
         bounceRate,
-        pageViewsInRange,
+        topPages,
         topCountries,
         topCities,
         trafficSources,
@@ -458,9 +469,9 @@ serve(async (req) => {
           console.error("[admin-analytics] Bounce rate failed:", e);
           return 0;
         }),
-        runPageViews(accessToken, reportStart, reportEnd).catch((e) => {
-          console.error("[admin-analytics] Page views failed:", e);
-          return 0;
+        runTopPages(accessToken, reportStart, reportEnd).catch((e) => {
+          console.error("[admin-analytics] Top pages failed:", e);
+          return [];
         }),
         runTopLocations(accessToken, "country", reportStart, reportEnd).catch((e) => {
           console.error("[admin-analytics] Top countries failed:", e);
@@ -547,6 +558,7 @@ serve(async (req) => {
           topPlaylists,
           topCountries,
           topCities,
+          topPages,
           trafficSources,
           signedInUsers,
           stats: {
@@ -559,7 +571,6 @@ serve(async (req) => {
             soloGamesPlayedAllTime,
             visitorsInRange,
             bounceRatePct: Math.round(bounceRate * 1000) / 10,
-            pageViewsInRange,
             minutesPlayedInRange,
             minutesPlayedAllTime,
             minutesByMode: minutesByModeInRange ?? [],

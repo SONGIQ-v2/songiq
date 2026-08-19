@@ -57,6 +57,7 @@ interface ReportData {
   topPlaylists?: { playlist: string; plays: number }[];
   topCountries?: { name: string; visitors: number }[];
   topCities?: { name: string; visitors: number }[];
+  topPages?: { path: string; views: number }[];
   trafficSources?: { source: string; sessions: number }[];
   signedInUsers?: {
     id: string;
@@ -77,7 +78,6 @@ interface ReportData {
     soloGamesPlayedAllTime: number;
     visitorsInRange: number;
     bounceRatePct: number;
-    pageViewsInRange: number;
     minutesPlayedInRange: number;
     minutesPlayedAllTime: number;
     minutesByMode: { mode: string; minutes: number }[];
@@ -401,7 +401,6 @@ export default function Admin() {
                         <StatTile icon={Users} label="Unique players ever" value={report.stats?.uniquePlayersEver ?? 0} />
                         <StatTile icon={Eye} label="Visitors" value={report.stats?.visitorsInRange ?? 0} sublabel="in selected range" />
                         <StatTile icon={LogOut} label="Bounce rate" value={`${report.stats?.bounceRatePct ?? 0}%`} sublabel="in selected range" />
-                        <StatTile icon={FileText} label="Pages visited" value={report.stats?.pageViewsInRange ?? 0} sublabel="in selected range" />
                         <StatTile
                           icon={Clock}
                           label="Minutes played"
@@ -685,6 +684,28 @@ export default function Admin() {
                                     <span className="truncate">{c.name}</span>
                                   </span>
                                   <span className="font-bold text-gold shrink-0">{c.visitors}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {report.topPages && report.topPages.length > 0 && (
+                          <div className="raised-panel p-5">
+                            <p className="text-sm font-semibold text-foreground mb-4 flex items-center gap-1.5">
+                              <FileText className="w-4 h-4 text-primary" /> Top pages
+                            </p>
+                            <div className="space-y-1.5">
+                              {report.topPages.map((p, i) => (
+                                <div
+                                  key={p.path}
+                                  className="flex items-center justify-between px-3 py-1.5 rounded-lg text-sm bg-card/50"
+                                >
+                                  <span className="font-semibold text-foreground flex items-center gap-2 min-w-0">
+                                    <span className="text-muted-foreground w-5">#{i + 1}</span>
+                                    <span className="truncate">{p.path}</span>
+                                  </span>
+                                  <span className="font-bold text-gold shrink-0">{p.views}</span>
                                 </div>
                               ))}
                             </div>
