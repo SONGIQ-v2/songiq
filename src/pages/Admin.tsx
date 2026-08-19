@@ -11,7 +11,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { Lock, LinkIcon, RefreshCw, Users, Trophy, Radio, Flame, Calendar, Target, ListMusic, Eye, Globe, MapPin, Share2, Clock, UserCheck, LayoutDashboard, BarChart3, Mic2 } from "lucide-react";
+import { Lock, LinkIcon, RefreshCw, Users, Trophy, Radio, Flame, Calendar, Target, ListMusic, Eye, Globe, MapPin, Share2, Clock, UserCheck, LayoutDashboard, BarChart3, Mic2, LogOut, FileText } from "lucide-react";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Starfield } from "@/components/Starfield";
@@ -26,6 +26,12 @@ const DATE_RANGES: { key: DateRangeKey; label: string; startDate: string }[] = [
   { key: "today", label: "Today", startDate: "today" },
   { key: "7d", label: "7 days", startDate: "7daysAgo" },
   { key: "30d", label: "30 days", startDate: "30daysAgo" },
+];
+
+type AnalyticsTab = "charts" | "keyEvents";
+const ANALYTICS_TABS: { key: AnalyticsTab; label: string }[] = [
+  { key: "charts", label: "Charts" },
+  { key: "keyEvents", label: "Key Events" },
 ];
 
 type AdminSection = "overview" | "analytics" | "playlists" | "daily" | "geography" | "users";
@@ -70,6 +76,8 @@ interface ReportData {
     soloGamesPlayedInRange: number;
     soloGamesPlayedAllTime: number;
     visitorsInRange: number;
+    bounceRatePct: number;
+    pageViewsInRange: number;
     minutesPlayedInRange: number;
     minutesPlayedAllTime: number;
     minutesByMode: { mode: string; minutes: number }[];
@@ -80,6 +88,10 @@ interface ReportData {
     uniquePlayersEver: number;
     challengeCompletionRatePct: number;
   };
+}
+
+function formatEventName(event: string) {
+  return event.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function formatGa4Date(d: string) {
@@ -119,6 +131,7 @@ export default function Admin() {
 
   const [range, setRange] = useState<DateRangeKey>("7d");
   const [activeSection, setActiveSection] = useState<AdminSection>("overview");
+  const [analyticsTab, setAnalyticsTab] = useState<AnalyticsTab>("charts");
   const [report, setReport] = useState<ReportData | null>(null);
   const [loadingReport, setLoadingReport] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
@@ -387,6 +400,8 @@ export default function Admin() {
                         />
                         <StatTile icon={Users} label="Unique players ever" value={report.stats?.uniquePlayersEver ?? 0} />
                         <StatTile icon={Eye} label="Visitors" value={report.stats?.visitorsInRange ?? 0} sublabel="in selected range" />
+                        <StatTile icon={LogOut} label="Bounce rate" value={`${report.stats?.bounceRatePct ?? 0}%`} sublabel="in selected range" />
+                        <StatTile icon={FileText} label="Pages visited" value={report.stats?.pageViewsInRange ?? 0} sublabel="in selected range" />
                         <StatTile
                           icon={Clock}
                           label="Minutes played"
@@ -421,70 +436,101 @@ export default function Admin() {
                     )}
 
                     {activeSection === "analytics" && (
-                      <div className="grid lg:grid-cols-2 gap-6">
-                      <div className="raised-panel p-5">
-                        <p className="text-sm font-semibold text-foreground mb-4 flex items-center gap-1.5">
-                          <Trophy className="w-4 h-4 text-primary" /> Events by type
-                        </p>
-                        <div className="h-72">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={report.eventCounts ?? []} layout="vertical" margin={{ left: 8, right: 24 }}>
-                              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border) / 0.3)" horizontal={false} />
-                              <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={11} />
-                              <YAxis
-                                type="category"
-                                dataKey="event"
-                                stroke="hsl(var(--muted-foreground))"
-                                fontSize={11}
-                                width={140}
-                              />
-                              <Tooltip
-                                contentStyle={{
-                                  background: "hsl(var(--card))",
-                                  border: "1px solid hsl(var(--border))",
-                                  borderRadius: 8,
-                                  fontSize: 12,
-                                }}
-                              />
-                              <Bar dataKey="count" fill="hsl(var(--gold))" radius={[0, 4, 4, 0]} />
-                            </BarChart>
-                          </ResponsiveContainer>
+                      <div>
+                        <div className="flex gap-2 mb-6">
+                          {ANALYTICS_TABS.map((t) => (
+                            <button
+                              key={t.key}
+                              onClick={() => setAnalyticsTab(t.key)}
+                              className={cn(
+                                "px-4 py-1.5 rounded-full text-sm font-medium transition-all border",
+                                analyticsTab === t.key
+                                  ? "bg-primary text-primary-foreground border-primary"
+                                  : "bg-card/40 text-muted-foreground border-border/40 hover:text-foreground"
+                              )}
+                            >
+                              {t.label}
+                            </button>
+                          ))}
                         </div>
-                      </div>
 
-                      <div className="raised-panel p-5">
-                        <p className="text-sm font-semibold text-foreground mb-4">Daily event volume</p>
-                        <div className="h-56">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={(report.dailyTotals ?? []).map((d) => ({ ...d, label: formatGa4Date(d.date) }))}>
-                              <defs>
-                                <linearGradient id="goldFill" x1="0" y1="0" x2="0" y2="1">
-                                  <stop offset="0%" stopColor="hsl(var(--gold))" stopOpacity={0.35} />
-                                  <stop offset="100%" stopColor="hsl(var(--gold))" stopOpacity={0} />
-                                </linearGradient>
-                              </defs>
-                              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border) / 0.3)" vertical={false} />
-                              <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={11} />
-                              <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} />
-                              <Tooltip
-                                contentStyle={{
-                                  background: "hsl(var(--card))",
-                                  border: "1px solid hsl(var(--border))",
-                                  borderRadius: 8,
-                                  fontSize: 12,
-                                }}
-                              />
-                              <Area
-                                type="monotone"
-                                dataKey="count"
-                                stroke="hsl(var(--gold))"
-                                strokeWidth={2}
-                                fill="url(#goldFill)"
-                              />
-                            </AreaChart>
-                          </ResponsiveContainer>
-                        </div>
-                      </div>
+                        {analyticsTab === "charts" ? (
+                          <div className="grid lg:grid-cols-2 gap-6">
+                          <div className="raised-panel p-5">
+                            <p className="text-sm font-semibold text-foreground mb-4 flex items-center gap-1.5">
+                              <Trophy className="w-4 h-4 text-primary" /> Events by type
+                            </p>
+                            <div className="h-72">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={report.eventCounts ?? []} layout="vertical" margin={{ left: 8, right: 24 }}>
+                                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border) / 0.3)" horizontal={false} />
+                                  <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                                  <YAxis
+                                    type="category"
+                                    dataKey="event"
+                                    stroke="hsl(var(--muted-foreground))"
+                                    fontSize={11}
+                                    width={140}
+                                  />
+                                  <Tooltip
+                                    contentStyle={{
+                                      background: "hsl(var(--card))",
+                                      border: "1px solid hsl(var(--border))",
+                                      borderRadius: 8,
+                                      fontSize: 12,
+                                    }}
+                                  />
+                                  <Bar dataKey="count" fill="hsl(var(--gold))" radius={[0, 4, 4, 0]} />
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </div>
+
+                          <div className="raised-panel p-5">
+                            <p className="text-sm font-semibold text-foreground mb-4">Daily event volume</p>
+                            <div className="h-56">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <AreaChart data={(report.dailyTotals ?? []).map((d) => ({ ...d, label: formatGa4Date(d.date) }))}>
+                                  <defs>
+                                    <linearGradient id="goldFill" x1="0" y1="0" x2="0" y2="1">
+                                      <stop offset="0%" stopColor="hsl(var(--gold))" stopOpacity={0.35} />
+                                      <stop offset="100%" stopColor="hsl(var(--gold))" stopOpacity={0} />
+                                    </linearGradient>
+                                  </defs>
+                                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border) / 0.3)" vertical={false} />
+                                  <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                                  <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                                  <Tooltip
+                                    contentStyle={{
+                                      background: "hsl(var(--card))",
+                                      border: "1px solid hsl(var(--border))",
+                                      borderRadius: 8,
+                                      fontSize: 12,
+                                    }}
+                                  />
+                                  <Area
+                                    type="monotone"
+                                    dataKey="count"
+                                    stroke="hsl(var(--gold))"
+                                    strokeWidth={2}
+                                    fill="url(#goldFill)"
+                                  />
+                                </AreaChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </div>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            {(report.eventCounts ?? []).length > 0 ? (
+                              (report.eventCounts ?? []).map((e) => (
+                                <StatTile key={e.event} icon={Target} label={formatEventName(e.event)} value={e.count} />
+                              ))
+                            ) : (
+                              <p className="text-muted-foreground text-sm col-span-full">No key events in this range yet.</p>
+                            )}
+                          </div>
+                        )}
                       </div>
                     )}
 
