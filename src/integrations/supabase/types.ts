@@ -921,34 +921,6 @@ export type Database = {
           track_id: string | null
           track_name: string | null
         }
-        Insert: {
-          artist_name?: never
-          artwork_url?: string | null
-          ended_at?: string | null
-          id?: string | null
-          options?: Json | null
-          preview_url?: string | null
-          question_type?: string | null
-          room_id?: string | null
-          round_number?: number | null
-          started_at?: string | null
-          track_id?: string | null
-          track_name?: never
-        }
-        Update: {
-          artist_name?: never
-          artwork_url?: string | null
-          ended_at?: string | null
-          id?: string | null
-          options?: Json | null
-          preview_url?: string | null
-          question_type?: string | null
-          room_id?: string | null
-          round_number?: number | null
-          started_at?: string | null
-          track_id?: string | null
-          track_name?: never
-        }
         Relationships: [
           {
             foreignKeyName: "game_rounds_room_id_fkey"
@@ -971,6 +943,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      advance_all_playing_rounds: { Args: never; Returns: undefined }
       advance_game_round: { Args: { _room_id: string }; Returns: Json }
       count_unique_players: { Args: never; Returns: number }
       delete_email: {
@@ -982,6 +955,8 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      get_challenge_by_code: { Args: { p_code: string }; Returns: Json }
+      get_room_by_code: { Args: { p_code: string }; Returns: Json }
       get_vapid_public_key: { Args: never; Returns: string }
       global_leaderboard: {
         Args: { p_player?: string; p_range?: string; p_sort?: string }
@@ -995,6 +970,9 @@ export type Database = {
           streak: number
         }[]
       }
+      is_room_participant: { Args: { p_room_id: string }; Returns: boolean }
+      is_room_player: { Args: { p_room_id: string }; Returns: boolean }
+      leave_room_with_handoff: { Args: { p_room_id: string }; Returns: Json }
       merge_player_data: {
         Args: { v_new: string; v_old: string }
         Returns: undefined
@@ -1047,10 +1025,12 @@ export type Database = {
           player_name: string
         }[]
       }
+      room_has_capacity: { Args: { p_room_id: string }; Returns: boolean }
       server_time_ms: { Args: never; Returns: number }
       set_nickname: { Args: { p_name: string }; Returns: undefined }
       settle_daily_bonus: { Args: never; Returns: undefined }
       stage_anonymous_merge: { Args: never; Returns: string }
+      transfer_host_if_inactive: { Args: { p_room_id: string }; Returns: Json }
       verified_player_ids: {
         Args: { p_ids: string[] }
         Returns: {
