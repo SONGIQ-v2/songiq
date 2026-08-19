@@ -21,6 +21,8 @@ import { warmAudioUrl, preloadAudio, playWithWatchdog } from "@/lib/audioPreload
 import { isIOS } from "@/lib/ios";
 import { CARD_SPRING } from "@/lib/motion";
 import { getRoundCeremony, type RoundCeremony } from "@/lib/roundCeremony";
+import { useConnectionQuality } from "@/hooks/useConnectionQuality";
+import { ConnectionBadge } from "@/components/ConnectionBadge";
 import { cn } from "@/lib/utils";
 import {
   AlertDialog,
@@ -124,6 +126,9 @@ export default function MultiplayerGame() {
     isTerminated,
     endGameNow,
   } = useMultiplayerGame(code || "");
+
+  const isInGame = gameStatus === "playing" || gameStatus === "between_rounds" || gameStatus === "pre_game";
+  const connectionQuality = useConnectionQuality(isInGame, currentRound?.preview_url);
 
   // Build / refresh the ceremony line while the reveal window is open.
   // Kept in state (not only memo) so between_rounds can still show it after
@@ -1094,6 +1099,7 @@ export default function MultiplayerGame() {
                 <span className="round-dot active w-7 h-7 text-sm shrink-0">{Math.max(roundNumber, 1)}</span>
                 <span className="text-sm text-muted-foreground">/ {room.total_rounds}</span>
               </div>
+              <ConnectionBadge quality={connectionQuality} />
               {isHostPlayer && (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
