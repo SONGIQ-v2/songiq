@@ -224,9 +224,9 @@ const Index = () => {
                   <CalendarDays className="w-3.5 h-3.5" />
                   Daily Challenge #{daily.number}
                 </span>
-                <h3 className="font-display text-4xl text-foreground mb-3">
+                <h2 className="font-display text-4xl text-foreground mb-3">
                   {daily.category_name}
-                </h3>
+                </h2>
                 <p className="text-muted-foreground text-sm mb-6">
                   Beat today's high score and claim your spot on the leaderboard.
                 </p>
@@ -249,7 +249,7 @@ const Index = () => {
               {/* Right: Daily Top 5 */}
               <div className="p-6 md:p-12 border-t-2 md:border-t-0 md:border-l-2 border-border/60">
                 <div className="flex items-center justify-between mb-4">
-                  <h4 className="text-xs font-bold uppercase tracking-[0.15em] text-muted-foreground">Daily Top 5</h4>
+                  <h3 className="text-xs font-bold uppercase tracking-[0.15em] text-muted-foreground">Daily Top 5</h3>
                   <button
                     onClick={() => navigate("/daily")}
                     className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
