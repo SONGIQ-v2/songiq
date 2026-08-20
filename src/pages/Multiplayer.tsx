@@ -276,6 +276,7 @@ const Multiplayer = () => {
                 onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
                 placeholder="ABCD12"
                 maxLength={6}
+                aria-label="Room code"
                 className="text-center text-2xl tracking-widest font-bold mb-4 bg-background/15 border-background/30 text-primary-foreground placeholder:text-primary-foreground/50"
               />
               <Button
