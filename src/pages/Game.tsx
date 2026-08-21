@@ -852,7 +852,7 @@ export default function Game() {
               >
                 <Music2 className="w-full h-full text-gold" />
               </motion.div>
-              <p className="text-xl text-foreground/80">Loading {playlist?.name || "tracks"}...</p>
+              <p className="text-xl text-foreground/80">Loading {challenge?.category_name || playlistName || playlist?.name || "tracks"}...</p>
               {slowConnection && (
                 <>
                   <p className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-destructive/15 border border-destructive/40 text-sm text-destructive">
