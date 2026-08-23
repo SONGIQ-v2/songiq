@@ -42,6 +42,7 @@ import { useGameStore } from "@/lib/gameStore";
 import { PLAYLISTS, getPlaylistById } from "@/lib/playlists";
 import { calculatePoints } from "@/lib/spotify";
 import { logError, logWarn, logInfo } from "@/lib/clientLogger";
+import { vibrateRoundStart, vibrateCorrect, vibrateIncorrect } from "@/lib/haptics";
 import { warmAudioUrl, preloadAudio, playWithWatchdog, prefetchAudio } from "@/lib/audioPreload";
 import { buildShareText, shareResult } from "@/lib/shareCard";
 import { shareResultImage } from "@/lib/shareImage";
@@ -391,6 +392,7 @@ export default function Game() {
     setRoundStartTime(Date.now());
     setGameState("playing");
     setIsPlaying(true);
+    vibrateRoundStart();
 
     // Start timer
     if (timerRef.current) clearInterval(timerRef.current);
@@ -411,6 +413,7 @@ export default function Game() {
     setRoundResults((prev) => [...prev, false]);
     setGameState("answered");
     setIsPlaying(false);
+    vibrateIncorrect();
     logWarn("solo.answer_timeout", "Solo player did not answer in time", {
       round: currentRound,
       trackId: currentTrack?.trackId,
@@ -436,6 +439,7 @@ export default function Game() {
     addSoloPoints(points);
     setGameState("answered");
     setIsPlaying(false);
+    if (correct) vibrateCorrect(); else vibrateIncorrect();
   }, [gameState, currentTrack, roundStartTime, addSoloPoints]);
 
   const handleNextRound = useCallback(() => {

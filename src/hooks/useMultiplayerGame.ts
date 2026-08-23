@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { logError, logWarn, logInfo } from "@/lib/clientLogger";
 import { fetchVerifiedPlayerIds } from "@/lib/verifiedPlayers";
 import { prefetchAudio } from "@/lib/audioPreload";
+import { vibrateRoundStart, vibrateCorrect, vibrateIncorrect } from "@/lib/haptics";
 
 export interface MultiplayerPlayer {
   id: string;
@@ -622,6 +623,7 @@ export function useMultiplayerGame(roomCode: string) {
       const flushPendingGrade = () => {
         if (pendingGradeRef.current && pendingGradeRef.current.roundId === round.id) {
           setIsCorrect(pendingGradeRef.current.isCorrect);
+          if (pendingGradeRef.current.isCorrect) vibrateCorrect(); else vibrateIncorrect();
           pendingGradeRef.current = null;
         }
       };
@@ -647,6 +649,7 @@ export function useMultiplayerGame(roomCode: string) {
           setIsCorrect(null);
           setRoundAnswers({});
           pendingGradeRef.current = null;
+          vibrateRoundStart();
           // Freeze displayed scores at their pre-round values so live
           // server-side score updates can't leak correctness mid-round
           scoreSnapshotRef.current = new Map(
