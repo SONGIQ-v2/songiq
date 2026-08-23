@@ -1217,7 +1217,7 @@ export default function Game() {
 
           <Button variant="gold" size="lg" className="w-full mb-4" onClick={handleShare}>
             <Share2 className="w-5 h-5 mr-2" />
-            Challenge your friends
+            {challenge && !daily ? "Share Result" : "Challenge your friends"}
           </Button>
 
           {daily ? (
@@ -1316,7 +1316,7 @@ export default function Game() {
               disabled={!nameInput.trim()}
             >
               <Share2 className="w-5 h-5 mr-2" />
-              Challenge your friends
+              {challenge && !daily ? "Share Result" : "Challenge your friends"}
             </Button>
           </DialogContent>
         </Dialog>
