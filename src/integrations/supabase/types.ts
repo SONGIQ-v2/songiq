@@ -539,6 +539,42 @@ export type Database = {
         }
         Relationships: []
       }
+      multiplayer_results: {
+        Row: {
+          finished_at: string
+          id: number
+          player_count: number
+          player_id: string
+          player_name: string
+          rank: number
+          room_id: string
+          score: number
+          won: boolean
+        }
+        Insert: {
+          finished_at: string
+          id?: never
+          player_count: number
+          player_id: string
+          player_name: string
+          rank: number
+          room_id: string
+          score: number
+          won: boolean
+        }
+        Update: {
+          finished_at?: string
+          id?: never
+          player_count?: number
+          player_id?: string
+          player_name?: string
+          rank?: number
+          room_id?: string
+          score?: number
+          won?: boolean
+        }
+        Relationships: []
+      }
       play_sessions: {
         Row: {
           created_at: string
@@ -1018,6 +1054,14 @@ export type Database = {
         Returns: number
       }
       get_challenge_by_code: { Args: { p_code: string }; Returns: Json }
+      get_multiplayer_profile_stats: {
+        Args: { p_player_id: string }
+        Returns: {
+          avg_position: number
+          rooms_played: number
+          win_rate_pct: number
+        }[]
+      }
       get_room_by_code: { Args: { p_code: string }; Returns: Json }
       get_vapid_public_key: { Args: never; Returns: string }
       global_leaderboard: {
