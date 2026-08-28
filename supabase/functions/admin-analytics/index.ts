@@ -317,7 +317,7 @@ async function runEventCountAllTime(accessToken: string, eventName: string): Pro
 // outnumber real ones, so this pages through admin.listUsers() rather than
 // assuming signed-in users are all on the first page, capped to bound cost.
 async function fetchSignedInUsers(
-  supabase: ReturnType<typeof createClient>
+  supabase: ReturnType<typeof serviceClient>
 ): Promise<{ id: string; name: string | null; nickname: string | null; email: string | null; createdAt: string; lastSignInAt: string | null; points: number }[]> {
   const signedIn: { id: string; name: string | null; email: string | null; createdAt: string; lastSignInAt: string | null }[] = [];
   const maxPages = 20; // 20 * 200 = up to 4000 users scanned

@@ -215,9 +215,9 @@ export async function fetchChartPool(
 ): Promise<{ pool: iTunesTrack[]; image: string }> {
   const feedUrl = `https://rss.marketingtools.apple.com/api/v2/${storefront}/music/most-played/100/songs.json`;
   const feed = await safeFetchJson<{ feed?: { results?: { id?: string }[] } }>(feedUrl, { redirect: "follow" });
-  const ids: string[] = (feed?.feed?.results ?? [])
+  const ids = (feed?.feed?.results ?? [])
     .map((r: { id?: string }) => r.id)
-    .filter(Boolean);
+    .filter((id): id is string => Boolean(id));
   if (ids.length === 0) return { pool: [], image: "" };
 
   const pool: iTunesTrack[] = [];

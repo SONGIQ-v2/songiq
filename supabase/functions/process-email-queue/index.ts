@@ -111,7 +111,10 @@ Deno.serve(async (req) => {
     )
   }
 
-  const supabase = createClient(supabaseUrl, supabaseServiceKey)
+  // Cast to any: the pgmq queue RPCs (read_email_batch, move_to_dlq, etc.)
+  // aren't in the generated Database types, so the typed client resolves
+  // their results to `never` and every downstream access fails type check.
+  const supabase = createClient(supabaseUrl, supabaseServiceKey) as any
 
   // 1. Check rate-limit cooldown and read queue config
   const { data: state } = await supabase
