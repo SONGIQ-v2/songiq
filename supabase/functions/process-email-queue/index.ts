@@ -53,8 +53,11 @@ function parseJwtClaims(token: string): Record<string, unknown> | null {
 }
 
 // Move a message to the dead letter queue and log the reason.
+// `supabase` is typed as any: the pgmq queue RPCs and the email_send_log
+// insert shape aren't in the generated Database types, so the typed client
+// resolves inserts to `never` and every field access fails type check.
 async function moveToDlq(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   queue: string,
   msg: { msg_id: number; message: Record<string, unknown> },
   reason: string
@@ -111,7 +114,10 @@ Deno.serve(async (req) => {
     )
   }
 
-  const supabase = createClient(supabaseUrl, supabaseServiceKey)
+  // Cast to any: the pgmq queue RPCs (read_email_batch, move_to_dlq, etc.)
+  // aren't in the generated Database types, so the typed client resolves
+  // their results to `never` and every downstream access fails type check.
+  const supabase = createClient(supabaseUrl, supabaseServiceKey) as any
 
   // 1. Check rate-limit cooldown and read queue config
   const { data: state } = await supabase
@@ -156,12 +162,12 @@ Deno.serve(async (req) => {
     const messageIds = Array.from(
       new Set(
         messages
-          .map((msg) =>
+          .map((msg: { message?: { message_id?: unknown } }) =>
             msg?.message?.message_id && typeof msg.message.message_id === 'string'
               ? msg.message.message_id
               : null
           )
-          .filter((id): id is string => Boolean(id))
+          .filter((id: string | null): id is string => Boolean(id))
       )
     )
     const failedAttemptsByMessageId = new Map<string, number>()
