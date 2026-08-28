@@ -747,6 +747,68 @@ export type Database = {
         }
         Relationships: []
       }
+      room_archive: {
+        Row: {
+          category: string
+          created_at: string
+          host_id: string
+          host_name: string
+          id: string
+          room_code: string
+          room_id: string
+        }
+        Insert: {
+          category: string
+          created_at: string
+          host_id: string
+          host_name: string
+          id?: string
+          room_code: string
+          room_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          host_id?: string
+          host_name?: string
+          id?: string
+          room_code?: string
+          room_id?: string
+        }
+        Relationships: []
+      }
+      room_player_archive: {
+        Row: {
+          id: number
+          joined_at: string
+          player_id: string
+          player_name: string
+          room_id: string
+        }
+        Insert: {
+          id?: never
+          joined_at: string
+          player_id: string
+          player_name: string
+          room_id: string
+        }
+        Update: {
+          id?: never
+          joined_at?: string
+          player_id?: string
+          player_name?: string
+          room_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_player_archive_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "room_archive"
+            referencedColumns: ["room_id"]
+          },
+        ]
+      }
       room_players: {
         Row: {
           avatar_index: number
