@@ -510,7 +510,8 @@ serve(async (req) => {
         { count: dailyPlaysToday },
         { data: dailyScoresToday },
         { data: topStreakRow },
-        { data: uniquePlayers },
+        { data: uniquePlayersInRange },
+        { data: uniquePlayersAllTime },
         { data: minutesByModeInRange },
         { data: minutesByModeAllTime },
       ] = await Promise.all([
@@ -530,6 +531,7 @@ serve(async (req) => {
           .order("total_score", { ascending: false })
           .limit(1)
           .maybeSingle(),
+        supabase.rpc("count_unique_players", { p_cutoff: rangeCutoff }),
         supabase.rpc("count_unique_players"),
         supabase.rpc("minutes_played_stats", { p_cutoff: rangeCutoff }),
         supabase.rpc("minutes_played_stats"),
@@ -580,7 +582,8 @@ serve(async (req) => {
             topStreakPlayer: topStreakRow
               ? { name: topStreakRow.player_name, streak: topStreakRow.effective_streak }
               : null,
-            uniquePlayersEver: (uniquePlayers as number | null) ?? 0,
+            uniquePlayersInRange: (uniquePlayersInRange as number | null) ?? 0,
+            uniquePlayersEver: (uniquePlayersAllTime as number | null) ?? 0,
             challengeCompletionRatePct:
               challengeCount && challengeCount > 0
                 ? Math.round(((challengeAttemptCount ?? 0) / challengeCount) * 100)

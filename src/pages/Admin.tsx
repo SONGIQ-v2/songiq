@@ -85,6 +85,7 @@ interface ReportData {
     dailyPlaysToday: number;
     dailyAvgScoreToday: number;
     topStreakPlayer: { name: string; streak: number } | null;
+    uniquePlayersInRange: number;
     uniquePlayersEver: number;
     challengeCompletionRatePct: number;
   };
@@ -398,7 +399,12 @@ export default function Admin() {
                           value={report.stats?.topStreakPlayer?.streak ?? 0}
                           sublabel={report.stats?.topStreakPlayer?.name}
                         />
-                        <StatTile icon={Users} label="Unique players ever" value={report.stats?.uniquePlayersEver ?? 0} />
+                        <StatTile
+                          icon={Users}
+                          label="Unique players"
+                          value={report.stats?.uniquePlayersInRange ?? 0}
+                          sublabel={`${report.stats?.uniquePlayersEver ?? 0} all-time`}
+                        />
                         <StatTile icon={Eye} label="Visitors" value={report.stats?.visitorsInRange ?? 0} sublabel="in selected range" />
                         <StatTile icon={LogOut} label="Bounce rate" value={`${report.stats?.bounceRatePct ?? 0}%`} sublabel="in selected range" />
                         <StatTile
