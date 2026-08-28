@@ -945,7 +945,9 @@ export type Database = {
       }
       advance_all_playing_rounds: { Args: never; Returns: undefined }
       advance_game_round: { Args: { _room_id: string }; Returns: Json }
-      count_unique_players: { Args: never; Returns: number }
+      count_unique_players:
+        | { Args: never; Returns: number }
+        | { Args: { p_cutoff?: string }; Returns: number }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
