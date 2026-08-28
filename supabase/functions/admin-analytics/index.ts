@@ -444,6 +444,7 @@ serve(async (req) => {
         soloGamesPlayedAllTime,
         visitorsInRange,
         bounceRate,
+        bounceRateAllTime,
         topPages,
         topCountries,
         topCities,
@@ -467,6 +468,12 @@ serve(async (req) => {
         }),
         runBounceRate(accessToken, reportStart, reportEnd).catch((e) => {
           console.error("[admin-analytics] Bounce rate failed:", e);
+          return 0;
+        }),
+        // Same fixed wide range as runSoloGamesAllTime -- aggregated GA4
+        // report data isn't subject to the property's retention window.
+        runBounceRate(accessToken, "2020-01-01", "today").catch((e) => {
+          console.error("[admin-analytics] Bounce rate (all-time) failed:", e);
           return 0;
         }),
         runTopPages(accessToken, reportStart, reportEnd).catch((e) => {
@@ -573,6 +580,7 @@ serve(async (req) => {
             soloGamesPlayedAllTime,
             visitorsInRange,
             bounceRatePct: Math.round(bounceRate * 1000) / 10,
+            bounceRatePctAllTime: Math.round(bounceRateAllTime * 1000) / 10,
             minutesPlayedInRange,
             minutesPlayedAllTime,
             minutesByMode: minutesByModeInRange ?? [],

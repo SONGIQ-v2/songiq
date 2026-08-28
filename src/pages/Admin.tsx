@@ -78,6 +78,7 @@ interface ReportData {
     soloGamesPlayedAllTime: number;
     visitorsInRange: number;
     bounceRatePct: number;
+    bounceRatePctAllTime: number;
     minutesPlayedInRange: number;
     minutesPlayedAllTime: number;
     minutesByMode: { mode: string; minutes: number }[];
@@ -406,7 +407,12 @@ export default function Admin() {
                           sublabel={`${report.stats?.uniquePlayersEver ?? 0} all-time`}
                         />
                         <StatTile icon={Eye} label="Visitors" value={report.stats?.visitorsInRange ?? 0} sublabel="in selected range" />
-                        <StatTile icon={LogOut} label="Bounce rate" value={`${report.stats?.bounceRatePct ?? 0}%`} sublabel="in selected range" />
+                        <StatTile
+                          icon={LogOut}
+                          label="Bounce rate"
+                          value={`${report.stats?.bounceRatePct ?? 0}%`}
+                          sublabel={`${report.stats?.bounceRatePctAllTime ?? 0}% all-time`}
+                        />
                         <StatTile
                           icon={Clock}
                           label="Minutes played"
