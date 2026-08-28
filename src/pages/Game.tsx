@@ -150,6 +150,11 @@ export default function Game() {
   // "A music fan".
   const [showNamePrompt, setShowNamePrompt] = useState(false);
   const [nameInput, setNameInput] = useState("");
+  // Guards doShare() against a double-tap creating two challenge rows for
+  // one game -- createdChallengeRef is only set after createChallenge()
+  // resolves, so a second tap before that finishes would otherwise pass
+  // the ref check too.
+  const [isSharing, setIsSharing] = useState(false);
 
   // Rounds captured as played, so a normal game can be shared as a challenge
   const planRef = useRef<ChallengeRound[]>([]);
@@ -932,6 +937,9 @@ export default function Game() {
     const percentage = Math.round((soloScore / maxScore) * 100);
 
     const doShare = async () => {
+      if (isSharing) return;
+      setIsSharing(true);
+      try {
       trackEvent("share_result", {
         mode: daily ? "daily" : challenge ? "challenge" : "solo",
         score: soloScore,
@@ -1006,6 +1014,9 @@ export default function Game() {
       const outcome = await shareResult(text);
       if (outcome === "copied") toast.success("Result copied — paste it anywhere!");
       if (outcome === "failed") toast.error("Couldn't share your result");
+      } finally {
+        setIsSharing(false);
+      }
     };
 
     const handleShare = () => {
@@ -1219,7 +1230,7 @@ export default function Game() {
 
           <SaveProgressPrompt />
 
-          <Button variant="gold" size="lg" className="w-full mb-4" onClick={handleShare}>
+          <Button variant="gold" size="lg" className="w-full mb-4" onClick={handleShare} disabled={isSharing}>
             <Share2 className="w-5 h-5 mr-2" />
             {challenge && !daily ? "Share Result" : "Challenge your friends"}
           </Button>
@@ -1317,7 +1328,7 @@ export default function Game() {
               size="lg"
               className="w-full"
               onClick={handleNameSubmit}
-              disabled={!nameInput.trim()}
+              disabled={!nameInput.trim() || isSharing}
             >
               <Share2 className="w-5 h-5 mr-2" />
               {challenge && !daily ? "Share Result" : "Challenge your friends"}
