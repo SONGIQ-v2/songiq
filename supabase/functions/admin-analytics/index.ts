@@ -287,11 +287,14 @@ async function runTrafficSources(
   }));
 }
 
-// Solo games have no DB table (only Daily/Challenge attempts do), so GA4 is
-// the only source, even for "all-time" -- queried with a fixed wide range
-// rather than the selected date range, since aggregated GA4 report data
-// (unlike user-level data) isn't subject to the property's retention window.
-async function runSoloGamesAllTime(accessToken: string): Promise<number> {
+// Lifetime count of a single GA4 event, queried with a fixed wide range
+// rather than the selected date range -- aggregated GA4 report data (unlike
+// user-level data) isn't subject to the property's retention window. Used
+// for events with no DB table of their own (solo games) and for events
+// whose DB counterpart is unreliable as an all-time proxy (challenge
+// completions -- challenge_attempts only ever holds one row per player per
+// challenge, so a replay doesn't re-count there the way it does in GA4).
+async function runEventCountAllTime(accessToken: string, eventName: string): Promise<number> {
   const res = await fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${GA4_PROPERTY_ID}:runReport`, {
     method: "POST",
     headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
@@ -299,11 +302,11 @@ async function runSoloGamesAllTime(accessToken: string): Promise<number> {
       dateRanges: [{ startDate: "2020-01-01", endDate: "today" }],
       metrics: [{ name: "eventCount" }],
       dimensionFilter: {
-        filter: { fieldName: "eventName", stringFilter: { value: "solo_game_complete" } },
+        filter: { fieldName: "eventName", stringFilter: { value: eventName } },
       },
     }),
   });
-  if (!res.ok) throw new Error(`GA4 solo-games-all-time report failed: ${await res.text()}`);
+  if (!res.ok) throw new Error(`GA4 all-time event-count report failed for "${eventName}": ${await res.text()}`);
   const data = await res.json();
   return Number(data.rows?.[0]?.metricValues?.[0]?.value ?? 0);
 }
@@ -442,6 +445,7 @@ serve(async (req) => {
         { eventCounts, dailyTotals },
         topPlaylists,
         soloGamesPlayedAllTime,
+        challengesCompletedAllTime,
         visitorsInRange,
         bounceRate,
         bounceRateAllTime,
@@ -458,8 +462,12 @@ serve(async (req) => {
           console.error("[admin-analytics] Top playlists failed:", e);
           return [];
         }),
-        runSoloGamesAllTime(accessToken).catch((e) => {
+        runEventCountAllTime(accessToken, "solo_game_complete").catch((e) => {
           console.error("[admin-analytics] Solo games all-time failed:", e);
+          return 0;
+        }),
+        runEventCountAllTime(accessToken, "challenge_complete").catch((e) => {
+          console.error("[admin-analytics] Challenges completed all-time failed:", e);
           return 0;
         }),
         runVisitorCount(accessToken, reportStart, reportEnd).catch((e) => {
@@ -508,9 +516,6 @@ serve(async (req) => {
       // from it instead.
       const [
         { count: streakCount },
-        { count: challengeCount },
-        { count: challengeCountInRange },
-        { count: challengeAttemptCount },
         { count: roomCount },
         { count: roomCountInRange },
         { count: activeRoomCount },
@@ -523,9 +528,6 @@ serve(async (req) => {
         { data: minutesByModeAllTime },
       ] = await Promise.all([
         supabase.from("daily_stats").select("*", { count: "exact", head: true }),
-        supabase.from("creation_log").select("*", { count: "exact", head: true }).eq("event_type", "challenge"),
-        supabase.from("creation_log").select("*", { count: "exact", head: true }).eq("event_type", "challenge").gte("created_at", rangeCutoff),
-        supabase.from("challenge_attempts").select("*", { count: "exact", head: true }),
         supabase.from("creation_log").select("*", { count: "exact", head: true }).eq("event_type", "room"),
         supabase.from("creation_log").select("*", { count: "exact", head: true }).eq("event_type", "room").gte("created_at", rangeCutoff),
         supabase.from("game_rooms").select("*", { count: "exact", head: true }).in("status", ["waiting", "playing"]),
@@ -558,6 +560,11 @@ serve(async (req) => {
       // Daily/Challenge attempts are) -- GA4's solo_game_complete count,
       // already scoped to the selected range, is the only source for this.
       const soloGamesPlayedInRange = eventCounts.find((e: { event: string }) => e.event === "solo_game_complete")?.count ?? 0;
+      // "Challenges created" (creation_log) counts every silently pre-generated
+      // share link, most of which are never actually shared -- challenge_complete
+      // only fires when someone genuinely plays through (or explicitly quits) a
+      // challenge link, which is what this stat is meant to represent.
+      const challengesCompletedInRange = eventCounts.find((e: { event: string }) => e.event === "challenge_complete")?.count ?? 0;
 
       return new Response(
         JSON.stringify({
@@ -572,8 +579,8 @@ serve(async (req) => {
           signedInUsers,
           stats: {
             playersWithStreak: streakCount ?? 0,
-            challengesCreated: challengeCount ?? 0,
-            challengesCreatedInRange: challengeCountInRange ?? 0,
+            challengesCompletedInRange,
+            challengesCompletedAllTime,
             roomsCreated: roomCount ?? 0,
             roomsCreatedInRange: roomCountInRange ?? 0,
             soloGamesPlayedInRange,
@@ -592,10 +599,6 @@ serve(async (req) => {
               : null,
             uniquePlayersInRange: (uniquePlayersInRange as number | null) ?? 0,
             uniquePlayersEver: (uniquePlayersAllTime as number | null) ?? 0,
-            challengeCompletionRatePct:
-              challengeCount && challengeCount > 0
-                ? Math.round(((challengeAttemptCount ?? 0) / challengeCount) * 100)
-                : 0,
           },
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }

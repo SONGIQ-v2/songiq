@@ -70,8 +70,8 @@ interface ReportData {
   }[];
   stats?: {
     playersWithStreak: number;
-    challengesCreated: number;
-    challengesCreatedInRange: number;
+    challengesCompletedInRange: number;
+    challengesCompletedAllTime: number;
     roomsCreated: number;
     roomsCreatedInRange: number;
     soloGamesPlayedInRange: number;
@@ -88,7 +88,6 @@ interface ReportData {
     topStreakPlayer: { name: string; streak: number } | null;
     uniquePlayersInRange: number;
     uniquePlayersEver: number;
-    challengeCompletionRatePct: number;
   };
 }
 
@@ -427,14 +426,9 @@ export default function Admin() {
                         />
                         <StatTile
                           icon={LinkIcon}
-                          label="Challenges created"
-                          value={report.stats?.challengesCreatedInRange ?? 0}
-                          sublabel={`${report.stats?.challengesCreated ?? 0} all-time`}
-                        />
-                        <StatTile
-                          icon={Trophy}
-                          label="Challenge completion rate"
-                          value={`${report.stats?.challengeCompletionRatePct ?? 0}%`}
+                          label="Challenges completed"
+                          value={report.stats?.challengesCompletedInRange ?? 0}
+                          sublabel={`${report.stats?.challengesCompletedAllTime ?? 0} all-time`}
                         />
                         <StatTile
                           icon={Users}
