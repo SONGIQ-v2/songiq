@@ -51,6 +51,14 @@ Deno.serve(async (req) => {
       .lt("created_at", challengeCutoff);
     console.log(`Purged ${purgedChallenges ?? 0} expired challenges`);
 
+    // Purge the admin Multiplayer tab's room/player archive after 30 days
+    // (room_player_archive rows cascade off room_archive, no separate delete needed)
+    const { count: purgedRoomArchive } = await supabase
+      .from("room_archive")
+      .delete({ count: "exact" })
+      .lt("created_at", challengeCutoff);
+    console.log(`Purged ${purgedRoomArchive ?? 0} expired room archive entries`);
+
     // Award the daily top-3 Points bonus for any finished, unsettled day
     // (idempotent; no-op when every past day is already settled)
     const { error: bonusErr } = await supabase.rpc("settle_daily_bonus");

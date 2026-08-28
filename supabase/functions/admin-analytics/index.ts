@@ -526,6 +526,7 @@ serve(async (req) => {
         { data: uniquePlayersAllTime },
         { data: minutesByModeInRange },
         { data: minutesByModeAllTime },
+        { data: roomArchiveRows },
       ] = await Promise.all([
         supabase.from("daily_stats").select("*", { count: "exact", head: true }),
         supabase.from("creation_log").select("*", { count: "exact", head: true }).eq("event_type", "room"),
@@ -544,6 +545,12 @@ serve(async (req) => {
         supabase.rpc("count_unique_players"),
         supabase.rpc("minutes_played_stats", { p_cutoff: rangeCutoff }),
         supabase.rpc("minutes_played_stats"),
+        supabase
+          .from("room_archive")
+          .select("room_code, host_name, category, created_at, room_player_archive(player_name, joined_at)")
+          .gte("created_at", rangeCutoff)
+          .order("created_at", { ascending: false })
+          .limit(200),
       ]);
 
       const sumMinutes = (rows: { mode: string; minutes: number }[] | null) =>
@@ -566,6 +573,20 @@ serve(async (req) => {
       // challenge link, which is what this stat is meant to represent.
       const challengesCompletedInRange = eventCounts.find((e: { event: string }) => e.event === "challenge_complete")?.count ?? 0;
 
+      const rooms = (roomArchiveRows ?? []).map((r: {
+        room_code: string;
+        host_name: string;
+        category: string;
+        created_at: string;
+        room_player_archive: { player_name: string; joined_at: string }[];
+      }) => ({
+        room_code: r.room_code,
+        host_name: r.host_name,
+        category: r.category,
+        created_at: r.created_at,
+        players: r.room_player_archive ?? [],
+      }));
+
       return new Response(
         JSON.stringify({
           connected: true,
@@ -577,6 +598,7 @@ serve(async (req) => {
           topPages,
           trafficSources,
           signedInUsers,
+          rooms,
           stats: {
             playersWithStreak: streakCount ?? 0,
             challengesCompletedInRange,

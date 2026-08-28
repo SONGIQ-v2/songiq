@@ -18,6 +18,7 @@ import { Starfield } from "@/components/Starfield";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
+import { getPlaylistById } from "@/lib/playlists";
 import { cn } from "@/lib/utils";
 import type { Session } from "@supabase/supabase-js";
 
@@ -34,13 +35,14 @@ const ANALYTICS_TABS: { key: AnalyticsTab; label: string }[] = [
   { key: "keyEvents", label: "Key Events" },
 ];
 
-type AdminSection = "overview" | "analytics" | "playlists" | "daily" | "geography" | "users";
+type AdminSection = "overview" | "analytics" | "playlists" | "daily" | "geography" | "multiplayer" | "users";
 const SECTIONS: { key: AdminSection; label: string; icon: typeof Users }[] = [
   { key: "overview", label: "Overview", icon: LayoutDashboard },
   { key: "analytics", label: "Analytics", icon: BarChart3 },
   { key: "playlists", label: "Playlists", icon: ListMusic },
   { key: "daily", label: "Daily Challenge", icon: Mic2 },
   { key: "geography", label: "Geography & Traffic", icon: Globe },
+  { key: "multiplayer", label: "Multiplayer", icon: Radio },
   { key: "users", label: "Signed-in Users", icon: UserCheck },
 ];
 
@@ -59,6 +61,13 @@ interface ReportData {
   topCities?: { name: string; visitors: number }[];
   topPages?: { path: string; views: number }[];
   trafficSources?: { source: string; sessions: number }[];
+  rooms?: {
+    room_code: string;
+    host_name: string;
+    category: string;
+    created_at: string;
+    players: { player_name: string; joined_at: string }[];
+  }[];
   signedInUsers?: {
     id: string;
     name: string | null;
@@ -133,6 +142,7 @@ export default function Admin() {
   const [range, setRange] = useState<DateRangeKey>("7d");
   const [activeSection, setActiveSection] = useState<AdminSection>("overview");
   const [analyticsTab, setAnalyticsTab] = useState<AnalyticsTab>("charts");
+  const [expandedRooms, setExpandedRooms] = useState<Set<string>>(new Set());
   const [report, setReport] = useState<ReportData | null>(null);
   const [loadingReport, setLoadingReport] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
@@ -740,6 +750,69 @@ export default function Admin() {
                           </div>
                         )}
                       </div>
+                    )}
+
+                    {activeSection === "multiplayer" && (
+                      report.rooms && report.rooms.length > 0 ? (
+                        <div className="raised-panel p-5">
+                          <p className="text-sm font-semibold text-foreground mb-4 flex items-center gap-1.5">
+                            <Radio className="w-4 h-4 text-primary" /> Multiplayer rooms ({report.rooms.length})
+                          </p>
+                          <div className="max-h-[32rem] overflow-y-auto space-y-1.5">
+                            {report.rooms.map((room) => {
+                              const isExpanded = expandedRooms.has(room.room_code);
+                              const categoryName = getPlaylistById(room.category)?.name || room.category;
+                              return (
+                                <div key={room.room_code} className="rounded-lg bg-card/50 overflow-hidden">
+                                  <button
+                                    onClick={() =>
+                                      setExpandedRooms((prev) => {
+                                        const next = new Set(prev);
+                                        if (next.has(room.room_code)) next.delete(room.room_code);
+                                        else next.add(room.room_code);
+                                        return next;
+                                      })
+                                    }
+                                    className="w-full flex items-center justify-between gap-3 px-3 py-2 text-sm text-left"
+                                  >
+                                    <span className="font-semibold text-foreground flex items-center gap-2 min-w-0">
+                                      <span className="font-mono text-primary shrink-0">{room.room_code}</span>
+                                      <span className="truncate text-muted-foreground">
+                                        {categoryName} · hosted by {room.host_name}
+                                      </span>
+                                    </span>
+                                    <span className="flex items-center gap-3 shrink-0">
+                                      <span className="text-xs text-muted-foreground">
+                                        {new Date(room.created_at).toLocaleString()}
+                                      </span>
+                                      <span className="text-xs font-bold text-gold whitespace-nowrap">
+                                        {room.players.length} {room.players.length === 1 ? "player" : "players"}
+                                      </span>
+                                    </span>
+                                  </button>
+                                  {isExpanded && (
+                                    <div className="px-3 pb-2.5 pt-1 border-t border-border/40 space-y-1">
+                                      {room.players.map((p) => (
+                                        <div
+                                          key={`${p.player_name}-${p.joined_at}`}
+                                          className="flex items-center justify-between text-xs"
+                                        >
+                                          <span className="text-foreground">{p.player_name}</span>
+                                          <span className="text-muted-foreground">
+                                            {new Date(p.joined_at).toLocaleTimeString()}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="raised-panel p-8 text-center text-muted-foreground text-sm">No multiplayer rooms in this range yet.</div>
+                      )
                     )}
 
                     {activeSection === "users" && (
