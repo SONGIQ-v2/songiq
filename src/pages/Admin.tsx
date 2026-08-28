@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import {
   BarChart,
@@ -143,6 +144,10 @@ export default function Admin() {
   const [activeSection, setActiveSection] = useState<AdminSection>("overview");
   const [analyticsTab, setAnalyticsTab] = useState<AnalyticsTab>("charts");
   const [expandedRooms, setExpandedRooms] = useState<Set<string>>(new Set());
+  const [nicknameQuery, setNicknameQuery] = useState("");
+  const [nicknameResults, setNicknameResults] = useState<{ playerId: string; playerName: string; points: number }[] | null>(null);
+  const [searchingNickname, setSearchingNickname] = useState(false);
+  const [nicknameSearchError, setNicknameSearchError] = useState<string | null>(null);
   const [report, setReport] = useState<ReportData | null>(null);
   const [loadingReport, setLoadingReport] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
@@ -183,6 +188,23 @@ export default function Admin() {
     }
     setLoadingReport(false);
   }, []);
+
+  const handleNicknameSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!nicknameQuery.trim()) return;
+    setSearchingNickname(true);
+    setNicknameSearchError(null);
+    const { data, error } = await supabase.functions.invoke("admin-analytics", {
+      body: { action: "search_players", nickname: nicknameQuery.trim() },
+    });
+    if (error) {
+      setNicknameSearchError(error.message ?? "Search failed");
+      setNicknameResults(null);
+    } else {
+      setNicknameResults((data as { players: { playerId: string; playerName: string; points: number }[] }).players);
+    }
+    setSearchingNickname(false);
+  };
 
   // Handle Google's OAuth redirect back to this page (?code=...)
   useEffect(() => {
@@ -816,7 +838,53 @@ export default function Admin() {
                     )}
 
                     {activeSection === "users" && (
-                      report.signedInUsers && report.signedInUsers.length > 0 ? (
+                      <div className="space-y-6">
+                      <div className="raised-panel p-5">
+                        <p className="text-sm font-semibold text-foreground mb-4 flex items-center gap-1.5">
+                          <UserCheck className="w-4 h-4 text-primary" /> Look up a player by nickname
+                        </p>
+                        <form onSubmit={handleNicknameSearch} className="flex gap-2 mb-4">
+                          <Input
+                            value={nicknameQuery}
+                            onChange={(e) => setNicknameQuery(e.target.value)}
+                            placeholder="Nickname (or part of one)"
+                            className="flex-1"
+                          />
+                          <Button type="submit" variant="gold" disabled={searchingNickname || !nicknameQuery.trim()}>
+                            {searchingNickname ? "Searching..." : "Search"}
+                          </Button>
+                        </form>
+                        {nicknameSearchError && <p className="text-red-400 text-sm mb-3">{nicknameSearchError}</p>}
+                        {nicknameResults && (
+                          nicknameResults.length > 0 ? (
+                            <div className="space-y-1.5">
+                              {nicknameResults.map((p) => (
+                                <div
+                                  key={p.playerId}
+                                  className="flex items-center justify-between px-3 py-1.5 rounded-lg text-sm bg-card/50"
+                                >
+                                  <span className="font-semibold text-foreground truncate">{p.playerName}</span>
+                                  <span className="flex items-center gap-3 shrink-0">
+                                    <span className="text-gold font-bold">{p.points} pts</span>
+                                    <Link
+                                      to={`/anonymous/player/${p.playerId}`}
+                                      target="_blank"
+                                      className="font-mono text-xs text-primary hover:underline"
+                                      title={p.playerId}
+                                    >
+                                      {p.playerId.slice(0, 8)}…
+                                    </Link>
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-muted-foreground text-sm">No players found with that nickname.</p>
+                          )
+                        )}
+                      </div>
+
+                      {report.signedInUsers && report.signedInUsers.length > 0 ? (
                         <div className="raised-panel p-5">
                           <p className="text-sm font-semibold text-foreground mb-4 flex items-center gap-1.5">
                             <UserCheck className="w-4 h-4 text-primary" /> Signed-in users ({report.signedInUsers.length})
@@ -828,6 +896,7 @@ export default function Admin() {
                                   <TableHead>Name</TableHead>
                                   <TableHead>Nickname</TableHead>
                                   <TableHead>Email</TableHead>
+                                  <TableHead>ID</TableHead>
                                   <TableHead className="text-right">Points</TableHead>
                                   <TableHead className="text-right">Joined</TableHead>
                                   <TableHead className="text-right">Last sign-in</TableHead>
@@ -839,6 +908,16 @@ export default function Admin() {
                                     <TableCell className="font-semibold text-foreground">{u.name || "—"}</TableCell>
                                     <TableCell className="text-muted-foreground">{u.nickname || "—"}</TableCell>
                                     <TableCell className="text-muted-foreground">{u.email || "—"}</TableCell>
+                                    <TableCell>
+                                      <Link
+                                        to={`/anonymous/player/${u.id}`}
+                                        target="_blank"
+                                        className="font-mono text-xs text-primary hover:underline"
+                                        title={u.id}
+                                      >
+                                        {u.id.slice(0, 8)}…
+                                      </Link>
+                                    </TableCell>
                                     <TableCell className="text-right font-bold text-gold">{u.points}</TableCell>
                                     <TableCell className="text-right text-muted-foreground text-xs">
                                       {new Date(u.createdAt).toLocaleDateString()}
@@ -854,7 +933,8 @@ export default function Admin() {
                         </div>
                       ) : (
                         <div className="raised-panel p-8 text-center text-muted-foreground text-sm">No signed-in users yet.</div>
-                      )
+                      )}
+                      </div>
                     )}
                     </div>
                   </div>

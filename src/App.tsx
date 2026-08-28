@@ -14,6 +14,7 @@ import ChallengePage from "./pages/Challenge";
 import Daily from "./pages/Daily";
 import Leaderboard from "./pages/Leaderboard";
 import Admin from "./pages/Admin";
+import PlayerProfile from "./pages/PlayerProfile";
 import Privacy from "./pages/Privacy";
 import GuessTheSongGame from "./pages/landing/GuessTheSongGame";
 import GuessTheArtistGame from "./pages/landing/GuessTheArtistGame";
@@ -46,6 +47,7 @@ const App = () => (
           <Route path="/daily" element={<Daily />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/anonymous" element={<Admin />} />
+          <Route path="/anonymous/player/:playerId" element={<PlayerProfile />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/guess-the-song-game" element={<GuessTheSongGame />} />
           <Route path="/guess-the-artist-game" element={<GuessTheArtistGame />} />

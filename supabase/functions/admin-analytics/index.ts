@@ -388,8 +388,73 @@ serve(async (req) => {
       });
     }
 
-    const { action, code, redirectUri, startDate, endDate, rangeKey } = await req.json();
+    const { action, code, redirectUri, startDate, endDate, rangeKey, playerId, nickname } = await req.json();
     const supabase = serviceClient();
+
+    if (action === "search_players") {
+      if (!nickname || !nickname.trim()) throw new Error("Missing nickname");
+
+      const { data: rows, error: searchErr } = await supabase
+        .from("player_points")
+        .select("player_id, player_name, points")
+        .ilike("player_name", `%${nickname.trim()}%`)
+        .order("points", { ascending: false })
+        .limit(50);
+      if (searchErr) throw searchErr;
+
+      return new Response(
+        JSON.stringify({
+          players: (rows ?? []).map((r) => ({ playerId: r.player_id, playerName: r.player_name, points: r.points })),
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (action === "player_profile") {
+      if (!playerId) throw new Error("Missing playerId");
+
+      const [
+        { data: pointsRow },
+        { count: soloCount },
+        { count: dailyCount },
+        { count: challengeCount },
+        { data: mpStatsRows },
+        { data: streakRow },
+        { data: sessionRows },
+      ] = await Promise.all([
+        supabase.from("player_points").select("player_name, points, games").eq("player_id", playerId).maybeSingle(),
+        supabase.from("play_sessions").select("*", { count: "exact", head: true }).eq("player_id", playerId).eq("mode", "solo"),
+        supabase.from("daily_attempts").select("*", { count: "exact", head: true }).eq("player_id", playerId),
+        supabase.from("challenge_attempts").select("*", { count: "exact", head: true }).eq("player_id", playerId),
+        supabase.rpc("get_multiplayer_profile_stats", { p_player_id: playerId }),
+        supabase.from("daily_stats").select("current_streak, best_streak").eq("player_id", playerId).maybeSingle(),
+        supabase.from("play_sessions").select("seconds").eq("player_id", playerId),
+      ]);
+
+      const mp = (mpStatsRows as { rooms_played: number; avg_position: number | null; win_rate_pct: number }[] | null)?.[0];
+      const minutesPlayed = Math.round(
+        (sessionRows ?? []).reduce((sum: number, r: { seconds: number }) => sum + (r.seconds ?? 0), 0) / 60
+      );
+
+      return new Response(
+        JSON.stringify({
+          playerId,
+          playerName: pointsRow?.player_name ?? null,
+          points: pointsRow?.points ?? 0,
+          gamesPlayed: pointsRow?.games ?? 0,
+          soloGamesPlayed: soloCount ?? 0,
+          dailyChallengesPlayed: dailyCount ?? 0,
+          challengesPlayed: challengeCount ?? 0,
+          minutesPlayed,
+          currentStreak: streakRow?.current_streak ?? 0,
+          bestStreak: streakRow?.best_streak ?? 0,
+          roomsPlayed: mp?.rooms_played ?? 0,
+          avgPosition: mp?.avg_position ?? null,
+          winRatePct: mp?.win_rate_pct ?? 0,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     if (action === "connect") {
       if (!code) throw new Error("Missing authorization code");
