@@ -313,12 +313,24 @@ async function runEventCountAllTime(accessToken: string, eventName: string): Pro
 
 // Real (non-anonymous) signed-in players -- name/email come from Google via
 // Supabase Auth's admin API (client-side/anon keys can never list auth.users;
-// this requires the service-role client). Anonymous players vastly
+// this requires the service-role client, and PostgREST doesn't expose the
+// auth schema for a direct table query either). Anonymous players vastly
 // outnumber real ones, so this pages through admin.listUsers() rather than
-// assuming signed-in users are all on the first page, capped to bound cost.
+// assuming signed-in users are all on the first page.
+//
+// Scans every non-anonymous user (up to the 4000-user safety cap below) so
+// the all-time/in-range counts are accurate -- only the returned *table*
+// list is capped to 200 for display. If the real signed-in count ever
+// exceeds 4000, these counts would start undercounting; fine for now, worth
+// revisiting at that scale.
 async function fetchSignedInUsers(
-  supabase: ReturnType<typeof serviceClient>
-): Promise<{ id: string; name: string | null; nickname: string | null; email: string | null; createdAt: string; lastSignInAt: string | null; points: number }[]> {
+  supabase: ReturnType<typeof serviceClient>,
+  rangeCutoff: string
+): Promise<{
+  users: { id: string; name: string | null; nickname: string | null; email: string | null; createdAt: string; lastSignInAt: string | null; points: number }[];
+  totalSignedIn: number;
+  newSignedInInRange: number;
+}> {
   const signedIn: { id: string; name: string | null; email: string | null; createdAt: string; lastSignInAt: string | null }[] = [];
   const maxPages = 20; // 20 * 200 = up to 4000 users scanned
   for (let page = 1; page <= maxPages; page++) {
@@ -339,10 +351,13 @@ async function fetchSignedInUsers(
       });
     }
     if (data.users.length < 200) break; // last page
-    if (signedIn.length >= 200) break; // enough for the dashboard
   }
 
-  if (signedIn.length === 0) return [];
+  const totalSignedIn = signedIn.length;
+  const rangeCutoffMs = new Date(rangeCutoff).getTime();
+  const newSignedInInRange = signedIn.filter((u) => new Date(u.createdAt).getTime() >= rangeCutoffMs).length;
+
+  if (signedIn.length === 0) return { users: [], totalSignedIn, newSignedInInRange };
   const { data: pointsRows } = await supabase
     .from("player_points")
     .select("player_id, player_name, points")
@@ -351,13 +366,16 @@ async function fetchSignedInUsers(
     (pointsRows ?? []).map((r: { player_id: string; player_name: string | null; points: number }) => [r.player_id, r])
   );
 
-  return signedIn
+  const users = signedIn
     .map((u) => ({
       ...u,
       nickname: pointsById.get(u.id)?.player_name ?? null,
       points: Number(pointsById.get(u.id)?.points ?? 0),
     }))
-    .sort((a, b) => b.points - a.points);
+    .sort((a, b) => b.points - a.points)
+    .slice(0, 200);
+
+  return { users, totalSignedIn, newSignedInInRange };
 }
 
 /** "Today" by Lagos time, matching daily_challenges.challenge_date elsewhere in the app. */
@@ -506,6 +524,8 @@ serve(async (req) => {
       }
       const reportStart = startDate || "7daysAgo";
       const reportEnd = endDate || "today";
+      const today = lagosToday();
+      const rangeCutoff = rangeCutoffISO(rangeKey);
       const [
         { eventCounts, dailyTotals },
         topPlaylists,
@@ -518,7 +538,7 @@ serve(async (req) => {
         topCountries,
         topCities,
         trafficSources,
-        signedInUsers,
+        { users: signedInUsers, totalSignedIn, newSignedInInRange },
       ] = await Promise.all([
         runGA4Report(accessToken, reportStart, reportEnd),
         runTopPlaylists(accessToken, reportStart, reportEnd).catch((e) => {
@@ -565,14 +585,12 @@ serve(async (req) => {
           console.error("[admin-analytics] Traffic sources failed:", e);
           return [];
         }),
-        fetchSignedInUsers(supabase).catch((e) => {
+        fetchSignedInUsers(supabase, rangeCutoff).catch((e) => {
           console.error("[admin-analytics] Signed-in users failed:", e);
-          return [];
+          return { users: [], totalSignedIn: 0, newSignedInInRange: 0 };
         }),
       ]);
 
-      const today = lagosToday();
-      const rangeCutoff = rangeCutoffISO(rangeKey);
       // game_rooms/challenges get purged by cleanup-stale-rooms (rooms within
       // 2h/1h/15m, challenges after 30 days) -- a plain COUNT(*) on either,
       // with or without a date filter, only ever reflects whatever hasn't
@@ -666,6 +684,8 @@ serve(async (req) => {
           rooms,
           stats: {
             playersWithStreak: streakCount ?? 0,
+            newSignedInInRange,
+            signedInUsersAllTime: totalSignedIn,
             challengesCompletedInRange,
             challengesCompletedAllTime,
             roomsCreated: roomCount ?? 0,

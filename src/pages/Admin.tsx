@@ -80,6 +80,8 @@ interface ReportData {
   }[];
   stats?: {
     playersWithStreak: number;
+    newSignedInInRange: number;
+    signedInUsersAllTime: number;
     challengesCompletedInRange: number;
     challengesCompletedAllTime: number;
     roomsCreated: number;
@@ -436,6 +438,12 @@ export default function Admin() {
                           label="Unique players"
                           value={report.stats?.uniquePlayersInRange ?? 0}
                           sublabel={`${report.stats?.uniquePlayersEver ?? 0} all-time`}
+                        />
+                        <StatTile
+                          icon={UserCheck}
+                          label="New sign-ins"
+                          value={report.stats?.newSignedInInRange ?? 0}
+                          sublabel={`${report.stats?.signedInUsersAllTime ?? 0} all-time`}
                         />
                         <StatTile icon={Eye} label="Visitors" value={report.stats?.visitorsInRange ?? 0} sublabel="in selected range" />
                         <StatTile
