@@ -19,7 +19,6 @@ import { Starfield } from "@/components/Starfield";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
-import { getPlaylistById } from "@/lib/playlists";
 import { cn } from "@/lib/utils";
 import type { Session } from "@supabase/supabase-js";
 
@@ -65,7 +64,6 @@ interface ReportData {
   rooms?: {
     room_code: string;
     host_name: string;
-    category: string;
     created_at: string;
     players: { player_name: string; joined_at: string }[];
   }[];
@@ -791,7 +789,6 @@ export default function Admin() {
                           <div className="max-h-[32rem] overflow-y-auto space-y-1.5">
                             {report.rooms.map((room) => {
                               const isExpanded = expandedRooms.has(room.room_code);
-                              const categoryName = getPlaylistById(room.category)?.name || room.category;
                               return (
                                 <div key={room.room_code} className="rounded-lg bg-card/50 overflow-hidden">
                                   <button
@@ -808,7 +805,7 @@ export default function Admin() {
                                     <span className="font-semibold text-foreground flex items-center gap-2 min-w-0">
                                       <span className="font-mono text-primary shrink-0">{room.room_code}</span>
                                       <span className="truncate text-muted-foreground">
-                                        {categoryName} · hosted by {room.host_name}
+                                        hosted by {room.host_name}
                                       </span>
                                     </span>
                                     <span className="flex items-center gap-3 shrink-0">

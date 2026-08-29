@@ -630,7 +630,7 @@ serve(async (req) => {
         supabase.rpc("minutes_played_stats"),
         supabase
           .from("room_archive")
-          .select("room_code, host_name, category, created_at, room_player_archive(player_name, joined_at)")
+          .select("room_code, host_name, created_at, room_player_archive(player_name, joined_at)")
           .gte("created_at", rangeCutoff)
           .order("created_at", { ascending: false })
           .limit(200),
@@ -656,16 +656,17 @@ serve(async (req) => {
       // challenge link, which is what this stat is meant to represent.
       const challengesCompletedInRange = eventCounts.find((e: { event: string }) => e.event === "challenge_complete")?.count ?? 0;
 
+      // No category/playlist field here -- a room can be replayed with a
+      // different playlist each time (host picks it fresh per game in the
+      // lobby), so "the" category isn't a well-defined single value per room.
       const rooms = (roomArchiveRows ?? []).map((r: {
         room_code: string;
         host_name: string;
-        category: string;
         created_at: string;
         room_player_archive: { player_name: string; joined_at: string }[];
       }) => ({
         room_code: r.room_code,
         host_name: r.host_name,
-        category: r.category,
         created_at: r.created_at,
         players: r.room_player_archive ?? [],
       }));
