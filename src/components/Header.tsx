@@ -28,7 +28,7 @@ const NAV_LINKS = [
   { to: "/multiplayer", label: "Multiplayer" },
   { to: "/daily", label: "Daily Challenge" },
   { to: "/leaderboard", label: "Leaderboard" },
-  { to: "/#how-to-play", label: "How it works" },
+  { to: "/how-it-works", label: "How it works" },
 ];
 
 export const Header = () => {

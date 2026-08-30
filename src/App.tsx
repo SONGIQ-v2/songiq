@@ -13,6 +13,7 @@ import NotFound from "./pages/NotFound";
 import ChallengePage from "./pages/Challenge";
 import Daily from "./pages/Daily";
 import Leaderboard from "./pages/Leaderboard";
+import HowItWorks from "./pages/HowItWorks";
 import Admin from "./pages/Admin";
 import PlayerProfile from "./pages/PlayerProfile";
 import Privacy from "./pages/Privacy";
@@ -46,6 +47,7 @@ const App = () => (
           <Route path="/c/:code" element={<ChallengePage />} />
           <Route path="/daily" element={<Daily />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
+          <Route path="/how-it-works" element={<HowItWorks />} />
           <Route path="/anonymous" element={<Admin />} />
           <Route path="/anonymous/player/:playerId" element={<PlayerProfile />} />
           <Route path="/privacy" element={<Privacy />} />
