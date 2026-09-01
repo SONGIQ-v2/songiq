@@ -12,7 +12,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { Lock, LinkIcon, RefreshCw, Users, Trophy, Radio, Flame, Calendar, Target, ListMusic, Eye, Globe, MapPin, Share2, Clock, UserCheck, LayoutDashboard, BarChart3, Mic2, LogOut, FileText } from "lucide-react";
+import { Lock, LinkIcon, RefreshCw, Users, Trophy, Radio, Flame, Calendar, Target, ListMusic, Eye, Globe, MapPin, Share2, Clock, UserCheck, LayoutDashboard, BarChart3, Mic2, LogOut, FileText, ArrowLeft } from "lucide-react";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Starfield } from "@/components/Starfield";
@@ -65,7 +65,7 @@ interface ReportData {
     room_code: string;
     host_name: string;
     created_at: string;
-    players: { player_name: string; joined_at: string }[];
+    players: { player_id: string; player_name: string; joined_at: string }[];
   }[];
   signedInUsers?: {
     id: string;
@@ -334,7 +334,15 @@ export default function Admin() {
         ) : (
           <>
             <div className="flex items-center justify-between mb-6">
-              <h1 className="text-2xl font-bold text-foreground">Admin Dashboard</h1>
+              <div>
+                <h1 className="text-2xl font-bold text-foreground">Admin Dashboard</h1>
+                <Link
+                  to="/"
+                  className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mt-1"
+                >
+                  <ArrowLeft className="w-3 h-3" /> Back to site
+                </Link>
+              </div>
               <Button variant="ghost" size="sm" onClick={() => supabase.auth.signOut()}>
                 Sign Out
               </Button>
@@ -821,11 +829,21 @@ export default function Admin() {
                                     <div className="px-3 pb-2.5 pt-1 border-t border-border/40 space-y-1">
                                       {room.players.map((p) => (
                                         <div
-                                          key={`${p.player_name}-${p.joined_at}`}
+                                          key={p.player_id}
                                           className="flex items-center justify-between text-xs"
                                         >
-                                          <span className="text-foreground">{p.player_name}</span>
-                                          <span className="text-muted-foreground">
+                                          <span className="flex items-center gap-2 min-w-0">
+                                            <span className="text-foreground truncate">{p.player_name}</span>
+                                            <Link
+                                              to={`/anonymous/player/${p.player_id}`}
+                                              target="_blank"
+                                              className="font-mono text-primary hover:underline shrink-0"
+                                              title={p.player_id}
+                                            >
+                                              {p.player_id.slice(0, 8)}…
+                                            </Link>
+                                          </span>
+                                          <span className="text-muted-foreground shrink-0">
                                             {new Date(p.joined_at).toLocaleTimeString()}
                                           </span>
                                         </div>

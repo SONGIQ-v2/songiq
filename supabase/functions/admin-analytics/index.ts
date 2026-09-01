@@ -630,7 +630,7 @@ serve(async (req) => {
         supabase.rpc("minutes_played_stats"),
         supabase
           .from("room_archive")
-          .select("room_code, host_name, created_at, room_player_archive(player_name, joined_at)")
+          .select("room_code, host_name, created_at, room_player_archive(player_id, player_name, joined_at)")
           .gte("created_at", rangeCutoff)
           .order("created_at", { ascending: false })
           .limit(200),
@@ -663,7 +663,7 @@ serve(async (req) => {
         room_code: string;
         host_name: string;
         created_at: string;
-        room_player_archive: { player_name: string; joined_at: string }[];
+        room_player_archive: { player_id: string; player_name: string; joined_at: string }[];
       }) => ({
         room_code: r.room_code,
         host_name: r.host_name,

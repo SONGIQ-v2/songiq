@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import {
-  Lock, RefreshCw, Trophy, Radio, TrendingUp, Award, Music2, CalendarDays, LinkIcon, Clock, Flame,
+  Lock, RefreshCw, Trophy, Radio, TrendingUp, Award, Music2, CalendarDays, LinkIcon, Clock, Flame, ArrowLeft,
 } from "lucide-react";
 import { Starfield } from "@/components/Starfield";
 import { Button } from "@/components/ui/button";
@@ -158,6 +158,12 @@ export default function PlayerProfile() {
               <div>
                 <h1 className="text-2xl font-bold text-foreground">{profile.playerName || "A music fan"}</h1>
                 <p className="text-xs text-muted-foreground font-mono">{profile.playerId}</p>
+                <Link
+                  to="/anonymous"
+                  className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mt-1"
+                >
+                  <ArrowLeft className="w-3 h-3" /> Back to admin
+                </Link>
               </div>
               <Button variant="ghost" size="sm" onClick={() => supabase.auth.signOut()}>
                 Sign Out
