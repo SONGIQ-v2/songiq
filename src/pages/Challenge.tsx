@@ -153,7 +153,7 @@ export default function ChallengePage() {
   };
 
   return (
-    <div className="min-h-screen bg-background relative overflow-hidden flex items-center justify-center p-4 pt-20 md:pt-[149px]">
+    <div className="min-h-screen bg-background relative overflow-hidden flex items-center justify-center p-4 pt-[var(--header-height)]">
       <Helmet>
         <title>Music Challenge — Beat My Score | SongIQ</title>
         <meta name="description" content="A friend challenged you to a music quiz on SongIQ. Same songs, same options — can you beat their score?" />

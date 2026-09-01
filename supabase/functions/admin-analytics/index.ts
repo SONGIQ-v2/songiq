@@ -406,8 +406,71 @@ serve(async (req) => {
       });
     }
 
-    const { action, code, redirectUri, startDate, endDate, rangeKey, playerId, nickname } = await req.json();
+    const { action, code, redirectUri, startDate, endDate, rangeKey, playerId, nickname, notificationId, label, html, isActive } = await req.json();
     const supabase = serviceClient();
+
+    if (action === "list_notifications") {
+      const { data, error: listErr } = await supabase
+        .from("site_notifications")
+        .select("id, label, html, is_active, created_at")
+        .order("created_at", { ascending: false });
+      if (listErr) throw listErr;
+      return new Response(JSON.stringify({ notifications: data ?? [] }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "create_notification") {
+      if (!label || !label.trim()) throw new Error("Missing label");
+      if (!html || !html.trim()) throw new Error("Missing html");
+      const { error: createErr } = await supabase
+        .from("site_notifications")
+        .insert({ label: label.trim(), html });
+      if (createErr) throw createErr;
+      return new Response(JSON.stringify({ ok: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "toggle_notification") {
+      if (!notificationId) throw new Error("Missing notificationId");
+      if (isActive) {
+        // Single atomic statement -- every other row's is_active flips to
+        // false in the same UPDATE, so the one-active-at-a-time unique index
+        // is never even transiently violated.
+        const { error: toggleErr } = await supabase
+          .from("site_notifications")
+          .update({ is_active: false })
+          .neq("id", notificationId);
+        if (toggleErr) throw toggleErr;
+        const { error: activateErr } = await supabase
+          .from("site_notifications")
+          .update({ is_active: true })
+          .eq("id", notificationId);
+        if (activateErr) throw activateErr;
+      } else {
+        const { error: deactivateErr } = await supabase
+          .from("site_notifications")
+          .update({ is_active: false })
+          .eq("id", notificationId);
+        if (deactivateErr) throw deactivateErr;
+      }
+      return new Response(JSON.stringify({ ok: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "delete_notification") {
+      if (!notificationId) throw new Error("Missing notificationId");
+      const { error: deleteErr } = await supabase
+        .from("site_notifications")
+        .delete()
+        .eq("id", notificationId);
+      if (deleteErr) throw deleteErr;
+      return new Response(JSON.stringify({ ok: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     if (action === "search_players") {
       if (!nickname || !nickname.trim()) throw new Error("Missing nickname");

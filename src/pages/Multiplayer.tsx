@@ -208,7 +208,7 @@ const Multiplayer = () => {
       <Starfield />
       <Header />
 
-      <main className="relative z-10 pt-[79px] md:pt-[149px] pb-12 px-4">
+      <main className="relative z-10 pt-[var(--header-height)] pb-12 px-4">
         <motion.div className="max-w-[1000px] mx-auto" variants={container(0.1)} initial="hidden" animate="show">
           <motion.div variants={fade}>
             <Button variant="ghost" onClick={() => navigate("/")} className="mb-6">

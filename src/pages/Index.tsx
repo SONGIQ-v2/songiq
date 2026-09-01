@@ -158,7 +158,7 @@ const Index = () => {
       <Starfield />
       <Header />
 
-      <main className="relative z-10 pt-[119px] md:pt-[149px] pb-12 px-4">
+      <main className="relative z-10 pt-[var(--header-height)] pb-12 px-4">
         <motion.div className="max-w-[900px] mx-auto" variants={container(0.12)} initial="hidden" animate="show">
           {/* Hero Section */}
           <motion.div className="text-center mb-[100px]" variants={fade}>

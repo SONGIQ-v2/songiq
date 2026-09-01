@@ -12,12 +12,15 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { Lock, LinkIcon, RefreshCw, Users, Trophy, Radio, Flame, Calendar, Target, ListMusic, Eye, Globe, MapPin, Share2, Clock, UserCheck, LayoutDashboard, BarChart3, Mic2, LogOut, FileText, ArrowLeft } from "lucide-react";
+import { Lock, LinkIcon, RefreshCw, Users, Trophy, Radio, Flame, Calendar, Target, ListMusic, Eye, Globe, MapPin, Share2, Clock, UserCheck, LayoutDashboard, BarChart3, Mic2, LogOut, FileText, ArrowLeft, Megaphone, Trash2 } from "lucide-react";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Starfield } from "@/components/Starfield";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { SignInPointsNotification } from "@/components/SignInPointsNotification";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import type { Session } from "@supabase/supabase-js";
@@ -35,7 +38,7 @@ const ANALYTICS_TABS: { key: AnalyticsTab; label: string }[] = [
   { key: "keyEvents", label: "Key Events" },
 ];
 
-type AdminSection = "overview" | "analytics" | "playlists" | "daily" | "geography" | "multiplayer" | "users";
+type AdminSection = "overview" | "analytics" | "playlists" | "daily" | "geography" | "multiplayer" | "notifications" | "users";
 const SECTIONS: { key: AdminSection; label: string; icon: typeof Users }[] = [
   { key: "overview", label: "Overview", icon: LayoutDashboard },
   { key: "analytics", label: "Analytics", icon: BarChart3 },
@@ -43,6 +46,7 @@ const SECTIONS: { key: AdminSection; label: string; icon: typeof Users }[] = [
   { key: "daily", label: "Daily Challenge", icon: Mic2 },
   { key: "geography", label: "Geography & Traffic", icon: Globe },
   { key: "multiplayer", label: "Multiplayer", icon: Radio },
+  { key: "notifications", label: "Notifications", icon: Megaphone },
   { key: "users", label: "Signed-in Users", icon: UserCheck },
 ];
 
@@ -148,6 +152,15 @@ export default function Admin() {
   const [nicknameResults, setNicknameResults] = useState<{ playerId: string; playerName: string; points: number }[] | null>(null);
   const [searchingNickname, setSearchingNickname] = useState(false);
   const [nicknameSearchError, setNicknameSearchError] = useState<string | null>(null);
+  const [notifications, setNotifications] = useState<
+    { id: string; label: string; html: string; is_active: boolean; created_at: string }[] | null
+  >(null);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const [notificationsError, setNotificationsError] = useState<string | null>(null);
+  const [newNotifLabel, setNewNotifLabel] = useState("");
+  const [newNotifHtml, setNewNotifHtml] = useState("");
+  const [creatingNotification, setCreatingNotification] = useState(false);
+  const [previewPoints, setPreviewPoints] = useState(350);
   const [report, setReport] = useState<ReportData | null>(null);
   const [loadingReport, setLoadingReport] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
@@ -204,6 +217,65 @@ export default function Admin() {
       setNicknameResults((data as { players: { playerId: string; playerName: string; points: number }[] }).players);
     }
     setSearchingNickname(false);
+  };
+
+  const fetchNotifications = useCallback(async () => {
+    setLoadingNotifications(true);
+    setNotificationsError(null);
+    const { data, error } = await supabase.functions.invoke("admin-analytics", {
+      body: { action: "list_notifications" },
+    });
+    if (error) {
+      setNotificationsError(error.message ?? "Failed to load notifications");
+    } else {
+      setNotifications(
+        (data as { notifications: { id: string; label: string; html: string; is_active: boolean; created_at: string }[] })
+          .notifications
+      );
+    }
+    setLoadingNotifications(false);
+  }, []);
+
+  useEffect(() => {
+    if (isAdmin && activeSection === "notifications" && notifications === null) {
+      fetchNotifications();
+    }
+  }, [isAdmin, activeSection, notifications, fetchNotifications]);
+
+  const handleCreateNotification = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newNotifLabel.trim() || !newNotifHtml.trim()) return;
+    setCreatingNotification(true);
+    setNotificationsError(null);
+    const { error } = await supabase.functions.invoke("admin-analytics", {
+      body: { action: "create_notification", label: newNotifLabel.trim(), html: newNotifHtml },
+    });
+    if (error) {
+      setNotificationsError(error.message ?? "Failed to create notification");
+    } else {
+      setNewNotifLabel("");
+      setNewNotifHtml("");
+      await fetchNotifications();
+    }
+    setCreatingNotification(false);
+  };
+
+  const handleToggleNotification = async (id: string, active: boolean) => {
+    setNotificationsError(null);
+    const { error } = await supabase.functions.invoke("admin-analytics", {
+      body: { action: "toggle_notification", notificationId: id, isActive: active },
+    });
+    if (error) setNotificationsError(error.message ?? "Failed to update notification");
+    else await fetchNotifications();
+  };
+
+  const handleDeleteNotification = async (id: string) => {
+    setNotificationsError(null);
+    const { error } = await supabase.functions.invoke("admin-analytics", {
+      body: { action: "delete_notification", notificationId: id },
+    });
+    if (error) setNotificationsError(error.message ?? "Failed to delete notification");
+    else await fetchNotifications();
   };
 
   // Handle Google's OAuth redirect back to this page (?code=...)
@@ -860,6 +932,95 @@ export default function Admin() {
                       ) : (
                         <div className="raised-panel p-8 text-center text-muted-foreground text-sm">No multiplayer rooms in this range yet.</div>
                       )
+                    )}
+
+                    {activeSection === "notifications" && (
+                      <div className="space-y-6">
+                        <div className="raised-panel p-5">
+                          <p className="text-sm font-semibold text-foreground mb-4 flex items-center gap-1.5">
+                            <Megaphone className="w-4 h-4 text-primary" /> Create a notification
+                          </p>
+                          <form onSubmit={handleCreateNotification} className="space-y-3">
+                            <Input
+                              value={newNotifLabel}
+                              onChange={(e) => setNewNotifLabel(e.target.value)}
+                              placeholder='Label (admin-facing only, e.g. "25% off promo")'
+                            />
+                            <Textarea
+                              value={newNotifHtml}
+                              onChange={(e) => setNewNotifHtml(e.target.value)}
+                              placeholder="HTML shown to every visitor when this notification is active"
+                              rows={4}
+                              className="font-mono text-xs"
+                            />
+                            <Button
+                              type="submit"
+                              variant="gold"
+                              disabled={creatingNotification || !newNotifLabel.trim() || !newNotifHtml.trim()}
+                            >
+                              {creatingNotification ? "Creating..." : "Create"}
+                            </Button>
+                          </form>
+                        </div>
+
+                        {notificationsError && <p className="text-red-400 text-sm">{notificationsError}</p>}
+
+                        <div className="raised-panel p-5">
+                          <p className="text-sm font-semibold text-foreground mb-4">
+                            Notifications ({notifications?.length ?? 0})
+                          </p>
+                          {loadingNotifications ? (
+                            <p className="text-muted-foreground text-sm">Loading...</p>
+                          ) : notifications && notifications.length > 0 ? (
+                            <div className="space-y-2">
+                              {notifications.map((n) => (
+                                <div key={n.id} className="rounded-lg bg-card/50 p-3">
+                                  <div className="flex items-center justify-between gap-3 mb-1.5">
+                                    <span className="font-semibold text-foreground text-sm truncate">{n.label}</span>
+                                    <span className="flex items-center gap-2 shrink-0">
+                                      <Switch
+                                        checked={n.is_active}
+                                        onCheckedChange={(checked) => handleToggleNotification(n.id, checked)}
+                                      />
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7 text-destructive hover:text-destructive"
+                                        onClick={() => handleDeleteNotification(n.id)}
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </Button>
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground font-mono truncate">{n.html}</p>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-muted-foreground text-sm">No notifications yet.</p>
+                          )}
+                        </div>
+
+                        <div className="raised-panel p-5">
+                          <p className="text-sm font-semibold text-foreground mb-1">Built-in: sign in to save points</p>
+                          <p className="text-xs text-muted-foreground mb-4">
+                            When nothing above is active, anonymous players with 200+ lifetime points automatically
+                            see this reminder. It can't be disabled.
+                          </p>
+                          <div className="flex items-center gap-3 mb-3">
+                            <label className="text-xs text-muted-foreground">Preview with points:</label>
+                            <Input
+                              type="number"
+                              value={previewPoints}
+                              onChange={(e) => setPreviewPoints(Number(e.target.value) || 0)}
+                              className="w-28 h-8"
+                            />
+                          </div>
+                          <div className="rounded-lg overflow-hidden border border-border/40">
+                            <SignInPointsNotification points={previewPoints} />
+                          </div>
+                        </div>
+                      </div>
                     )}
 
                     {activeSection === "users" && (

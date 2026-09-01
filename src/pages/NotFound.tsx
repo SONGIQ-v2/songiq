@@ -30,7 +30,7 @@ const NotFound = () => {
       <Starfield />
       <Header />
 
-      <main className="relative z-10 min-h-screen flex items-center justify-center px-4 pt-16">
+      <main className="relative z-10 min-h-screen flex items-center justify-center px-4 pt-[var(--header-height)]">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
