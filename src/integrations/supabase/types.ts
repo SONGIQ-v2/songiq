@@ -942,6 +942,24 @@ export type Database = {
         }
         Relationships: []
       }
+      site_settings: {
+        Row: {
+          id: number
+          signin_points_threshold: number
+          updated_at: string
+        }
+        Insert: {
+          id?: number
+          signin_points_threshold?: number
+          updated_at?: string
+        }
+        Update: {
+          id?: number
+          signin_points_threshold?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       suppressed_emails: {
         Row: {
           created_at: string
