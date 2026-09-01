@@ -82,7 +82,7 @@ export default function Leaderboard() {
       <Starfield />
       <Header />
 
-      <main className="relative z-10 pt-[var(--header-height)] pb-12 px-4">
+      <main className="relative z-10 pt-[calc(var(--header-height)+50px)] md:pt-[calc(var(--header-height)+100px)] pb-12 px-4">
         <motion.div
           initial={{ scale: 0.97, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}

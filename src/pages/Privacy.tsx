@@ -30,7 +30,7 @@ const Privacy = () => (
     <Starfield />
     <Header />
 
-    <main className="relative z-10 pt-[var(--header-height)] pb-16 px-4">
+    <main className="relative z-10 pt-[calc(var(--header-height)+50px)] md:pt-[calc(var(--header-height)+100px)] pb-16 px-4">
       <div className="max-w-[820px] mx-auto">
         <h1 className="font-display text-4xl md:text-6xl mb-2">Privacy Policy</h1>
         <p className="text-muted-foreground text-sm mb-10">Last updated: {LAST_UPDATED}</p>

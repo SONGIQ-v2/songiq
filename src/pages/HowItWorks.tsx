@@ -78,7 +78,7 @@ export default function HowItWorks() {
       <Header />
 
       <motion.main
-        className="relative z-10 pt-[var(--header-height)] pb-16 px-4 max-w-4xl mx-auto"
+        className="relative z-10 pt-[calc(var(--header-height)+50px)] md:pt-[calc(var(--header-height)+100px)] pb-16 px-4 max-w-4xl mx-auto"
         initial="hidden"
         animate="show"
         variants={container(0.06)}

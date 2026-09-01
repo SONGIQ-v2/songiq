@@ -76,7 +76,7 @@ export const SeoLanding = ({
       <Starfield />
       <Header />
 
-      <main className="relative z-10 pt-[var(--header-height)] pb-16 px-4">
+      <main className="relative z-10 pt-[calc(var(--header-height)+50px)] md:pt-[calc(var(--header-height)+100px)] pb-16 px-4">
         <article className="max-w-4xl mx-auto">
           {/* Hero */}
           <motion.header
