@@ -161,6 +161,9 @@ export default function Admin() {
   const [newNotifHtml, setNewNotifHtml] = useState("");
   const [creatingNotification, setCreatingNotification] = useState(false);
   const [previewPoints, setPreviewPoints] = useState(350);
+  const [signinThreshold, setSigninThreshold] = useState<number | null>(null);
+  const [thresholdInput, setThresholdInput] = useState("200");
+  const [savingThreshold, setSavingThreshold] = useState(false);
   const [report, setReport] = useState<ReportData | null>(null);
   const [loadingReport, setLoadingReport] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
@@ -236,11 +239,38 @@ export default function Admin() {
     setLoadingNotifications(false);
   }, []);
 
+  const fetchSigninThreshold = useCallback(async () => {
+    // Publicly readable (RLS), same query NotificationBar itself uses --
+    // no need to route a plain read through admin-analytics.
+    const { data } = await (supabase as any)
+      .from("site_settings")
+      .select("signin_points_threshold")
+      .eq("id", 1)
+      .maybeSingle();
+    const value = Number(data?.signin_points_threshold ?? 200);
+    setSigninThreshold(value);
+    setThresholdInput(String(value));
+  }, []);
+
   useEffect(() => {
     if (isAdmin && activeSection === "notifications" && notifications === null) {
       fetchNotifications();
+      fetchSigninThreshold();
     }
-  }, [isAdmin, activeSection, notifications, fetchNotifications]);
+  }, [isAdmin, activeSection, notifications, fetchNotifications, fetchSigninThreshold]);
+
+  const handleSaveThreshold = async () => {
+    const parsed = Number(thresholdInput);
+    if (!Number.isInteger(parsed) || parsed < 0) return;
+    setSavingThreshold(true);
+    setNotificationsError(null);
+    const { error } = await supabase.functions.invoke("admin-analytics", {
+      body: { action: "update_signin_threshold", threshold: parsed },
+    });
+    if (error) setNotificationsError(error.message ?? "Failed to update threshold");
+    else await fetchSigninThreshold();
+    setSavingThreshold(false);
+  };
 
   const handleCreateNotification = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1004,9 +1034,29 @@ export default function Admin() {
                         <div className="raised-panel p-5">
                           <p className="text-sm font-semibold text-foreground mb-1">Built-in: sign in to save points</p>
                           <p className="text-xs text-muted-foreground mb-4">
-                            When nothing above is active, anonymous players with 200+ lifetime points automatically
-                            see this reminder. It can't be disabled.
+                            When nothing above is active, anonymous players above the threshold below automatically
+                            see this reminder. It can't be disabled, only its threshold can be adjusted.
                           </p>
+                          <div className="flex items-center gap-3 mb-3">
+                            <label className="text-xs text-muted-foreground">Minimum points to trigger:</label>
+                            <Input
+                              type="number"
+                              value={thresholdInput}
+                              onChange={(e) => setThresholdInput(e.target.value)}
+                              className="w-28 h-8"
+                            />
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={savingThreshold || Number(thresholdInput) === signinThreshold}
+                              onClick={handleSaveThreshold}
+                            >
+                              {savingThreshold ? "Saving..." : "Save"}
+                            </Button>
+                            {signinThreshold !== null && (
+                              <span className="text-xs text-muted-foreground">Currently: {signinThreshold}</span>
+                            )}
+                          </div>
                           <div className="flex items-center gap-3 mb-3">
                             <label className="text-xs text-muted-foreground">Preview with points:</label>
                             <Input

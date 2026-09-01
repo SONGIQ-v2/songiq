@@ -406,7 +406,7 @@ serve(async (req) => {
       });
     }
 
-    const { action, code, redirectUri, startDate, endDate, rangeKey, playerId, nickname, notificationId, label, html, isActive } = await req.json();
+    const { action, code, redirectUri, startDate, endDate, rangeKey, playerId, nickname, notificationId, label, html, isActive, threshold } = await req.json();
     const supabase = serviceClient();
 
     if (action === "list_notifications") {
@@ -467,6 +467,19 @@ serve(async (req) => {
         .delete()
         .eq("id", notificationId);
       if (deleteErr) throw deleteErr;
+      return new Response(JSON.stringify({ ok: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "update_signin_threshold") {
+      const parsed = Number(threshold);
+      if (!Number.isInteger(parsed) || parsed < 0) throw new Error("Threshold must be a non-negative integer");
+      const { error: settingsErr } = await supabase
+        .from("site_settings")
+        .update({ signin_points_threshold: parsed, updated_at: new Date().toISOString() })
+        .eq("id", 1);
+      if (settingsErr) throw settingsErr;
       return new Response(JSON.stringify({ ok: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
