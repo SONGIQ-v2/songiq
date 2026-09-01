@@ -65,7 +65,7 @@ interface ReportData {
     room_code: string;
     host_name: string;
     created_at: string;
-    players: { player_id: string; player_name: string; joined_at: string }[];
+    players: { player_id?: string; player_name: string; joined_at: string }[];
   }[];
   signedInUsers?: {
     id: string;
@@ -827,21 +827,23 @@ export default function Admin() {
                                   </button>
                                   {isExpanded && (
                                     <div className="px-3 pb-2.5 pt-1 border-t border-border/40 space-y-1">
-                                      {room.players.map((p) => (
+                                      {room.players.map((p, i) => (
                                         <div
-                                          key={p.player_id}
+                                          key={p.player_id ?? `${p.player_name}-${i}`}
                                           className="flex items-center justify-between text-xs"
                                         >
                                           <span className="flex items-center gap-2 min-w-0">
                                             <span className="text-foreground truncate">{p.player_name}</span>
-                                            <Link
-                                              to={`/anonymous/player/${p.player_id}`}
-                                              target="_blank"
-                                              className="font-mono text-primary hover:underline shrink-0"
-                                              title={p.player_id}
-                                            >
-                                              {p.player_id.slice(0, 8)}…
-                                            </Link>
+                                            {p.player_id && (
+                                              <Link
+                                                to={`/anonymous/player/${p.player_id}`}
+                                                target="_blank"
+                                                className="font-mono text-primary hover:underline shrink-0"
+                                                title={p.player_id}
+                                              >
+                                                {p.player_id.slice(0, 8)}…
+                                              </Link>
+                                            )}
                                           </span>
                                           <span className="text-muted-foreground shrink-0">
                                             {new Date(p.joined_at).toLocaleTimeString()}
