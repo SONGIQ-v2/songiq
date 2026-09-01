@@ -20,15 +20,14 @@ export function SignInPointsNotification({
   const { openSignInModal } = useGameStore();
 
   return (
-    <div className="flex items-center justify-center gap-3 px-4 py-2 text-sm text-primary-foreground bg-gradient-to-r from-kente-red via-gold to-kente-green">
-      <AlertTriangle className="w-4 h-4 shrink-0" />
+    <div className="flex items-center justify-center gap-3 px-4 py-2 text-sm text-white bg-[#1A1635]">
+      <AlertTriangle className="w-4 h-4 shrink-0 text-white" />
       <span className="text-center">
-        You could lose your <span className="font-bold">{points}</span> points. Sign in to save them.
+        You could lose your <span className="font-bold text-primary">{points} points</span>. Sign in to save them.
       </span>
       <Button
         size="sm"
-        variant="secondary"
-        className="h-7 px-3 shrink-0"
+        className="h-7 px-3 shrink-0 bg-primary text-[#1A1635] hover:bg-primary/90"
         onClick={openSignInModal}
       >
         Sign In
@@ -37,7 +36,7 @@ export function SignInPointsNotification({
         <button
           onClick={onDismiss}
           aria-label="Dismiss"
-          className="shrink-0 opacity-80 hover:opacity-100"
+          className="shrink-0 text-white opacity-80 hover:opacity-100"
         >
           <X className="w-4 h-4" />
         </button>
