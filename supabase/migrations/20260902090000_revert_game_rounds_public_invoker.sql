@@ -1,0 +1,18 @@
+-- Reverts one specific line from the "Addressed security findings" migration
+-- (20260901225517_...): switching game_rounds_public to security_invoker
+-- broke it entirely for every player.
+--
+-- That view is deliberately a definer-style view (see
+-- 20260822090000_stop_leaking_round_answers.sql) because the base table's
+-- track_name/artist_name columns are REVOKEd from `authenticated` there --
+-- players can only ever read those two columns through this view's own
+-- masking logic (ended_at / reveal-window check). Column-level grants are
+-- checked against the *view owner* only when a view is NOT security_invoker;
+-- flipping it to security_invoker makes Postgres check them against the
+-- *caller* instead, and `authenticated` has no grant on those two columns at
+-- all -- so every query against this view started failing outright for
+-- every real player, breaking round display and reveal in every multiplayer
+-- game. The generic "this is a SECURITY DEFINER view" advisor warning that
+-- prompted this doesn't know about that REVOKE, so its suggested fix doesn't
+-- apply here.
+ALTER VIEW public.game_rounds_public SET (security_invoker = false);
