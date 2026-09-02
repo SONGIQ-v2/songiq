@@ -4,14 +4,16 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import type { StreakProtectionStatus } from "@/lib/daily";
 
+const pad = (n: number) => String(n).padStart(2, "0");
+
 function formatCountdown(deadline: string): string {
-  const ms = new Date(deadline).getTime() - Date.now();
-  if (ms <= 0) return "less than a minute";
-  const days = Math.floor(ms / (24 * 60 * 60 * 1000));
-  const hours = Math.floor((ms % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
-  if (days > 0) return `${days}d ${hours}h`;
-  const minutes = Math.floor((ms % (60 * 60 * 1000)) / (60 * 1000));
-  return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+  const totalSeconds = Math.max(0, Math.floor((new Date(deadline).getTime() - Date.now()) / 1000));
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const clock = `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+  return days > 0 ? `${days}d ${clock}` : clock;
 }
 
 /**
@@ -34,7 +36,7 @@ export function StreakRepairNotification({
 
   useEffect(() => {
     if (!status.repair_deadline) return;
-    const id = setInterval(() => setCountdown(formatCountdown(status.repair_deadline!)), 60 * 1000);
+    const id = setInterval(() => setCountdown(formatCountdown(status.repair_deadline!)), 1000);
     return () => clearInterval(id);
   }, [status.repair_deadline]);
 
@@ -44,11 +46,11 @@ export function StreakRepairNotification({
     : `${status.repair_progress_friends ?? 0} of ${status.repair_target_friends} friends played`;
 
   return (
-    <div className="flex items-center justify-center gap-3 px-4 py-2 text-sm text-white bg-[#1A1635]">
+    <div className="flex items-center justify-center gap-3 px-4 py-2 text-sm text-white bg-[#3D1012]">
       <Shield className="w-4 h-4 shrink-0 text-primary" />
       <span className="text-center">
         Restore your <span className="font-bold text-primary">{status.current_streak}-day streak</span>:{" "}
-        {progressText} · {countdown} left
+        {progressText} · <span className="[font-variant-numeric:tabular-nums]">{countdown}</span> left
       </span>
       <Button
         size="sm"
