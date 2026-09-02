@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import songiqLogo from "@/assets/songiq-logo.png";
-import { Medal, Menu, UserCircle } from "lucide-react";
+import { Medal, Menu, Shield, UserCircle } from "lucide-react";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { useState, useEffect, useRef, useLayoutEffect } from "react";
 import { useGameStore } from "@/lib/gameStore";
 import { supabase } from "@/integrations/supabase/client";
 import { NotificationBar } from "@/components/NotificationBar";
+import { fetchStreakProtectionStatus } from "@/lib/daily";
 
 import {
   Dialog,
@@ -20,6 +21,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "@/hooks/use-toast";
@@ -42,6 +44,8 @@ export const Header = () => {
   const [isAnonymous, setIsAnonymous] = useState(true);
   const [signedInUser, setSignedInUser] = useState<{ id: string; name: string } | null>(null);
   const [totalPoints, setTotalPoints] = useState<number | null>(null);
+  const [savesAvailable, setSavesAvailable] = useState<number | null>(null);
+  const [nextSaveExpires, setNextSaveExpires] = useState<string | null>(null);
   const fixedWrapperRef = useRef<HTMLDivElement>(null);
 
   // Publishes the fixed header's real, current on-screen height (bar
@@ -101,6 +105,19 @@ export const Header = () => {
         .maybeSingle();
       setTotalPoints(Number(data?.points ?? 0));
     })();
+  }, [signedInUser?.id, location.pathname]);
+
+  // Streak Save balance for the account dropdown
+  useEffect(() => {
+    if (!signedInUser) {
+      setSavesAvailable(null);
+      setNextSaveExpires(null);
+      return;
+    }
+    fetchStreakProtectionStatus().then((status) => {
+      setSavesAvailable(status?.saves_available ?? 0);
+      setNextSaveExpires(status?.next_save_expires ?? null);
+    });
   }, [signedInUser?.id, location.pathname]);
 
   const handleSaveName = async () => {
@@ -204,9 +221,24 @@ export const Header = () => {
                         {totalPoints.toLocaleString()}
                       </span>
                     )}
+                    {savesAvailable !== null && savesAvailable > 0 && (
+                      <span className="flex items-center gap-1 text-sm font-bold text-primary">
+                        <Shield className="w-4 h-4" />
+                        {savesAvailable}
+                      </span>
+                    )}
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                  {savesAvailable !== null && (
+                    <DropdownMenuLabel className="flex items-center gap-1.5 text-xs font-normal text-muted-foreground">
+                      <Shield className="w-3.5 h-3.5 text-primary shrink-0" />
+                      Streak Saves: {savesAvailable}/2
+                      {savesAvailable > 0 && nextSaveExpires && (
+                        <span> — next expires {new Date(nextSaveExpires).toLocaleDateString()}</span>
+                      )}
+                    </DropdownMenuLabel>
+                  )}
                   <DropdownMenuItem
                     onClick={() => {
                       setEditName(playerName || localStorage.getItem("songiq_player_name") || "");

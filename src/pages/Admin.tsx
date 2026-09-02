@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { SignInPointsNotification } from "@/components/SignInPointsNotification";
+import { StreakAtRiskNotification } from "@/components/StreakAtRiskNotification";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import type { Session } from "@supabase/supabase-js";
@@ -161,6 +162,7 @@ export default function Admin() {
   const [newNotifHtml, setNewNotifHtml] = useState("");
   const [creatingNotification, setCreatingNotification] = useState(false);
   const [previewPoints, setPreviewPoints] = useState(350);
+  const [previewStreak, setPreviewStreak] = useState(12);
   const [signinThreshold, setSigninThreshold] = useState<number | null>(null);
   const [thresholdInput, setThresholdInput] = useState("200");
   const [savingThreshold, setSavingThreshold] = useState(false);
@@ -1068,6 +1070,27 @@ export default function Admin() {
                           </div>
                           <div className="rounded-lg overflow-hidden border border-border/40">
                             <SignInPointsNotification points={previewPoints} />
+                          </div>
+                        </div>
+
+                        <div className="raised-panel p-5">
+                          <p className="text-sm font-semibold text-foreground mb-1">Built-in: streak at risk</p>
+                          <p className="text-xs text-muted-foreground mb-4">
+                            Ranks above the sign-in reminder but below anything active above -- shown to any player
+                            (anonymous or signed in) with a streak of 2+ days who hasn't played today yet. Not
+                            admin-configurable; the trigger is fixed to the player's own streak state.
+                          </p>
+                          <div className="flex items-center gap-3 mb-3">
+                            <label className="text-xs text-muted-foreground">Preview with streak:</label>
+                            <Input
+                              type="number"
+                              value={previewStreak}
+                              onChange={(e) => setPreviewStreak(Number(e.target.value) || 0)}
+                              className="w-28 h-8"
+                            />
+                          </div>
+                          <div className="rounded-lg overflow-hidden border border-border/40">
+                            <StreakAtRiskNotification streak={previewStreak} />
                           </div>
                         </div>
                       </div>

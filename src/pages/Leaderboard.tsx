@@ -289,7 +289,11 @@ export default function Leaderboard() {
             </div>
             <div>
               <p className="font-bold text-foreground mb-1">🔥 Daily streak</p>
-              <p>Consecutive days playing the Daily Challenge. Miss a day and it resets.</p>
+              <p>
+                Consecutive days playing the Daily Challenge. Miss a day and you can lose it — unless a
+                Streak Save covers you (earned every 15-day streak) or you win it back by getting friends
+                to play a Challenge link before it's gone for good.
+              </p>
             </div>
           </div>
         </DialogContent>

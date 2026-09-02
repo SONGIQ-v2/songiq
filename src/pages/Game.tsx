@@ -44,7 +44,7 @@ import { calculatePoints } from "@/lib/spotify";
 import { logError, logWarn, logInfo } from "@/lib/clientLogger";
 import { vibrateRoundStart, vibrateCorrect, vibrateIncorrect } from "@/lib/haptics";
 import { warmAudioUrl, preloadAudio, playWithWatchdog, prefetchAudio } from "@/lib/audioPreload";
-import { buildShareText, shareResult } from "@/lib/shareCard";
+import { buildShareText, buildStreakRepairShareText, shareResult } from "@/lib/shareCard";
 import { shareResultImage } from "@/lib/shareImage";
 import { trackEvent } from "@/lib/analytics";
 import {
@@ -66,6 +66,7 @@ import {
   fetchTodayChallenge,
   fetchMyDailyAttempt,
   fetchDailyAttempts,
+  fetchStreakProtectionStatus,
   isStreakActive,
   buildDailyShareText,
 } from "@/lib/daily";
@@ -610,6 +611,11 @@ export default function Game() {
     (async () => {
       const pid = playerId ?? (await initializeAuth());
       if (pid) {
+        // Snapshot the Save balance before submitting -- if it drops after,
+        // apply_daily_attempt() silently spent one to bridge a missed day,
+        // and the player should be told (it'd otherwise look like a bug:
+        // "why didn't my streak reset like it always does").
+        const savesBefore = (await fetchStreakProtectionStatus())?.saves_available ?? 0;
         await submitDailyAttempt(
           daily.date,
           pid,
@@ -617,12 +623,16 @@ export default function Game() {
           soloScore,
           roundResults.filter(Boolean).length
         );
-        const [{ rank, total }, stats] = await Promise.all([
+        const [{ rank, total }, stats, statusAfter] = await Promise.all([
           fetchMyDailyRank(daily.date, soloScore),
           fetchMyDailyStats(pid),
+          fetchStreakProtectionStatus(),
         ]);
         const streak = isStreakActive(stats) ? stats?.current_streak ?? 0 : 0;
         setDailyResult({ rank, total, streak });
+        if (statusAfter && statusAfter.saves_available < savesBefore) {
+          toast.success(`🛡️ Streak Save used — your ${streak}-day streak is protected!`);
+        }
         trackEvent("daily_challenge_complete", {
           daily_number: daily.number,
           daily_date: daily.date,
@@ -997,7 +1007,17 @@ export default function Game() {
         results: roundResults,
         challengeUrl: code ? challengeUrl(code) : undefined,
       };
-      const text = buildShareText(cardOpts);
+
+      // A fresh challenge link (not one accepted from someone else) counts
+      // toward the creator's own repair progress if they're mid-window --
+      // frame the share as "help me," not just "beat my score."
+      let text = buildShareText(cardOpts);
+      if (code && !challenge) {
+        const status = await fetchStreakProtectionStatus();
+        if (status?.status === "repair") {
+          text = buildStreakRepairShareText({ streak: status.current_streak, challengeUrl: challengeUrl(code) });
+        }
+      }
 
       const imageOutcome = await shareResultImage(cardOpts, text);
       if (imageOutcome === "shared" || imageOutcome === "canceled") return;
@@ -1159,7 +1179,18 @@ export default function Game() {
                     #{dailyResult.rank} <span className="text-base font-normal text-foreground/70">of {dailyResult.total} today</span>
                   </p>
                   {dailyResult.streak > 0 && (
-                    <p className="font-semibold text-gold">🔥 {dailyResult.streak}-day streak</p>
+                    [7, 30, 100].includes(dailyResult.streak) ? (
+                      <motion.p
+                        initial={{ scale: 0.8, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ type: "spring", stiffness: 300, damping: 15 }}
+                        className="font-bold text-gold text-lg"
+                      >
+                        🎉 {dailyResult.streak}-day streak milestone!
+                      </motion.p>
+                    ) : (
+                      <p className="font-semibold text-gold">🔥 {dailyResult.streak}-day streak</p>
+                    )
                   )}
                   <p className="text-muted-foreground text-xs mt-2">Come back tomorrow to keep it alive!</p>
                   <DailyReminderButton className="mt-3" />
@@ -1409,6 +1440,7 @@ export default function Game() {
                     } else if (daily) {
                       const pid = playerId ?? (await initializeAuth());
                       if (pid) {
+                        const savesBefore = (await fetchStreakProtectionStatus())?.saves_available ?? 0;
                         await submitDailyAttempt(
                           daily.date,
                           pid,
@@ -1416,6 +1448,10 @@ export default function Game() {
                           soloScore,
                           roundResults.filter(Boolean).length
                         );
+                        const statusAfter = await fetchStreakProtectionStatus();
+                        if (statusAfter && statusAfter.saves_available < savesBefore) {
+                          toast.success(`🛡️ Streak Save used — your ${statusAfter.current_streak}-day streak is protected!`);
+                        }
                       }
                       trackEvent("daily_challenge_complete", {
                         daily_number: daily.number,

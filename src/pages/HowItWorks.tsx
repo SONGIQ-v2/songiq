@@ -208,7 +208,9 @@ export default function HowItWorks() {
             </h2>
             <p className="text-sm text-muted-foreground">
               Playing the Daily Challenge on consecutive days builds your streak, shown next to your name on the
-              leaderboard. Miss a day and it resets to zero, so once you start one, keep it alive.
+              leaderboard. Miss a day and you can lose it — but every 15-day streak earns a Streak Save that
+              quietly covers exactly one missed day, and even without one, you can win a lost streak back by
+              getting friends to play a Challenge link before the window closes.
             </p>
           </div>
         </motion.section>
