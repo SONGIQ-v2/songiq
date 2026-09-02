@@ -45,6 +45,7 @@ import { logError, logWarn, logInfo } from "@/lib/clientLogger";
 import { vibrateRoundStart, vibrateCorrect, vibrateIncorrect } from "@/lib/haptics";
 import { warmAudioUrl, preloadAudio, playWithWatchdog, prefetchAudio } from "@/lib/audioPreload";
 import { buildShareText, buildStreakRepairShareText, shareResult } from "@/lib/shareCard";
+import { StreakSaveModal, type StreakSaveEvent } from "@/components/StreakSaveModal";
 import { shareResultImage } from "@/lib/shareImage";
 import { trackEvent } from "@/lib/analytics";
 import {
@@ -140,6 +141,7 @@ export default function Game() {
   const [roundResults, setRoundResults] = useState<boolean[]>([]);
   const [challengeAttempts, setChallengeAttempts] = useState<ChallengeAttempt[] | null>(null);
   const [dailyResult, setDailyResult] = useState<{ rank: number; total: number; streak: number } | null>(null);
+  const [streakSaveEvent, setStreakSaveEvent] = useState<StreakSaveEvent | null>(null);
   const [pointsResult, setPointsResult] = useState<{ earned: number; total: number } | null>(null);
   const [dailyPromo, setDailyPromo] = useState<{ number: number; categoryName: string; totalPlayed: number } | null>(null);
   // Separate from the Apple Music hook's `error` (which only covers thrown
@@ -631,7 +633,7 @@ export default function Game() {
         const streak = isStreakActive(stats) ? stats?.current_streak ?? 0 : 0;
         setDailyResult({ rank, total, streak });
         if (statusAfter && statusAfter.saves_available < savesBefore) {
-          toast.success(`🛡️ Streak Save used — your ${streak}-day streak is protected!`);
+          setStreakSaveEvent("save_used");
         }
         trackEvent("daily_challenge_complete", {
           daily_number: daily.number,
@@ -1200,6 +1202,12 @@ export default function Game() {
               )}
             </div>
           )}
+
+          <StreakSaveModal
+            event={streakSaveEvent}
+            streak={dailyResult?.streak ?? 0}
+            onClose={() => setStreakSaveEvent(null)}
+          />
 
           {challenge && !daily && (
             <div className="bg-background/50 rounded-xl p-4 mb-6">

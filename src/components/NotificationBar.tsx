@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useGameStore } from "@/lib/gameStore";
-import { toast } from "@/hooks/use-toast";
 import { SignInPointsNotification } from "@/components/SignInPointsNotification";
 import { StreakAtRiskNotification } from "@/components/StreakAtRiskNotification";
 import { StreakRepairNotification } from "@/components/StreakRepairNotification";
+import { StreakSaveModal, type StreakSaveEvent } from "@/components/StreakSaveModal";
 import { fetchStreakProtectionStatus, type StreakProtectionStatus } from "@/lib/daily";
 
 const SIGNIN_DISMISS_KEY = "songiq_notif_signin_dismissed";
@@ -48,6 +48,7 @@ export function NotificationBar({ isAnonymous }: { isAnonymous: boolean }) {
   const [streakDismissed, setStreakDismissed] = useState(
     () => sessionStorage.getItem(STREAK_DISMISS_KEY) === lagosToday()
   );
+  const [restoredModalStreak, setRestoredModalStreak] = useState<number | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -96,21 +97,36 @@ export function NotificationBar({ isAnonymous }: { isAnonymous: boolean }) {
       // action this player took.
       const lastStatus = localStorage.getItem(LAST_STATUS_KEY);
       if (lastStatus === "repair" && status.status !== "repair" && status.status !== "lost") {
-        toast({
-          title: "Streak restored! 🎉",
-          description: `Your friends came through -- your ${status.current_streak}-day streak is safe.`,
-        });
+        setRestoredModalStreak(status.current_streak);
       }
       localStorage.setItem(LAST_STATUS_KEY, status.status);
     });
   }, [customHtml, playerId]);
 
+  const modal = (
+    <StreakSaveModal
+      event={restoredModalStreak !== null ? ("repair_restored" satisfies StreakSaveEvent) : null}
+      streak={restoredModalStreak ?? 0}
+      onClose={() => setRestoredModalStreak(null)}
+    />
+  );
+
   if (customHtml) {
-    return <div dangerouslySetInnerHTML={{ __html: customHtml }} />;
+    return (
+      <>
+        <div dangerouslySetInnerHTML={{ __html: customHtml }} />
+        {modal}
+      </>
+    );
   }
 
   if (streakStatus?.status === "repair") {
-    return <StreakRepairNotification status={streakStatus} />;
+    return (
+      <>
+        <StreakRepairNotification status={streakStatus} />
+        {modal}
+      </>
+    );
   }
 
   if (
@@ -118,27 +134,33 @@ export function NotificationBar({ isAnonymous }: { isAnonymous: boolean }) {
     (streakStatus?.status === "at_risk" || streakStatus?.status === "save_available_today")
   ) {
     return (
-      <StreakAtRiskNotification
-        streak={streakStatus.current_streak}
-        onDismiss={() => {
-          sessionStorage.setItem(STREAK_DISMISS_KEY, lagosToday());
-          setStreakDismissed(true);
-        }}
-      />
+      <>
+        <StreakAtRiskNotification
+          streak={streakStatus.current_streak}
+          onDismiss={() => {
+            sessionStorage.setItem(STREAK_DISMISS_KEY, lagosToday());
+            setStreakDismissed(true);
+          }}
+        />
+        {modal}
+      </>
     );
   }
 
   if (!dismissed && isAnonymous && points !== null && points > threshold) {
     return (
-      <SignInPointsNotification
-        points={points}
-        onDismiss={() => {
-          sessionStorage.setItem(SIGNIN_DISMISS_KEY, "1");
-          setDismissed(true);
-        }}
-      />
+      <>
+        <SignInPointsNotification
+          points={points}
+          onDismiss={() => {
+            sessionStorage.setItem(SIGNIN_DISMISS_KEY, "1");
+            setDismissed(true);
+          }}
+        />
+        {modal}
+      </>
     );
   }
 
-  return null;
+  return modal;
 }
