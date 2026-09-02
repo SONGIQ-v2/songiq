@@ -62,6 +62,16 @@ export function buildChallengeResultShareText(opts: {
   return lines.join("\n");
 }
 
+/** Urgency-framed variant used when the creator is inside an active streak
+ *  repair window -- every play of this link counts toward getting it back,
+ *  so the pitch is "help me," not just "beat my score." */
+export function buildStreakRepairShareText(opts: { streak: number; challengeUrl: string }): string {
+  return [
+    `🔥 My ${opts.streak}-day SongIQ streak is about to disappear!`,
+    `Play my challenge -- it counts toward saving it 👉 ${opts.challengeUrl}`,
+  ].join("\n");
+}
+
 export type ShareOutcome = "shared" | "copied" | "canceled" | "failed";
 
 /**

@@ -157,6 +157,31 @@ export async function fetchDailyStatsForPlayers(playerIds: string[]): Promise<Re
   return byId;
 }
 
+export type StreakStatus = "active" | "at_risk" | "save_available_today" | "repair" | "lost" | "none";
+
+export interface StreakProtectionStatus {
+  current_streak: number;
+  last_played: string | null;
+  saves_available: number;
+  next_save_expires: string | null;
+  status: StreakStatus;
+  repair_day_number: number | null;
+  repair_target_friends: number | null;
+  repair_progress_friends: number | null;
+  repair_target_challenges: number | null;
+  repair_progress_challenges: number | null;
+  repair_deadline: string | null;
+}
+
+/** Full Streak Save + repair-window status for the signed-in caller
+ *  (server-computed via auth.uid() -- there's no "for another player"
+ *  variant, this is always "my own" status). */
+export async function fetchStreakProtectionStatus(): Promise<StreakProtectionStatus | null> {
+  const { data, error } = await (supabase as any).rpc("get_streak_protection_status");
+  if (error || !data || data.length === 0) return null;
+  return data[0] as StreakProtectionStatus;
+}
+
 /** A streak only counts if it includes today or yesterday (Lagos time). */
 export function isStreakActive(stats: DailyStats | null): boolean {
   if (!stats?.last_played) return false;
@@ -164,6 +189,15 @@ export function isStreakActive(stats: DailyStats | null): boolean {
   const today = lagosNow.toISOString().slice(0, 10);
   const yesterday = new Date(lagosNow.getTime() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   return stats.last_played === today || stats.last_played === yesterday;
+}
+
+/** Streak (>=2) that's still alive but hasn't been extended today yet --
+ *  played yesterday, not today, so it lapses if today passes with no play. */
+export function isStreakAtRisk(stats: DailyStats | null): boolean {
+  if (!stats?.last_played || stats.current_streak < 2) return false;
+  const lagosNow = new Date(Date.now() + 60 * 60 * 1000);
+  const yesterday = new Date(lagosNow.getTime() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  return stats.last_played === yesterday;
 }
 
 export function buildDailyShareText(opts: {

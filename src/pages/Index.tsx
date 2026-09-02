@@ -13,7 +13,7 @@ import { getMotionVariants, BUTTON_SPRING } from "@/lib/motion";
 import { useGameStore } from "@/lib/gameStore";
 import { useAppleMusic } from "@/hooks/useAppleMusic";
 import { PLAYLISTS, getPlaylistById, type Playlist } from "@/lib/playlists";
-import { Headphones, Mic2, Trophy, Zap, CalendarDays, Flame, Play, Users, ArrowRight, ChevronRight } from "lucide-react";
+import { Headphones, Mic2, Trophy, Zap, CalendarDays, Flame, Play, Users, ArrowRight, ChevronRight, Clock } from "lucide-react";
 import {
   fetchTodayChallenge,
   fetchDailyAttempts,
@@ -45,6 +45,24 @@ interface DailyBoardRow extends DailyAttempt {
   streak: number;
 }
 
+// The daily challenge's day boundary is Lagos midnight (UTC+1), matching
+// the edge function that generates it (cleanup-stale-rooms/index.ts:
+// `lagosToday = new Date(now + 1h).toISOString().slice(0, 10)`) -- so in
+// UTC terms, the boundary is 23:00 every day.
+function getNextDailyResetUTC(from: Date): Date {
+  const next = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate(), 23, 0, 0, 0));
+  if (next.getTime() <= from.getTime()) next.setUTCDate(next.getUTCDate() + 1);
+  return next;
+}
+
+function formatCountdown(ms: number): string {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  return [h, m, s].map((n) => String(n).padStart(2, "0")).join(":");
+}
+
 const Index = () => {
   const navigate = useNavigate();
   const { initializeAuth, setCategory } = useGameStore();
@@ -57,6 +75,16 @@ const Index = () => {
   const [myStreak, setMyStreak] = useState(0);
   const [totalPlayedToday, setTotalPlayedToday] = useState(0);
   const [verifiedIds, setVerifiedIds] = useState<Set<string>>(new Set());
+  const [dailyCountdown, setDailyCountdown] = useState("");
+
+  // Ticks once a second while today's challenge is shown, so "Ends in" stays live.
+  useEffect(() => {
+    if (!daily) return;
+    const tick = () => setDailyCountdown(formatCountdown(getNextDailyResetUTC(new Date()).getTime() - Date.now()));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [daily]);
 
   const [battlefield] = useState<Playlist[]>(pickBattlefield);
   const [battlefieldImages, setBattlefieldImages] = useState<Record<string, string>>({});
@@ -130,7 +158,7 @@ const Index = () => {
       <Starfield />
       <Header />
 
-      <main className="relative z-10 pt-[119px] md:pt-[149px] pb-12 px-4">
+      <main className="relative z-10 pt-[calc(var(--header-height)+50px)] md:pt-[calc(var(--header-height)+100px)] pb-12 px-4">
         <motion.div className="max-w-[900px] mx-auto" variants={container(0.12)} initial="hidden" animate="show">
           {/* Hero Section */}
           <motion.div className="text-center mb-[100px]" variants={fade}>
@@ -196,9 +224,9 @@ const Index = () => {
                   <CalendarDays className="w-3.5 h-3.5" />
                   Daily Challenge #{daily.number}
                 </span>
-                <h3 className="font-display text-4xl text-foreground mb-3">
+                <h2 className="font-display text-4xl text-foreground mb-3">
                   {daily.category_name}
-                </h3>
+                </h2>
                 <p className="text-muted-foreground text-sm mb-6">
                   Beat today's high score and claim your spot on the leaderboard.
                 </p>
@@ -206,13 +234,22 @@ const Index = () => {
                   <Zap className="w-4 h-4 mr-1.5 fill-current" />
                   Play Challenge
                 </Button>
+                {dailyCountdown && (
+                  <div className="flex items-center gap-1.5 mt-4 text-sm">
+                    <Clock className="w-3.5 h-3.5 text-gold" />
+                    <span className="text-muted-foreground">Ends in</span>
+                    <span className="font-display font-bold text-gold tabular-nums tracking-wide">
+                      {dailyCountdown}
+                    </span>
+                  </div>
+                )}
                 </div>
               </div>
 
               {/* Right: Daily Top 5 */}
               <div className="p-6 md:p-12 border-t-2 md:border-t-0 md:border-l-2 border-border/60">
                 <div className="flex items-center justify-between mb-4">
-                  <h4 className="text-xs font-bold uppercase tracking-[0.15em] text-muted-foreground">Daily Top 5</h4>
+                  <h3 className="text-xs font-bold uppercase tracking-[0.15em] text-muted-foreground">Daily Top 5</h3>
                   <button
                     onClick={() => navigate("/daily")}
                     className="text-xs font-bold text-primary hover:underline flex items-center gap-1"

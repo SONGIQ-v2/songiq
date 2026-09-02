@@ -27,6 +27,22 @@ const JUNK_PATTERN = /karaoke|tribute|made famous|originally performed|cover ver
 // Naija Throwback search for "seyi shay" via his "Yalla Habibi" feature).
 const EXCLUDED_ARTIST_PATTERN = /ragheb alama/i;
 
+// Releases confirmed on inspection to be a *different* artist entirely, whom
+// Apple's own catalog has merged onto an unrelated artist's exact iTunes
+// artist ID/name -- unlike EXCLUDED_ARTIST_PATTERN above, artistName-based
+// filtering can't catch these since the credited name really is identical.
+// (e.g. a Mandopop act also using the stage name "Asa" -- its "Xing Fu Juan
+// Gu" EP and "Transform Syndrome" single/collab are filed under artist ID
+// 26089928, the same ID as the Nigerian singer Aṣa.)
+const EXCLUDED_COLLECTION_PATTERN = /xing fu juan gu|blütenstand|transform syndrome/i;
+
+// DJ mixtape/compilation "tracks" credited to an artist because they're
+// sampled/featured somewhere inside a much longer mix -- these aren't a
+// standalone song by the artist, so their preview clip would just be a
+// random slice of someone else's set. Broad enough to catch every artist-
+// spotlight playlist, not just one.
+const isDjMixCollection = (collectionName: string) => /\bDJ Mix\b/i.test(collectionName);
+
 // iTunes/Apple endpoints return a plain-text "Rate limit exceeded" body (not
 // JSON) when throttling us -- calling response.json() directly on that
 // crashes with a SyntaxError instead of failing gracefully. But on success
@@ -179,7 +195,12 @@ function keepAuthoredTracks(pool: iTunesTrack[], artistName: string): iTunesTrac
       title
     );
   return pool.filter(
-    (t) => isAuthoredBy(t.artistName) && !isMashupTitle(t.trackName) && !isAltMixTitle(t.trackName)
+    (t) =>
+      isAuthoredBy(t.artistName) &&
+      !isMashupTitle(t.trackName) &&
+      !isAltMixTitle(t.trackName) &&
+      !isDjMixCollection(t.collectionName || "") &&
+      !EXCLUDED_COLLECTION_PATTERN.test(t.collectionName || "")
   );
 }
 
@@ -194,9 +215,9 @@ export async function fetchChartPool(
 ): Promise<{ pool: iTunesTrack[]; image: string }> {
   const feedUrl = `https://rss.marketingtools.apple.com/api/v2/${storefront}/music/most-played/100/songs.json`;
   const feed = await safeFetchJson<{ feed?: { results?: { id?: string }[] } }>(feedUrl, { redirect: "follow" });
-  const ids: string[] = (feed?.feed?.results ?? [])
+  const ids = (feed?.feed?.results ?? [])
     .map((r: { id?: string }) => r.id)
-    .filter(Boolean);
+    .filter((id): id is string => Boolean(id));
   if (ids.length === 0) return { pool: [], image: "" };
 
   const pool: iTunesTrack[] = [];

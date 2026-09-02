@@ -82,7 +82,7 @@ export default function Leaderboard() {
       <Starfield />
       <Header />
 
-      <main className="relative z-10 pt-[119px] md:pt-[149px] pb-12 px-4">
+      <main className="relative z-10 pt-[calc(var(--header-height)+50px)] md:pt-[calc(var(--header-height)+100px)] pb-12 px-4">
         <motion.div
           initial={{ scale: 0.97, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
@@ -289,7 +289,11 @@ export default function Leaderboard() {
             </div>
             <div>
               <p className="font-bold text-foreground mb-1">🔥 Daily streak</p>
-              <p>Consecutive days playing the Daily Challenge. Miss a day and it resets.</p>
+              <p>
+                Consecutive days playing the Daily Challenge. Miss a day and you can lose it — unless a
+                Streak Save covers you (earned every 15-day streak) or you win it back by getting friends
+                to play a Challenge link before it's gone for good.
+              </p>
             </div>
           </div>
         </DialogContent>

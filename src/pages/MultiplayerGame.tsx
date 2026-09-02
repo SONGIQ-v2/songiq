@@ -11,6 +11,7 @@ import { AnswerOption } from "@/components/AnswerOption";
 import { Leaderboard } from "@/components/Leaderboard";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { Podium } from "@/components/Podium";
+import { SaveProgressPrompt } from "@/components/SaveProgressPrompt";
 import { Button } from "@/components/ui/button";
 import { VolumeControl } from "@/components/VolumeControl";
 import { ReactionBar, FloatingReactions } from "@/components/EmojiReactions";
@@ -19,6 +20,9 @@ import { logError, logWarn, logInfo } from "@/lib/clientLogger";
 import { warmAudioUrl, preloadAudio, playWithWatchdog } from "@/lib/audioPreload";
 import { isIOS } from "@/lib/ios";
 import { CARD_SPRING } from "@/lib/motion";
+import { getRoundCeremony, type RoundCeremony } from "@/lib/roundCeremony";
+import { useConnectionQuality } from "@/hooks/useConnectionQuality";
+import { ConnectionBadge } from "@/components/ConnectionBadge";
 import { cn } from "@/lib/utils";
 import {
   AlertDialog,
@@ -79,6 +83,11 @@ export default function MultiplayerGame() {
   const challengeCodeRef = useRef<string | null>(null);
   // Points earned this game + running total, for the results screen chip
   const [pointsResult, setPointsResult] = useState<{ earned: number; total: number } | null>(null);
+  // Kahoot-style one-liner for the round that just ended. Computed during
+  // reveal (when picks/scores land) and held through between_rounds so the
+  // line doesn't vanish when the next round row arrives.
+  const [roundCeremony, setRoundCeremony] = useState<RoundCeremony | null>(null);
+  const ceremonyRoundIdRef = useRef<string | null>(null);
 
   // Inactivity state
   const [showInactivityWarning, setShowInactivityWarning] = useState(false);
@@ -118,6 +127,38 @@ export default function MultiplayerGame() {
     endGameNow,
   } = useMultiplayerGame(code || "");
 
+  const isInGame = gameStatus === "playing" || gameStatus === "between_rounds" || gameStatus === "pre_game";
+  const connectionQuality = useConnectionQuality(isInGame, currentRound?.preview_url);
+
+  // Build / refresh the ceremony line while the reveal window is open.
+  // Kept in state (not only memo) so between_rounds can still show it after
+  // currentRound flips to the upcoming round.
+  useEffect(() => {
+    if (!revealActive || !currentRound) return;
+    const correctAnswer =
+      currentQuestionType === "Guess the Song"
+        ? currentRound.track_name
+        : currentRound.artist_name;
+    const next = getRoundCeremony({
+      players,
+      roundAnswers,
+      correctAnswer,
+    });
+    if (!next) return;
+    ceremonyRoundIdRef.current = currentRound.id;
+    setRoundCeremony(next);
+  }, [revealActive, currentRound, currentQuestionType, players, roundAnswers]);
+
+  // Drop the line once a new live round starts (post-reveal playing).
+  useEffect(() => {
+    if (gameStatus !== "playing" || revealActive) return;
+    if (!currentRound?.id) return;
+    if (ceremonyRoundIdRef.current && ceremonyRoundIdRef.current !== currentRound.id) {
+      ceremonyRoundIdRef.current = null;
+      setRoundCeremony(null);
+    }
+  }, [gameStatus, revealActive, currentRound?.id]);
+
   // True for a player who joined after the current round already started
   // (mid-round join) -- they can't meaningfully answer a question they
   // arrived partway through, so they see a "waiting for next round" state
@@ -128,6 +169,20 @@ export default function MultiplayerGame() {
     myPlayer?.joined_at &&
     currentRound?.started_at &&
     new Date(myPlayer.joined_at) > new Date(currentRound.started_at)
+  );
+
+  // The between-rounds screen's "Loading Results" vs "Up Next" text needs to
+  // know whether the game has truly finished (the last round has been
+  // played) -- not just whether currentRound.round_number already equals
+  // total_rounds. Once round N-1 ends, the server can create round N (the
+  // last round) and broadcast it well before the between-rounds countdown
+  // even appears; the moment that happens, roundNumber flips to
+  // total_rounds even though round N itself hasn't been played yet. Gating
+  // on ended_at too -- only set once a round has actually been played and
+  // graded -- fixes that: round N existing-but-unplayed still correctly
+  // reads as "Up Next", not "Loading Results".
+  const isFinalRoundOver = Boolean(
+    room && roundNumber >= room.total_rounds && currentRound?.ended_at
   );
 
   // Ensure anonymous auth is initialized for guests landing here from a shared link
@@ -421,16 +476,10 @@ export default function MultiplayerGame() {
     }
   }, [volume]);
 
-  // Stop playing when answered -- pause the actual element, not just the
-  // visualizer's isPlaying flag. Without this the clip kept buffering in
-  // the background after answering, competing for bandwidth with the next
-  // round's preload for no benefit (nothing is listening to it anymore).
-  useEffect(() => {
-    if (hasAnswered) {
-      setIsPlaying(false);
-      audioRef.current?.pause();
-    }
-  }, [hasAnswered]);
+  // Locking in an answer doesn't stop playback -- the clip keeps playing
+  // through the full round for everyone, same as before answering. Answered
+  // players still see "Answer locked in" via hasAnswered elsewhere; this
+  // just no longer silences their audio.
 
   // Cleanup on unmount
   useEffect(() => {
@@ -728,7 +777,7 @@ export default function MultiplayerGame() {
               </p>
               <p className="text-foreground/60">{myScore} points</p>
               {myResults.length > 0 && (
-                <p className="text-lg mt-3 tracking-wider" aria-hidden="true">
+                <p className="text-base mt-3 tracking-wider" aria-hidden="true">
                   {myResults.map((r) => (r ? "🟩" : "🟥")).join("")}
                 </p>
               )}
@@ -747,10 +796,12 @@ export default function MultiplayerGame() {
               </motion.button>
             )}
 
+            <SaveProgressPrompt />
+
             <div className="flex flex-col sm:flex-row gap-4 mb-6">
               <Button variant="gold" size="lg" className="w-full sm:flex-1" onClick={handleShare}>
                 <Share2 className="w-5 h-5 mr-2" />
-                Share Result
+                Challenge your friends
               </Button>
 
               {isHostPlayer && (
@@ -844,6 +895,20 @@ export default function MultiplayerGame() {
               className="text-center"
             >
               <h2 className="text-2xl font-bold text-foreground mb-4">Round {roundNumber} Complete!</h2>
+              {roundCeremony && (
+                <motion.p
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={cn(
+                    "text-lg font-extrabold mb-4",
+                    roundCeremony.tone === "hype" && "text-gold",
+                    roundCeremony.tone === "roast" && "text-terracotta",
+                    roundCeremony.tone === "neutral" && "text-foreground/80"
+                  )}
+                >
+                  {roundCeremony.text}
+                </motion.p>
+              )}
               
               {currentRound && (
                 <div className="game-card mb-6">
@@ -896,8 +961,23 @@ export default function MultiplayerGame() {
                     transition={{ delay: 0.2 }}
                     className="text-3xl font-bold text-gold mb-2"
                   >
-                    {room && roundNumber >= room.total_rounds ? "Loading Results" : "Up Next"}
+                    {isFinalRoundOver ? "Loading Results" : "Up Next"}
                   </motion.h3>
+                  {roundCeremony && !isFinalRoundOver && (
+                    <motion.p
+                      initial={{ y: 10, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      transition={{ delay: 0.3 }}
+                      className={cn(
+                        "text-lg font-extrabold mb-2",
+                        roundCeremony.tone === "hype" && "text-gold/90",
+                        roundCeremony.tone === "roast" && "text-terracotta",
+                        roundCeremony.tone === "neutral" && "text-foreground/70"
+                      )}
+                    >
+                      {roundCeremony.text}
+                    </motion.p>
+                  )}
                   {room && roundNumber < room.total_rounds && (
                   <motion.p
                     initial={{ y: 10, opacity: 0 }}
@@ -1019,6 +1099,9 @@ export default function MultiplayerGame() {
                 <span className="round-dot active w-7 h-7 text-sm shrink-0">{Math.max(roundNumber, 1)}</span>
                 <span className="text-sm text-muted-foreground">/ {room.total_rounds}</span>
               </div>
+              <div className="hidden md:block">
+                <ConnectionBadge quality={connectionQuality} />
+              </div>
               {isHostPlayer && (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
@@ -1099,7 +1182,7 @@ export default function MultiplayerGame() {
               <motion.div
                 className="progress-fill"
                 initial={{ width: "100%" }}
-                animate={{ width: `${(timeLeft / ROUND_TIME) * 100}%` }}
+                animate={{ width: `${Math.min(100, (timeLeft / ROUND_TIME) * 100)}%` }}
                 transition={{ duration: 0.5 }}
                 style={{
                   background: isTimeLow
@@ -1135,6 +1218,11 @@ export default function MultiplayerGame() {
               </motion.div>
             ) : (
             <>
+            {/* Connection quality — header row is too cramped for it on mobile */}
+            <div className="mb-3 md:hidden">
+              <ConnectionBadge quality={connectionQuality} />
+            </div>
+
             {/* Question type indicator */}
             <div
               className="mb-4 px-4 py-2 rounded-full bg-gold"
@@ -1221,6 +1309,21 @@ export default function MultiplayerGame() {
                   >
                     {isCorrect === true ? "Correct! 🎉" : hasAnswered ? "Wrong!" : "Time's up ⏰"}
                   </div>
+                  {roundCeremony && (
+                    <motion.p
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.25 }}
+                      className={cn(
+                        "mt-3 text-base font-extrabold tracking-wide",
+                        roundCeremony.tone === "hype" && "text-gold",
+                        roundCeremony.tone === "roast" && "text-terracotta",
+                        roundCeremony.tone === "neutral" && "text-foreground/80"
+                      )}
+                    >
+                      {roundCeremony.text}
+                    </motion.p>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -1360,8 +1463,20 @@ export default function MultiplayerGame() {
             </div>
           )}
           <h3 className="text-3xl font-bold text-gold mb-2">
-            {room && roundNumber >= room.total_rounds ? "Loading Results" : "Up Next"}
+            {isFinalRoundOver ? "Loading Results" : "Up Next"}
           </h3>
+          {roundCeremony && !isFinalRoundOver && (
+            <p
+              className={cn(
+                "text-lg font-extrabold mb-3",
+                roundCeremony.tone === "hype" && "text-gold/90",
+                roundCeremony.tone === "roast" && "text-terracotta",
+                roundCeremony.tone === "neutral" && "text-foreground/70"
+              )}
+            >
+              {roundCeremony.text}
+            </p>
+          )}
           {room && roundNumber < room.total_rounds && (
             <p className="text-xl text-foreground/80 font-semibold">
               {nextQuestionType === "Guess the Artist" ? "🎤 Guess the Artist" : "🎵 Guess the Song"}

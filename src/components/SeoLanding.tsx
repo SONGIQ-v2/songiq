@@ -76,7 +76,7 @@ export const SeoLanding = ({
       <Starfield />
       <Header />
 
-      <main className="relative z-10 pt-24 pb-16 px-4">
+      <main className="relative z-10 pt-[calc(var(--header-height)+50px)] md:pt-[calc(var(--header-height)+100px)] pb-16 px-4">
         <article className="max-w-4xl mx-auto">
           {/* Hero */}
           <motion.header
@@ -90,12 +90,12 @@ export const SeoLanding = ({
             </h1>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto mb-8">{intro}</p>
             <div className="flex flex-wrap gap-3 justify-center">
-              <Button size="lg" onClick={() => navigate(primaryCta.to)} className="gap-2">
-                <Play className="w-5 h-5" />
+              <Button variant="gold" size="lg" onClick={() => navigate(primaryCta.to)} className="rounded-full gap-2">
+                <Play className="w-4 h-4 fill-current" />
                 {primaryCta.label}
               </Button>
-              <Button size="lg" variant="outline" onClick={() => navigate(secondaryCta.to)} className="gap-2">
-                <Users className="w-5 h-5" />
+              <Button variant="kente" size="lg" onClick={() => navigate(secondaryCta.to)} className="rounded-full gap-2">
+                <Users className="w-4 h-4" />
                 {secondaryCta.label}
               </Button>
             </div>
@@ -165,12 +165,12 @@ export const SeoLanding = ({
             </h2>
             <p className="text-muted-foreground mb-6">Free, no signup required. Jump in and start guessing.</p>
             <div className="flex flex-wrap gap-3 justify-center">
-              <Button size="lg" onClick={() => navigate(primaryCta.to)} className="gap-2">
-                <Play className="w-5 h-5" />
+              <Button variant="gold" size="lg" onClick={() => navigate(primaryCta.to)} className="rounded-full gap-2">
+                <Play className="w-4 h-4 fill-current" />
                 {primaryCta.label}
               </Button>
-              <Button size="lg" variant="outline" onClick={() => navigate(secondaryCta.to)} className="gap-2">
-                <Users className="w-5 h-5" />
+              <Button variant="kente" size="lg" onClick={() => navigate(secondaryCta.to)} className="rounded-full gap-2">
+                <Users className="w-4 h-4" />
                 {secondaryCta.label}
               </Button>
             </div>

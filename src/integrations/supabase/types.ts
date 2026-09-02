@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.1"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -539,6 +539,42 @@ export type Database = {
         }
         Relationships: []
       }
+      multiplayer_results: {
+        Row: {
+          finished_at: string
+          id: number
+          player_count: number
+          player_id: string
+          player_name: string
+          rank: number
+          room_id: string
+          score: number
+          won: boolean
+        }
+        Insert: {
+          finished_at: string
+          id?: never
+          player_count: number
+          player_id: string
+          player_name: string
+          rank: number
+          room_id: string
+          score: number
+          won: boolean
+        }
+        Update: {
+          finished_at?: string
+          id?: never
+          player_count?: number
+          player_id?: string
+          player_name?: string
+          rank?: number
+          room_id?: string
+          score?: number
+          won?: boolean
+        }
+        Relationships: []
+      }
       play_sessions: {
         Row: {
           created_at: string
@@ -747,6 +783,68 @@ export type Database = {
         }
         Relationships: []
       }
+      room_archive: {
+        Row: {
+          category: string
+          created_at: string
+          host_id: string
+          host_name: string
+          id: string
+          room_code: string
+          room_id: string
+        }
+        Insert: {
+          category: string
+          created_at: string
+          host_id: string
+          host_name: string
+          id?: string
+          room_code: string
+          room_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          host_id?: string
+          host_name?: string
+          id?: string
+          room_code?: string
+          room_id?: string
+        }
+        Relationships: []
+      }
+      room_player_archive: {
+        Row: {
+          id: number
+          joined_at: string
+          player_id: string
+          player_name: string
+          room_id: string
+        }
+        Insert: {
+          id?: never
+          joined_at: string
+          player_id: string
+          player_name: string
+          room_id: string
+        }
+        Update: {
+          id?: never
+          joined_at?: string
+          player_id?: string
+          player_name?: string
+          room_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_player_archive_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "room_archive"
+            referencedColumns: ["room_id"]
+          },
+        ]
+      }
       room_players: {
         Row: {
           avatar_index: number
@@ -819,6 +917,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      site_notifications: {
+        Row: {
+          created_at: string
+          html: string
+          id: string
+          is_active: boolean
+          label: string
+        }
+        Insert: {
+          created_at?: string
+          html: string
+          id?: string
+          is_active?: boolean
+          label: string
+        }
+        Update: {
+          created_at?: string
+          html?: string
+          id?: string
+          is_active?: boolean
+          label?: string
+        }
+        Relationships: []
+      }
+      site_settings: {
+        Row: {
+          id: number
+          signin_points_threshold: number
+          updated_at: string
+        }
+        Insert: {
+          id?: number
+          signin_points_threshold?: number
+          updated_at?: string
+        }
+        Update: {
+          id?: number
+          signin_points_threshold?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       suppressed_emails: {
         Row: {
@@ -921,34 +1061,6 @@ export type Database = {
           track_id: string | null
           track_name: string | null
         }
-        Insert: {
-          artist_name?: never
-          artwork_url?: string | null
-          ended_at?: string | null
-          id?: string | null
-          options?: Json | null
-          preview_url?: string | null
-          question_type?: string | null
-          room_id?: string | null
-          round_number?: number | null
-          started_at?: string | null
-          track_id?: string | null
-          track_name?: never
-        }
-        Update: {
-          artist_name?: never
-          artwork_url?: string | null
-          ended_at?: string | null
-          id?: string | null
-          options?: Json | null
-          preview_url?: string | null
-          question_type?: string | null
-          room_id?: string | null
-          round_number?: number | null
-          started_at?: string | null
-          track_id?: string | null
-          track_name?: never
-        }
         Relationships: [
           {
             foreignKeyName: "game_rounds_room_id_fkey"
@@ -971,8 +1083,9 @@ export type Database = {
         }
         Returns: undefined
       }
+      advance_all_playing_rounds: { Args: never; Returns: undefined }
       advance_game_round: { Args: { _room_id: string }; Returns: Json }
-      count_unique_players: { Args: never; Returns: number }
+      count_unique_players: { Args: { p_cutoff?: string }; Returns: number }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
@@ -982,6 +1095,16 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      get_challenge_by_code: { Args: { p_code: string }; Returns: Json }
+      get_multiplayer_profile_stats: {
+        Args: { p_player_id: string }
+        Returns: {
+          avg_position: number
+          rooms_played: number
+          win_rate_pct: number
+        }[]
+      }
+      get_room_by_code: { Args: { p_code: string }; Returns: Json }
       get_vapid_public_key: { Args: never; Returns: string }
       global_leaderboard: {
         Args: { p_player?: string; p_range?: string; p_sort?: string }
@@ -995,6 +1118,9 @@ export type Database = {
           streak: number
         }[]
       }
+      is_room_participant: { Args: { p_room_id: string }; Returns: boolean }
+      is_room_player: { Args: { p_room_id: string }; Returns: boolean }
+      leave_room_with_handoff: { Args: { p_room_id: string }; Returns: Json }
       merge_player_data: {
         Args: { v_new: string; v_old: string }
         Returns: undefined
@@ -1047,10 +1173,12 @@ export type Database = {
           player_name: string
         }[]
       }
+      room_has_capacity: { Args: { p_room_id: string }; Returns: boolean }
       server_time_ms: { Args: never; Returns: number }
       set_nickname: { Args: { p_name: string }; Returns: undefined }
       settle_daily_bonus: { Args: never; Returns: undefined }
       stage_anonymous_merge: { Args: never; Returns: string }
+      transfer_host_if_inactive: { Args: { p_room_id: string }; Returns: Json }
       verified_player_ids: {
         Args: { p_ids: string[] }
         Returns: {

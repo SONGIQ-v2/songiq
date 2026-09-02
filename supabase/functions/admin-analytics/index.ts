@@ -190,6 +190,50 @@ async function runVisitorCount(accessToken: string, startDate: string, endDate: 
   return Number(data.rows?.[0]?.metricValues?.[0]?.value ?? 0);
 }
 
+// Most-visited pages (path, not just a raw total) for the selected date
+// range -- same shape as runTopLocations, keyed by URL path instead of
+// country/city.
+async function runTopPages(
+  accessToken: string,
+  startDate: string,
+  endDate: string
+): Promise<{ path: string; views: number }[]> {
+  const res = await fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${GA4_PROPERTY_ID}:runReport`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      dateRanges: [{ startDate, endDate }],
+      dimensions: [{ name: "pagePath" }],
+      metrics: [{ name: "screenPageViews" }],
+      orderBys: [{ metric: { metricName: "screenPageViews" }, desc: true }],
+      limit: 10,
+    }),
+  });
+  if (!res.ok) throw new Error(`GA4 top-pages report failed: ${await res.text()}`);
+  const data = await res.json();
+  return (data.rows ?? []).map((r: { dimensionValues: { value: string }[]; metricValues: { value: string }[] }) => ({
+    path: r.dimensionValues[0].value || "/",
+    views: Number(r.metricValues[0].value),
+  }));
+}
+
+// GA4's session-level bounceRate (fraction of sessions with no engagement)
+// for the selected date range -- same shape as runVisitorCount, just a
+// different metric, no dimension needed since we want one aggregate number.
+async function runBounceRate(accessToken: string, startDate: string, endDate: string): Promise<number> {
+  const res = await fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${GA4_PROPERTY_ID}:runReport`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      dateRanges: [{ startDate, endDate }],
+      metrics: [{ name: "bounceRate" }],
+    }),
+  });
+  if (!res.ok) throw new Error(`GA4 bounce-rate report failed: ${await res.text()}`);
+  const data = await res.json();
+  return Number(data.rows?.[0]?.metricValues?.[0]?.value ?? 0);
+}
+
 // Top countries/cities by unique visitor for the selected date range.
 async function runTopLocations(
   accessToken: string,
@@ -243,11 +287,14 @@ async function runTrafficSources(
   }));
 }
 
-// Solo games have no DB table (only Daily/Challenge attempts do), so GA4 is
-// the only source, even for "all-time" -- queried with a fixed wide range
-// rather than the selected date range, since aggregated GA4 report data
-// (unlike user-level data) isn't subject to the property's retention window.
-async function runSoloGamesAllTime(accessToken: string): Promise<number> {
+// Lifetime count of a single GA4 event, queried with a fixed wide range
+// rather than the selected date range -- aggregated GA4 report data (unlike
+// user-level data) isn't subject to the property's retention window. Used
+// for events with no DB table of their own (solo games) and for events
+// whose DB counterpart is unreliable as an all-time proxy (challenge
+// completions -- challenge_attempts only ever holds one row per player per
+// challenge, so a replay doesn't re-count there the way it does in GA4).
+async function runEventCountAllTime(accessToken: string, eventName: string): Promise<number> {
   const res = await fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${GA4_PROPERTY_ID}:runReport`, {
     method: "POST",
     headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
@@ -255,23 +302,35 @@ async function runSoloGamesAllTime(accessToken: string): Promise<number> {
       dateRanges: [{ startDate: "2020-01-01", endDate: "today" }],
       metrics: [{ name: "eventCount" }],
       dimensionFilter: {
-        filter: { fieldName: "eventName", stringFilter: { value: "solo_game_complete" } },
+        filter: { fieldName: "eventName", stringFilter: { value: eventName } },
       },
     }),
   });
-  if (!res.ok) throw new Error(`GA4 solo-games-all-time report failed: ${await res.text()}`);
+  if (!res.ok) throw new Error(`GA4 all-time event-count report failed for "${eventName}": ${await res.text()}`);
   const data = await res.json();
   return Number(data.rows?.[0]?.metricValues?.[0]?.value ?? 0);
 }
 
 // Real (non-anonymous) signed-in players -- name/email come from Google via
 // Supabase Auth's admin API (client-side/anon keys can never list auth.users;
-// this requires the service-role client). Anonymous players vastly
+// this requires the service-role client, and PostgREST doesn't expose the
+// auth schema for a direct table query either). Anonymous players vastly
 // outnumber real ones, so this pages through admin.listUsers() rather than
-// assuming signed-in users are all on the first page, capped to bound cost.
+// assuming signed-in users are all on the first page.
+//
+// Scans every non-anonymous user (up to the 4000-user safety cap below) so
+// the all-time/in-range counts are accurate -- only the returned *table*
+// list is capped to 200 for display. If the real signed-in count ever
+// exceeds 4000, these counts would start undercounting; fine for now, worth
+// revisiting at that scale.
 async function fetchSignedInUsers(
-  supabase: ReturnType<typeof createClient>
-): Promise<{ id: string; name: string | null; nickname: string | null; email: string | null; createdAt: string; lastSignInAt: string | null; points: number }[]> {
+  supabase: ReturnType<typeof serviceClient>,
+  rangeCutoff: string
+): Promise<{
+  users: { id: string; name: string | null; nickname: string | null; email: string | null; createdAt: string; lastSignInAt: string | null; points: number }[];
+  totalSignedIn: number;
+  newSignedInInRange: number;
+}> {
   const signedIn: { id: string; name: string | null; email: string | null; createdAt: string; lastSignInAt: string | null }[] = [];
   const maxPages = 20; // 20 * 200 = up to 4000 users scanned
   for (let page = 1; page <= maxPages; page++) {
@@ -292,10 +351,13 @@ async function fetchSignedInUsers(
       });
     }
     if (data.users.length < 200) break; // last page
-    if (signedIn.length >= 200) break; // enough for the dashboard
   }
 
-  if (signedIn.length === 0) return [];
+  const totalSignedIn = signedIn.length;
+  const rangeCutoffMs = new Date(rangeCutoff).getTime();
+  const newSignedInInRange = signedIn.filter((u) => new Date(u.createdAt).getTime() >= rangeCutoffMs).length;
+
+  if (signedIn.length === 0) return { users: [], totalSignedIn, newSignedInInRange };
   const { data: pointsRows } = await supabase
     .from("player_points")
     .select("player_id, player_name, points")
@@ -304,13 +366,16 @@ async function fetchSignedInUsers(
     (pointsRows ?? []).map((r: { player_id: string; player_name: string | null; points: number }) => [r.player_id, r])
   );
 
-  return signedIn
+  const users = signedIn
     .map((u) => ({
       ...u,
       nickname: pointsById.get(u.id)?.player_name ?? null,
       points: Number(pointsById.get(u.id)?.points ?? 0),
     }))
-    .sort((a, b) => b.points - a.points);
+    .sort((a, b) => b.points - a.points)
+    .slice(0, 200);
+
+  return { users, totalSignedIn, newSignedInInRange };
 }
 
 /** "Today" by Lagos time, matching daily_challenges.challenge_date elsewhere in the app. */
@@ -341,8 +406,149 @@ serve(async (req) => {
       });
     }
 
-    const { action, code, redirectUri, startDate, endDate, rangeKey } = await req.json();
+    const { action, code, redirectUri, startDate, endDate, rangeKey, playerId, nickname, notificationId, label, html, isActive, threshold } = await req.json();
     const supabase = serviceClient();
+
+    if (action === "list_notifications") {
+      const { data, error: listErr } = await supabase
+        .from("site_notifications")
+        .select("id, label, html, is_active, created_at")
+        .order("created_at", { ascending: false });
+      if (listErr) throw listErr;
+      return new Response(JSON.stringify({ notifications: data ?? [] }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "create_notification") {
+      if (!label || !label.trim()) throw new Error("Missing label");
+      if (!html || !html.trim()) throw new Error("Missing html");
+      const { error: createErr } = await supabase
+        .from("site_notifications")
+        .insert({ label: label.trim(), html });
+      if (createErr) throw createErr;
+      return new Response(JSON.stringify({ ok: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "toggle_notification") {
+      if (!notificationId) throw new Error("Missing notificationId");
+      if (isActive) {
+        // Single atomic statement -- every other row's is_active flips to
+        // false in the same UPDATE, so the one-active-at-a-time unique index
+        // is never even transiently violated.
+        const { error: toggleErr } = await supabase
+          .from("site_notifications")
+          .update({ is_active: false })
+          .neq("id", notificationId);
+        if (toggleErr) throw toggleErr;
+        const { error: activateErr } = await supabase
+          .from("site_notifications")
+          .update({ is_active: true })
+          .eq("id", notificationId);
+        if (activateErr) throw activateErr;
+      } else {
+        const { error: deactivateErr } = await supabase
+          .from("site_notifications")
+          .update({ is_active: false })
+          .eq("id", notificationId);
+        if (deactivateErr) throw deactivateErr;
+      }
+      return new Response(JSON.stringify({ ok: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "delete_notification") {
+      if (!notificationId) throw new Error("Missing notificationId");
+      const { error: deleteErr } = await supabase
+        .from("site_notifications")
+        .delete()
+        .eq("id", notificationId);
+      if (deleteErr) throw deleteErr;
+      return new Response(JSON.stringify({ ok: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "update_signin_threshold") {
+      const parsed = Number(threshold);
+      if (!Number.isInteger(parsed) || parsed < 0) throw new Error("Threshold must be a non-negative integer");
+      const { error: settingsErr } = await supabase
+        .from("site_settings")
+        .update({ signin_points_threshold: parsed, updated_at: new Date().toISOString() })
+        .eq("id", 1);
+      if (settingsErr) throw settingsErr;
+      return new Response(JSON.stringify({ ok: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "search_players") {
+      if (!nickname || !nickname.trim()) throw new Error("Missing nickname");
+
+      const { data: rows, error: searchErr } = await supabase
+        .from("player_points")
+        .select("player_id, player_name, points")
+        .ilike("player_name", `%${nickname.trim()}%`)
+        .order("points", { ascending: false })
+        .limit(50);
+      if (searchErr) throw searchErr;
+
+      return new Response(
+        JSON.stringify({
+          players: (rows ?? []).map((r) => ({ playerId: r.player_id, playerName: r.player_name, points: r.points })),
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (action === "player_profile") {
+      if (!playerId) throw new Error("Missing playerId");
+
+      const [
+        { data: pointsRow },
+        { count: soloCount },
+        { count: dailyCount },
+        { count: challengeCount },
+        { data: mpStatsRows },
+        { data: streakRow },
+        { data: sessionRows },
+      ] = await Promise.all([
+        supabase.from("player_points").select("player_name, points, games").eq("player_id", playerId).maybeSingle(),
+        supabase.from("play_sessions").select("*", { count: "exact", head: true }).eq("player_id", playerId).eq("mode", "solo"),
+        supabase.from("daily_attempts").select("*", { count: "exact", head: true }).eq("player_id", playerId),
+        supabase.from("challenge_attempts").select("*", { count: "exact", head: true }).eq("player_id", playerId),
+        supabase.rpc("get_multiplayer_profile_stats", { p_player_id: playerId }),
+        supabase.from("daily_stats").select("current_streak, best_streak").eq("player_id", playerId).maybeSingle(),
+        supabase.from("play_sessions").select("seconds").eq("player_id", playerId),
+      ]);
+
+      const mp = (mpStatsRows as { rooms_played: number; avg_position: number | null; win_rate_pct: number }[] | null)?.[0];
+      const minutesPlayed = Math.round(
+        (sessionRows ?? []).reduce((sum: number, r: { seconds: number }) => sum + (r.seconds ?? 0), 0) / 60
+      );
+
+      return new Response(
+        JSON.stringify({
+          playerId,
+          playerName: pointsRow?.player_name ?? null,
+          points: pointsRow?.points ?? 0,
+          gamesPlayed: pointsRow?.games ?? 0,
+          soloGamesPlayed: soloCount ?? 0,
+          dailyChallengesPlayed: dailyCount ?? 0,
+          challengesPlayed: challengeCount ?? 0,
+          minutesPlayed,
+          currentStreak: streakRow?.current_streak ?? 0,
+          bestStreak: streakRow?.best_streak ?? 0,
+          roomsPlayed: mp?.rooms_played ?? 0,
+          avgPosition: mp?.avg_position ?? null,
+          winRatePct: mp?.win_rate_pct ?? 0,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     if (action === "connect") {
       if (!code) throw new Error("Missing authorization code");
@@ -394,15 +600,21 @@ serve(async (req) => {
       }
       const reportStart = startDate || "7daysAgo";
       const reportEnd = endDate || "today";
+      const today = lagosToday();
+      const rangeCutoff = rangeCutoffISO(rangeKey);
       const [
         { eventCounts, dailyTotals },
         topPlaylists,
         soloGamesPlayedAllTime,
+        challengesCompletedAllTime,
         visitorsInRange,
+        bounceRate,
+        bounceRateAllTime,
+        topPages,
         topCountries,
         topCities,
         trafficSources,
-        signedInUsers,
+        { users: signedInUsers, totalSignedIn, newSignedInInRange },
       ] = await Promise.all([
         runGA4Report(accessToken, reportStart, reportEnd),
         runTopPlaylists(accessToken, reportStart, reportEnd).catch((e) => {
@@ -411,13 +623,31 @@ serve(async (req) => {
           console.error("[admin-analytics] Top playlists failed:", e);
           return [];
         }),
-        runSoloGamesAllTime(accessToken).catch((e) => {
+        runEventCountAllTime(accessToken, "solo_game_complete").catch((e) => {
           console.error("[admin-analytics] Solo games all-time failed:", e);
+          return 0;
+        }),
+        runEventCountAllTime(accessToken, "challenge_complete").catch((e) => {
+          console.error("[admin-analytics] Challenges completed all-time failed:", e);
           return 0;
         }),
         runVisitorCount(accessToken, reportStart, reportEnd).catch((e) => {
           console.error("[admin-analytics] Visitor count failed:", e);
           return 0;
+        }),
+        runBounceRate(accessToken, reportStart, reportEnd).catch((e) => {
+          console.error("[admin-analytics] Bounce rate failed:", e);
+          return 0;
+        }),
+        // Same fixed wide range as runSoloGamesAllTime -- aggregated GA4
+        // report data isn't subject to the property's retention window.
+        runBounceRate(accessToken, "2020-01-01", "today").catch((e) => {
+          console.error("[admin-analytics] Bounce rate (all-time) failed:", e);
+          return 0;
+        }),
+        runTopPages(accessToken, reportStart, reportEnd).catch((e) => {
+          console.error("[admin-analytics] Top pages failed:", e);
+          return [];
         }),
         runTopLocations(accessToken, "country", reportStart, reportEnd).catch((e) => {
           console.error("[admin-analytics] Top countries failed:", e);
@@ -431,14 +661,12 @@ serve(async (req) => {
           console.error("[admin-analytics] Traffic sources failed:", e);
           return [];
         }),
-        fetchSignedInUsers(supabase).catch((e) => {
+        fetchSignedInUsers(supabase, rangeCutoff).catch((e) => {
           console.error("[admin-analytics] Signed-in users failed:", e);
-          return [];
+          return { users: [], totalSignedIn: 0, newSignedInInRange: 0 };
         }),
       ]);
 
-      const today = lagosToday();
-      const rangeCutoff = rangeCutoffISO(rangeKey);
       // game_rooms/challenges get purged by cleanup-stale-rooms (rooms within
       // 2h/1h/15m, challenges after 30 days) -- a plain COUNT(*) on either,
       // with or without a date filter, only ever reflects whatever hasn't
@@ -447,23 +675,19 @@ serve(async (req) => {
       // from it instead.
       const [
         { count: streakCount },
-        { count: challengeCount },
-        { count: challengeCountInRange },
-        { count: challengeAttemptCount },
         { count: roomCount },
         { count: roomCountInRange },
         { count: activeRoomCount },
         { count: dailyPlaysToday },
         { data: dailyScoresToday },
         { data: topStreakRow },
-        { data: uniquePlayers },
+        { data: uniquePlayersInRange },
+        { data: uniquePlayersAllTime },
         { data: minutesByModeInRange },
         { data: minutesByModeAllTime },
+        { data: roomArchiveRows },
       ] = await Promise.all([
         supabase.from("daily_stats").select("*", { count: "exact", head: true }),
-        supabase.from("creation_log").select("*", { count: "exact", head: true }).eq("event_type", "challenge"),
-        supabase.from("creation_log").select("*", { count: "exact", head: true }).eq("event_type", "challenge").gte("created_at", rangeCutoff),
-        supabase.from("challenge_attempts").select("*", { count: "exact", head: true }),
         supabase.from("creation_log").select("*", { count: "exact", head: true }).eq("event_type", "room"),
         supabase.from("creation_log").select("*", { count: "exact", head: true }).eq("event_type", "room").gte("created_at", rangeCutoff),
         supabase.from("game_rooms").select("*", { count: "exact", head: true }).in("status", ["waiting", "playing"]),
@@ -476,9 +700,16 @@ serve(async (req) => {
           .order("total_score", { ascending: false })
           .limit(1)
           .maybeSingle(),
+        supabase.rpc("count_unique_players", { p_cutoff: rangeCutoff }),
         supabase.rpc("count_unique_players"),
         supabase.rpc("minutes_played_stats", { p_cutoff: rangeCutoff }),
         supabase.rpc("minutes_played_stats"),
+        supabase
+          .from("room_archive")
+          .select("room_code, host_name, created_at, room_player_archive(player_id, player_name, joined_at)")
+          .gte("created_at", rangeCutoff)
+          .order("created_at", { ascending: false })
+          .limit(200),
       ]);
 
       const sumMinutes = (rows: { mode: string; minutes: number }[] | null) =>
@@ -495,6 +726,26 @@ serve(async (req) => {
       // Daily/Challenge attempts are) -- GA4's solo_game_complete count,
       // already scoped to the selected range, is the only source for this.
       const soloGamesPlayedInRange = eventCounts.find((e: { event: string }) => e.event === "solo_game_complete")?.count ?? 0;
+      // "Challenges created" (creation_log) counts every silently pre-generated
+      // share link, most of which are never actually shared -- challenge_complete
+      // only fires when someone genuinely plays through (or explicitly quits) a
+      // challenge link, which is what this stat is meant to represent.
+      const challengesCompletedInRange = eventCounts.find((e: { event: string }) => e.event === "challenge_complete")?.count ?? 0;
+
+      // No category/playlist field here -- a room can be replayed with a
+      // different playlist each time (host picks it fresh per game in the
+      // lobby), so "the" category isn't a well-defined single value per room.
+      const rooms = (roomArchiveRows ?? []).map((r: {
+        room_code: string;
+        host_name: string;
+        created_at: string;
+        room_player_archive: { player_id: string; player_name: string; joined_at: string }[];
+      }) => ({
+        room_code: r.room_code,
+        host_name: r.host_name,
+        created_at: r.created_at,
+        players: r.room_player_archive ?? [],
+      }));
 
       return new Response(
         JSON.stringify({
@@ -504,17 +755,23 @@ serve(async (req) => {
           topPlaylists,
           topCountries,
           topCities,
+          topPages,
           trafficSources,
           signedInUsers,
+          rooms,
           stats: {
             playersWithStreak: streakCount ?? 0,
-            challengesCreated: challengeCount ?? 0,
-            challengesCreatedInRange: challengeCountInRange ?? 0,
+            newSignedInInRange,
+            signedInUsersAllTime: totalSignedIn,
+            challengesCompletedInRange,
+            challengesCompletedAllTime,
             roomsCreated: roomCount ?? 0,
             roomsCreatedInRange: roomCountInRange ?? 0,
             soloGamesPlayedInRange,
             soloGamesPlayedAllTime,
             visitorsInRange,
+            bounceRatePct: Math.round(bounceRate * 1000) / 10,
+            bounceRatePctAllTime: Math.round(bounceRateAllTime * 1000) / 10,
             minutesPlayedInRange,
             minutesPlayedAllTime,
             minutesByMode: minutesByModeInRange ?? [],
@@ -524,11 +781,8 @@ serve(async (req) => {
             topStreakPlayer: topStreakRow
               ? { name: topStreakRow.player_name, streak: topStreakRow.effective_streak }
               : null,
-            uniquePlayersEver: (uniquePlayers as number | null) ?? 0,
-            challengeCompletionRatePct:
-              challengeCount && challengeCount > 0
-                ? Math.round(((challengeAttemptCount ?? 0) / challengeCount) * 100)
-                : 0,
+            uniquePlayersInRange: (uniquePlayersInRange as number | null) ?? 0,
+            uniquePlayersEver: (uniquePlayersAllTime as number | null) ?? 0,
           },
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }

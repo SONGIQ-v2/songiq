@@ -6,6 +6,10 @@
 
 @layer base {
   :root {
+    /* Header's real height, published by Header.tsx via ResizeObserver --
+       this default only matters for the instant before that JS runs. */
+    --header-height: 149px;
+
     /* SongIQ African-inspired color palette */
     --background: 230 35% 10%;
     --foreground: 45 100% 96%;

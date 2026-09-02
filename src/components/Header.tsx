@@ -1,12 +1,14 @@
 import { Link, useLocation } from "react-router-dom";
 import songiqLogo from "@/assets/songiq-logo.png";
-import { Medal, Menu, UserCircle } from "lucide-react";
+import { Medal, Menu, Shield, UserCircle } from "lucide-react";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useLayoutEffect } from "react";
 import { useGameStore } from "@/lib/gameStore";
 import { supabase } from "@/integrations/supabase/client";
+import { NotificationBar } from "@/components/NotificationBar";
+import { fetchStreakProtectionStatus } from "@/lib/daily";
 
 import {
   Dialog,
@@ -19,6 +21,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "@/hooks/use-toast";
@@ -28,7 +31,7 @@ const NAV_LINKS = [
   { to: "/multiplayer", label: "Multiplayer" },
   { to: "/daily", label: "Daily Challenge" },
   { to: "/leaderboard", label: "Leaderboard" },
-  { to: "/#how-to-play", label: "How it works" },
+  { to: "/how-it-works", label: "How it works" },
 ];
 
 export const Header = () => {
@@ -41,6 +44,25 @@ export const Header = () => {
   const [isAnonymous, setIsAnonymous] = useState(true);
   const [signedInUser, setSignedInUser] = useState<{ id: string; name: string } | null>(null);
   const [totalPoints, setTotalPoints] = useState<number | null>(null);
+  const [savesAvailable, setSavesAvailable] = useState<number | null>(null);
+  const [nextSaveExpires, setNextSaveExpires] = useState<string | null>(null);
+  const fixedWrapperRef = useRef<HTMLDivElement>(null);
+
+  // Publishes the fixed header's real, current on-screen height (bar
+  // included whenever it's showing) as a CSS variable, so every page can
+  // read it instead of guessing a fixed pixel offset -- handles the bar
+  // appearing/disappearing and mobile/desktop nav wrapping automatically.
+  useLayoutEffect(() => {
+    const el = fixedWrapperRef.current;
+    if (!el) return;
+    const setHeightVar = () => {
+      document.documentElement.style.setProperty("--header-height", `${el.offsetHeight}px`);
+    };
+    setHeightVar();
+    const observer = new ResizeObserver(setHeightVar);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     // Load saved name from localStorage
@@ -85,6 +107,19 @@ export const Header = () => {
     })();
   }, [signedInUser?.id, location.pathname]);
 
+  // Streak Save balance for the account dropdown
+  useEffect(() => {
+    if (!signedInUser) {
+      setSavesAvailable(null);
+      setNextSaveExpires(null);
+      return;
+    }
+    fetchStreakProtectionStatus().then((status) => {
+      setSavesAvailable(status?.saves_available ?? 0);
+      setNextSaveExpires(status?.next_save_expires ?? null);
+    });
+  }, [signedInUser?.id, location.pathname]);
+
   const handleSaveName = async () => {
     const trimmed = editName.trim().replace(/[\x00-\x1F\x7F]/g, "").slice(0, 20);
     if (trimmed.length < 1) {
@@ -108,7 +143,9 @@ export const Header = () => {
 
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 z-50 px-4 py-3 bg-background/60 backdrop-blur-xl border-b border-white/10">
+      <div ref={fixedWrapperRef} className="fixed top-0 left-0 right-0 z-50">
+        <NotificationBar isAnonymous={isAnonymous} />
+        <header className="px-4 py-3 bg-background/60 backdrop-blur-xl border-b border-white/10">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           {/* Logo - left aligned */}
           <Link to="/" className="flex items-center" aria-label="SongIQ home">
@@ -184,9 +221,24 @@ export const Header = () => {
                         {totalPoints.toLocaleString()}
                       </span>
                     )}
+                    {savesAvailable !== null && savesAvailable > 0 && (
+                      <span className="flex items-center gap-1 text-sm font-bold text-primary">
+                        <Shield className="w-4 h-4" />
+                        {savesAvailable}
+                      </span>
+                    )}
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                  {savesAvailable !== null && (
+                    <DropdownMenuLabel className="flex items-center gap-1.5 text-xs font-normal text-muted-foreground">
+                      <Shield className="w-3.5 h-3.5 text-primary shrink-0" />
+                      Streak Saves: {savesAvailable}/2
+                      {savesAvailable > 0 && nextSaveExpires && (
+                        <span> — next expires {new Date(nextSaveExpires).toLocaleDateString()}</span>
+                      )}
+                    </DropdownMenuLabel>
+                  )}
                   <DropdownMenuItem
                     onClick={() => {
                       setEditName(playerName || localStorage.getItem("songiq_player_name") || "");
@@ -232,7 +284,8 @@ export const Header = () => {
             )}
           </div>
         </div>
-      </header>
+        </header>
+      </div>
 
       <Dialog open={showProfileModal} onOpenChange={setShowProfileModal}>
         <DialogContent className="sm:max-w-md">

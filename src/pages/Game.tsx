@@ -9,9 +9,12 @@ import { Starfield } from "@/components/Starfield";
 import { AudioVisualizer } from "@/components/AudioVisualizer";
 import { AnswerOption } from "@/components/AnswerOption";
 import { Button } from "@/components/ui/button";
+import { ConnectionBadge } from "@/components/ConnectionBadge";
 import { DailyReminderButton } from "@/components/DailyReminderButton";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
+import { SaveProgressPrompt } from "@/components/SaveProgressPrompt";
 import { VolumeControl } from "@/components/VolumeControl";
+import { useConnectionQuality } from "@/hooks/useConnectionQuality";
 import { useVolume } from "@/hooks/useVolume";
 import { CARD_SPRING } from "@/lib/motion";
 import {
@@ -39,8 +42,9 @@ import { useGameStore } from "@/lib/gameStore";
 import { PLAYLISTS, getPlaylistById } from "@/lib/playlists";
 import { calculatePoints } from "@/lib/spotify";
 import { logError, logWarn, logInfo } from "@/lib/clientLogger";
+import { vibrateRoundStart, vibrateCorrect, vibrateIncorrect } from "@/lib/haptics";
 import { warmAudioUrl, preloadAudio, playWithWatchdog, prefetchAudio } from "@/lib/audioPreload";
-import { buildShareText, shareResult } from "@/lib/shareCard";
+import { buildShareText, buildStreakRepairShareText, shareResult } from "@/lib/shareCard";
 import { shareResultImage } from "@/lib/shareImage";
 import { trackEvent } from "@/lib/analytics";
 import {
@@ -62,6 +66,7 @@ import {
   fetchTodayChallenge,
   fetchMyDailyAttempt,
   fetchDailyAttempts,
+  fetchStreakProtectionStatus,
   isStreakActive,
   buildDailyShareText,
 } from "@/lib/daily";
@@ -126,6 +131,9 @@ export default function Game() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [slowConnection, setSlowConnection] = useState(false);
   const [playlistName, setPlaylistName] = useState("");
+
+  const isInGame = gameState === "playing" || gameState === "answered" || gameState === "countdown";
+  const connectionQuality = useConnectionQuality(isInGame, currentTrack?.previewUrl);
   const [countdown, setCountdown] = useState(COUNTDOWN_TIME);
   const [questionType, setQuestionType] = useState<QuestionType>("artist");
   const [nextQuestionType, setNextQuestionType] = useState<QuestionType>("song");
@@ -143,6 +151,11 @@ export default function Game() {
   // "A music fan".
   const [showNamePrompt, setShowNamePrompt] = useState(false);
   const [nameInput, setNameInput] = useState("");
+  // Guards doShare() against a double-tap creating two challenge rows for
+  // one game -- createdChallengeRef is only set after createChallenge()
+  // resolves, so a second tap before that finishes would otherwise pass
+  // the ref check too.
+  const [isSharing, setIsSharing] = useState(false);
 
   // Rounds captured as played, so a normal game can be shared as a challenge
   const planRef = useRef<ChallengeRound[]>([]);
@@ -385,6 +398,7 @@ export default function Game() {
     setRoundStartTime(Date.now());
     setGameState("playing");
     setIsPlaying(true);
+    vibrateRoundStart();
 
     // Start timer
     if (timerRef.current) clearInterval(timerRef.current);
@@ -405,6 +419,7 @@ export default function Game() {
     setRoundResults((prev) => [...prev, false]);
     setGameState("answered");
     setIsPlaying(false);
+    vibrateIncorrect();
     logWarn("solo.answer_timeout", "Solo player did not answer in time", {
       round: currentRound,
       trackId: currentTrack?.trackId,
@@ -430,6 +445,7 @@ export default function Game() {
     addSoloPoints(points);
     setGameState("answered");
     setIsPlaying(false);
+    if (correct) vibrateCorrect(); else vibrateIncorrect();
   }, [gameState, currentTrack, roundStartTime, addSoloPoints]);
 
   const handleNextRound = useCallback(() => {
@@ -595,6 +611,11 @@ export default function Game() {
     (async () => {
       const pid = playerId ?? (await initializeAuth());
       if (pid) {
+        // Snapshot the Save balance before submitting -- if it drops after,
+        // apply_daily_attempt() silently spent one to bridge a missed day,
+        // and the player should be told (it'd otherwise look like a bug:
+        // "why didn't my streak reset like it always does").
+        const savesBefore = (await fetchStreakProtectionStatus())?.saves_available ?? 0;
         await submitDailyAttempt(
           daily.date,
           pid,
@@ -602,12 +623,16 @@ export default function Game() {
           soloScore,
           roundResults.filter(Boolean).length
         );
-        const [{ rank, total }, stats] = await Promise.all([
+        const [{ rank, total }, stats, statusAfter] = await Promise.all([
           fetchMyDailyRank(daily.date, soloScore),
           fetchMyDailyStats(pid),
+          fetchStreakProtectionStatus(),
         ]);
         const streak = isStreakActive(stats) ? stats?.current_streak ?? 0 : 0;
         setDailyResult({ rank, total, streak });
+        if (statusAfter && statusAfter.saves_available < savesBefore) {
+          toast.success(`🛡️ Streak Save used — your ${streak}-day streak is protected!`);
+        }
         trackEvent("daily_challenge_complete", {
           daily_number: daily.number,
           daily_date: daily.date,
@@ -846,7 +871,7 @@ export default function Game() {
               >
                 <Music2 className="w-full h-full text-gold" />
               </motion.div>
-              <p className="text-xl text-foreground/80">Loading {playlist?.name || "tracks"}...</p>
+              <p className="text-xl text-foreground/80">Loading {challenge?.category_name || playlistName || playlist?.name || "tracks"}...</p>
               {slowConnection && (
                 <>
                   <p className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-destructive/15 border border-destructive/40 text-sm text-destructive">
@@ -922,6 +947,9 @@ export default function Game() {
     const percentage = Math.round((soloScore / maxScore) * 100);
 
     const doShare = async () => {
+      if (isSharing) return;
+      setIsSharing(true);
+      try {
       trackEvent("share_result", {
         mode: daily ? "daily" : challenge ? "challenge" : "solo",
         score: soloScore,
@@ -979,7 +1007,17 @@ export default function Game() {
         results: roundResults,
         challengeUrl: code ? challengeUrl(code) : undefined,
       };
-      const text = buildShareText(cardOpts);
+
+      // A fresh challenge link (not one accepted from someone else) counts
+      // toward the creator's own repair progress if they're mid-window --
+      // frame the share as "help me," not just "beat my score."
+      let text = buildShareText(cardOpts);
+      if (code && !challenge) {
+        const status = await fetchStreakProtectionStatus();
+        if (status?.status === "repair") {
+          text = buildStreakRepairShareText({ streak: status.current_streak, challengeUrl: challengeUrl(code) });
+        }
+      }
 
       const imageOutcome = await shareResultImage(cardOpts, text);
       if (imageOutcome === "shared" || imageOutcome === "canceled") return;
@@ -996,6 +1034,9 @@ export default function Game() {
       const outcome = await shareResult(text);
       if (outcome === "copied") toast.success("Result copied — paste it anywhere!");
       if (outcome === "failed") toast.error("Couldn't share your result");
+      } finally {
+        setIsSharing(false);
+      }
     };
 
     const handleShare = () => {
@@ -1090,25 +1131,27 @@ export default function Game() {
             <p className="font-bold text-foreground">{playerName || getSavedUsername() || "You"}</p>
           </div>
 
-          <div className="bg-background/50 rounded-xl border border-gold/20 p-6 mb-6">
-            <p
-              className="font-display text-6xl font-black text-gold mb-1"
-              style={{ filter: "drop-shadow(0 0 16px hsl(var(--gold) / 0.5))" }}
-            >
-              {soloScore}
-            </p>
-            <p className="text-xs font-bold uppercase tracking-wider text-foreground/60">Points</p>
-            <div className="mt-4 h-2 bg-muted rounded-full overflow-hidden">
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${percentage}%` }}
-                transition={{ duration: 1, delay: 0.5 }}
-                className="h-full bg-gradient-to-r from-gold to-terracotta"
-              />
+          <div className="bg-background/50 rounded-xl border border-gold/20 p-5 mb-6">
+            <div className="flex items-center justify-center gap-4 sm:gap-6">
+              <div className="flex-1 text-center">
+                <p
+                  className="font-display text-4xl sm:text-5xl font-black text-gold"
+                  style={{ filter: "drop-shadow(0 0 16px hsl(var(--gold) / 0.5))" }}
+                >
+                  {soloScore}
+                </p>
+                <p className="text-xs font-bold uppercase tracking-wider text-foreground/60 mt-1">Points</p>
+              </div>
+              <div className="w-px h-12 bg-border shrink-0" />
+              <div className="flex-1 text-center">
+                <p className="font-display text-[2rem] font-black text-foreground">
+                  {percentage}%
+                </p>
+                <p className="text-xs font-bold uppercase tracking-wider text-foreground/60 mt-1">Accuracy</p>
+              </div>
             </div>
-            <p className="text-sm text-foreground/60 mt-2">{percentage}% accuracy</p>
             {roundResults.length > 0 && (
-              <p className="text-lg mt-3 tracking-wider" aria-hidden="true">
+              <p className="text-base mt-4 tracking-wider text-center" aria-hidden="true">
                 {roundResults.map((r) => (r ? "🟩" : "🟥")).join("")}
               </p>
             )}
@@ -1136,7 +1179,18 @@ export default function Game() {
                     #{dailyResult.rank} <span className="text-base font-normal text-foreground/70">of {dailyResult.total} today</span>
                   </p>
                   {dailyResult.streak > 0 && (
-                    <p className="font-semibold text-gold">🔥 {dailyResult.streak}-day streak</p>
+                    [7, 30, 100].includes(dailyResult.streak) ? (
+                      <motion.p
+                        initial={{ scale: 0.8, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ type: "spring", stiffness: 300, damping: 15 }}
+                        className="font-bold text-gold text-lg"
+                      >
+                        🎉 {dailyResult.streak}-day streak milestone!
+                      </motion.p>
+                    ) : (
+                      <p className="font-semibold text-gold">🔥 {dailyResult.streak}-day streak</p>
+                    )
                   )}
                   <p className="text-muted-foreground text-xs mt-2">Come back tomorrow to keep it alive!</p>
                   <DailyReminderButton className="mt-3" />
@@ -1205,9 +1259,11 @@ export default function Game() {
             </div>
           )}
 
-          <Button variant="gold" size="lg" className="w-full mb-4" onClick={handleShare}>
+          <SaveProgressPrompt />
+
+          <Button variant="gold" size="lg" className="w-full mb-4" onClick={handleShare} disabled={isSharing}>
             <Share2 className="w-5 h-5 mr-2" />
-            Share Result
+            {challenge && !daily ? "Share Result" : "Challenge your friends"}
           </Button>
 
           {daily ? (
@@ -1303,10 +1359,10 @@ export default function Game() {
               size="lg"
               className="w-full"
               onClick={handleNameSubmit}
-              disabled={!nameInput.trim()}
+              disabled={!nameInput.trim() || isSharing}
             >
               <Share2 className="w-5 h-5 mr-2" />
-              Share Result
+              {challenge && !daily ? "Share Result" : "Challenge your friends"}
             </Button>
           </DialogContent>
         </Dialog>
@@ -1384,6 +1440,7 @@ export default function Game() {
                     } else if (daily) {
                       const pid = playerId ?? (await initializeAuth());
                       if (pid) {
+                        const savesBefore = (await fetchStreakProtectionStatus())?.saves_available ?? 0;
                         await submitDailyAttempt(
                           daily.date,
                           pid,
@@ -1391,6 +1448,10 @@ export default function Game() {
                           soloScore,
                           roundResults.filter(Boolean).length
                         );
+                        const statusAfter = await fetchStreakProtectionStatus();
+                        if (statusAfter && statusAfter.saves_available < savesBefore) {
+                          toast.success(`🛡️ Streak Save used — your ${statusAfter.current_streak}-day streak is protected!`);
+                        }
                       }
                       trackEvent("daily_challenge_complete", {
                         daily_number: daily.number,
@@ -1415,6 +1476,9 @@ export default function Game() {
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground hidden sm:inline">Round</span>
             <span className="round-dot active w-7 h-7 text-sm shrink-0">{Math.max(currentRound, 1)}</span>
             <span className="text-sm text-muted-foreground">/ {TOTAL_ROUNDS}</span>
+          </div>
+          <div className="hidden md:block">
+            <ConnectionBadge quality={connectionQuality} />
           </div>
         </div>
 
@@ -1468,7 +1532,7 @@ export default function Game() {
           <motion.div
             className="progress-fill"
             initial={{ width: "100%" }}
-            animate={{ width: `${(timeLeft / ROUND_TIME) * 100}%` }}
+            animate={{ width: `${Math.min(100, (timeLeft / ROUND_TIME) * 100)}%` }}
             transition={{ duration: 0.5 }}
             style={{
               background: isTimeLow
@@ -1483,6 +1547,11 @@ export default function Game() {
 
       {/* Main game area */}
       <div className="relative z-10 flex flex-col items-center justify-center px-4 py-8">
+        {/* Connection quality — header row is too cramped for it on mobile */}
+        <div className="mb-3 md:hidden">
+          <ConnectionBadge quality={connectionQuality} />
+        </div>
+
         {/* Question Type Indicator */}
         <motion.div
           key={`${currentRound}-${questionType}`}
