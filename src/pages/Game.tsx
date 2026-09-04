@@ -162,6 +162,9 @@ export default function Game() {
   // Rounds captured as played, so a normal game can be shared as a challenge
   const planRef = useRef<ChallengeRound[]>([]);
   const createdChallengeRef = useRef<string | null>(null);
+  // Per-round answer times (ms), timeouts excluded -- feeds Daily's Avg
+  // Response stat. Not React state: nothing needs to re-render on push.
+  const roundTimesRef = useRef<number[]>([]);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const preloadedAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -290,6 +293,7 @@ export default function Game() {
         primaryGenreName: "",
       }));
       setRoundResults([]);
+      roundTimesRef.current = [];
       setTracks(planTracks);
       setPlaylistName(challenge.category_name);
       warmAudioUrl(planTracks[1]?.previewUrl);
@@ -317,6 +321,7 @@ export default function Game() {
       // Shuffle tracks once and use this order for all rounds
       const shuffledTracks = [...result.tracks].sort(() => Math.random() - 0.5);
       setRoundResults([]);
+      roundTimesRef.current = [];
       planRef.current = [];
       createdChallengeRef.current = null;
       setTracks(shuffledTracks);
@@ -440,6 +445,7 @@ export default function Game() {
     const correct = answer === correctAnswer;
     const answerTime = Date.now() - roundStartTime;
     const points = calculatePoints(correct, answerTime, ROUND_TIME);
+    roundTimesRef.current.push(answerTime);
 
     setSelectedAnswer(answer);
     setIsCorrect(correct);
@@ -606,6 +612,14 @@ export default function Game() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameState]);
 
+  // Average of actually-answered rounds -- timeouts push nothing to
+  // roundTimesRef, so they're excluded rather than counted as 0 or max-time.
+  const computeAvgResponseMs = (): number | null => {
+    const times = roundTimesRef.current;
+    if (times.length === 0) return null;
+    return Math.round(times.reduce((a, b) => a + b, 0) / times.length);
+  };
+
   // Daily challenge finished: record the attempt (streak trigger runs
   // server-side), then load rank and streak for the results screen.
   useEffect(() => {
@@ -623,7 +637,8 @@ export default function Game() {
           pid,
           playerName || getSavedUsername() || "A music fan",
           soloScore,
-          roundResults.filter(Boolean).length
+          roundResults.filter(Boolean).length,
+          computeAvgResponseMs()
         );
         const [{ rank, total }, stats, statusAfter] = await Promise.all([
           fetchMyDailyRank(daily.date, soloScore),
@@ -1454,7 +1469,8 @@ export default function Game() {
                           pid,
                           playerName || getSavedUsername() || "A music fan",
                           soloScore,
-                          roundResults.filter(Boolean).length
+                          roundResults.filter(Boolean).length,
+                          computeAvgResponseMs()
                         );
                         const statusAfter = await fetchStreakProtectionStatus();
                         if (statusAfter && statusAfter.saves_available < savesBefore) {

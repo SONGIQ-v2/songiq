@@ -10,7 +10,16 @@ import { getPushSupport, isSubscribed, subscribeToDailyReminders } from "@/lib/p
  * reminders. Hides itself when unsupported; on iOS Safari (browser tab)
  * explains the add-to-home-screen requirement instead.
  */
-export function DailyReminderButton({ className = "" }: { className?: string }) {
+export function DailyReminderButton({
+  className = "",
+  variant = "inline",
+}: {
+  className?: string;
+  /** "card" is a standalone banner (bell badge + copy + outline button) that
+   *  hides itself once reminders are already on, instead of the inline
+   *  gradient button + "Daily reminder is on" text swap. */
+  variant?: "inline" | "card";
+}) {
   const { playerId, initializeAuth } = useGameStore();
   const [state, setState] = useState<"hidden" | "idle" | "ios" | "busy" | "done">("hidden");
 
@@ -29,6 +38,7 @@ export function DailyReminderButton({ className = "" }: { className?: string }) 
   if (state === "hidden") return null;
 
   if (state === "done") {
+    if (variant === "card") return null; // already on -- nothing to prompt
     return (
       <p className={`text-sm text-muted-foreground flex items-center justify-center gap-1.5 ${className}`}>
         <BellRing className="w-4 h-4 text-gold" /> Daily reminder is on
@@ -75,6 +85,30 @@ export function DailyReminderButton({ className = "" }: { className?: string }) 
       );
     }
   };
+
+  if (variant === "card") {
+    return (
+      <div className={`raised-panel flex items-center justify-between gap-4 flex-wrap p-4 ${className}`}>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-card/60 border border-border flex items-center justify-center shrink-0">
+            <Bell className="w-4 h-4 text-foreground" />
+          </div>
+          <div>
+            <p className="font-bold text-foreground">Daily Reminder</p>
+            <p className="text-sm text-muted-foreground">Get notified daily when a new challenge drops</p>
+          </div>
+        </div>
+        <Button
+          onClick={handleClick}
+          disabled={state === "busy"}
+          className="border-0 font-bold text-white bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 shadow-lg shadow-red-500/30 shrink-0"
+        >
+          <Bell className="w-4 h-4 mr-2" />
+          {state === "busy" ? "Setting reminder..." : "Remind me tomorrow"}
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <Button

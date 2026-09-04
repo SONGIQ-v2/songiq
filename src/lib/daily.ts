@@ -18,6 +18,8 @@ export interface DailyAttempt {
   player_name: string;
   score: number;
   correct_count: number;
+  avg_response_ms: number | null;
+  created_at: string;
 }
 
 export interface DailyStats {
@@ -57,7 +59,7 @@ export async function fetchDailyAttempts(
 ): Promise<{ attempts: DailyAttempt[]; total: number }> {
   const { data, count, error } = await (supabase as any)
     .from("daily_attempts")
-    .select("player_id, player_name, score, correct_count", { count: "exact" })
+    .select("player_id, player_name, score, correct_count, avg_response_ms, created_at", { count: "exact" })
     .eq("challenge_date", date)
     .order("score", { ascending: false })
     .limit(50);
@@ -72,7 +74,7 @@ export async function fetchMyDailyAttempt(
 ): Promise<DailyAttempt | null> {
   const { data } = await (supabase as any)
     .from("daily_attempts")
-    .select("player_id, player_name, score, correct_count")
+    .select("player_id, player_name, score, correct_count, avg_response_ms, created_at")
     .eq("challenge_date", date)
     .eq("player_id", playerId)
     .maybeSingle();
@@ -85,7 +87,8 @@ export async function submitDailyAttempt(
   playerId: string,
   playerName: string,
   score: number,
-  correctCount: number
+  correctCount: number,
+  avgResponseMs: number | null = null
 ): Promise<boolean> {
   const { error } = await (supabase as any).from("daily_attempts").insert({
     challenge_date: date,
@@ -93,6 +96,7 @@ export async function submitDailyAttempt(
     player_name: playerName,
     score,
     correct_count: correctCount,
+    avg_response_ms: avgResponseMs,
   });
   if (error && !/duplicate|unique/i.test(error.message || "")) {
     logError("daily.attempt_failed", "Failed to record daily attempt", {
