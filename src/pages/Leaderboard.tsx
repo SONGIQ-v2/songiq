@@ -97,7 +97,7 @@ export default function Leaderboard() {
         <motion.div
           initial={{ scale: 0.97, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="max-w-2xl mx-auto"
+          className="max-w-[1200px] mx-auto"
         >
           <AnimatePresence>
             {signInHint.show && (
