@@ -153,6 +153,7 @@ export type Database = {
       }
       daily_attempts: {
         Row: {
+          avg_response_ms: number | null
           challenge_date: string
           correct_count: number
           created_at: string
@@ -162,6 +163,7 @@ export type Database = {
           score: number
         }
         Insert: {
+          avg_response_ms?: number | null
           challenge_date: string
           correct_count?: number
           created_at?: string
@@ -171,6 +173,7 @@ export type Database = {
           score?: number
         }
         Update: {
+          avg_response_ms?: number | null
           challenge_date?: string
           correct_count?: number
           created_at?: string
