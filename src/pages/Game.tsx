@@ -78,6 +78,34 @@ const COUNTDOWN_TIME = 3; // 3 seconds countdown between rounds
 
 type QuestionType = "artist" | "song";
 
+// Two different tracks can carry near-identical title/artist strings --
+// live/remix/edit versions of the same song, or "Artist & Featured Guest"
+// joint credits -- that read as byte-different but look like the same
+// answer twice to a player. These normalize both to the same key so the
+// dedup below actually catches them. Mirrored server-side in
+// supabase/functions/_shared/itunes.ts's buildRoundPlanFromPool -- keep
+// both in sync.
+function normalizeTitleForDedup(title: string): string {
+  return title
+    .replace(
+      /\s*[([][^)\]]*\b(?:live|remix|mix|mixed|edit|acoustic|version|reissue|remaster(?:ed)?|rmx|vip|dub|dubb|extended|instrumental)\b[^)\]]*[)\]]/gi,
+      ""
+    )
+    .replace(
+      /\s*[-–—]\s*(?:live|remix|mix|mixed|edit|acoustic|version|reissue|remaster(?:ed)?|rmx|vip|dub|dubb|extended|instrumental|single|ep)\s*$/i,
+      ""
+    )
+    .trim()
+    .toLowerCase();
+}
+
+function normalizeArtistForDedup(name: string): string {
+  return name
+    .split(/,| & | feat\.?\s+| featuring\s+/i)[0]
+    .trim()
+    .toLowerCase();
+}
+
 // Generate quiz options from tracks based on question type
 function generateOptionsFromTracks(
   correctTrack: AppleMusicTrack,
@@ -85,18 +113,24 @@ function generateOptionsFromTracks(
   questionType: QuestionType,
   optionCount: number = 4
 ): string[] {
-  const correctAnswer = questionType === "artist" 
-    ? correctTrack.artistName 
+  const correctAnswer = questionType === "artist"
+    ? correctTrack.artistName
     : correctTrack.trackName;
-  
-  // Get unique options from other tracks
-  const otherOptions = allTracks
-    .filter((t) => t.trackId !== correctTrack.trackId)
-    .map((t) => questionType === "artist" ? t.artistName : t.trackName)
-    .filter((option) => option !== correctAnswer) // exclude correct answer
-    .filter((option, index, self) => self.indexOf(option) === index) // unique
-    .sort(() => Math.random() - 0.5)
-    .slice(0, optionCount - 1);
+  const normalize = questionType === "artist" ? normalizeArtistForDedup : normalizeTitleForDedup;
+
+  // Get unique options from other tracks, deduped on the normalized key so
+  // near-duplicates (see above) never both end up as visible choices.
+  const seen = new Set([normalize(correctAnswer)]);
+  const otherOptions: string[] = [];
+  for (const t of [...allTracks].sort(() => Math.random() - 0.5)) {
+    if (t.trackId === correctTrack.trackId) continue;
+    const option = questionType === "artist" ? t.artistName : t.trackName;
+    const key = normalize(option);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    otherOptions.push(option);
+    if (otherOptions.length >= optionCount - 1) break;
+  }
 
   return [correctAnswer, ...otherOptions].sort(() => Math.random() - 0.5);
 }

@@ -99,6 +99,33 @@ export interface PlanRound {
 
 // Build a playable round plan (question type + 4 options per round) from a
 // track pool. Mirrors the client-side multiplayer plan builder.
+// Two different tracks can carry near-identical title/artist strings --
+// live/remix/edit versions of the same song, or "Artist & Featured Guest"
+// joint credits -- that read as byte-different but look like the same
+// answer twice to a player. These normalize both to the same key so the
+// options dedup below actually catches them. Mirrored client-side in
+// src/pages/Game.tsx's generateOptionsFromTracks -- keep both in sync.
+function normalizeTitleForDedup(title: string): string {
+  return title
+    .replace(
+      /\s*[([][^)\]]*\b(?:live|remix|mix|mixed|edit|acoustic|version|reissue|remaster(?:ed)?|rmx|vip|dub|dubb|extended|instrumental)\b[^)\]]*[)\]]/gi,
+      ""
+    )
+    .replace(
+      /\s*[-–—]\s*(?:live|remix|mix|mixed|edit|acoustic|version|reissue|remaster(?:ed)?|rmx|vip|dub|dubb|extended|instrumental|single|ep)\s*$/i,
+      ""
+    )
+    .trim()
+    .toLowerCase();
+}
+
+function normalizeArtistForDedup(name: string): string {
+  return name
+    .split(/,| & | feat\.?\s+| featuring\s+/i)[0]
+    .trim()
+    .toLowerCase();
+}
+
 export function buildRoundPlanFromPool(
   pool: iTunesTrack[],
   rounds: number,
@@ -118,20 +145,28 @@ export function buildRoundPlanFromPool(
 
     let options: string[];
     if (isGuessSong) {
-      const others = pool
-        .filter((t) => t.trackId !== track.trackId && t.trackName !== track.trackName)
-        .map((t) => t.trackName)
-        .filter((s, i, arr) => arr.indexOf(s) === i)
-        .sort(() => Math.random() - 0.5)
-        .slice(0, 3);
+      const seen = new Set([normalizeTitleForDedup(track.trackName)]);
+      const others: string[] = [];
+      for (const t of [...pool].sort(() => Math.random() - 0.5)) {
+        if (t.trackId === track.trackId) continue;
+        const key = normalizeTitleForDedup(t.trackName);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        others.push(t.trackName);
+        if (others.length >= 3) break;
+      }
       options = [track.trackName, ...others].sort(() => Math.random() - 0.5);
     } else {
-      const others = pool
-        .filter((t) => t.trackId !== track.trackId && t.artistName !== track.artistName)
-        .map((t) => t.artistName)
-        .filter((a, i, arr) => arr.indexOf(a) === i)
-        .sort(() => Math.random() - 0.5)
-        .slice(0, 3);
+      const seen = new Set([normalizeArtistForDedup(track.artistName)]);
+      const others: string[] = [];
+      for (const t of [...pool].sort(() => Math.random() - 0.5)) {
+        if (t.trackId === track.trackId) continue;
+        const key = normalizeArtistForDedup(t.artistName);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        others.push(t.artistName);
+        if (others.length >= 3) break;
+      }
       options = [track.artistName, ...others].sort(() => Math.random() - 0.5);
     }
 
