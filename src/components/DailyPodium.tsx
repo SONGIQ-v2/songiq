@@ -2,7 +2,21 @@ import { Crown } from "lucide-react";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
 import { cn } from "@/lib/utils";
-import type { DailyAttempt } from "@/lib/daily";
+
+// Structural, not imported from @/lib/daily's DailyAttempt -- this podium is
+// shared by the Daily board and the Challenge board (ChallengeBoard.tsx),
+// and ChallengeAttempt (@/lib/challenges) has the same shape, so either
+// satisfies this without a forked component.
+interface PodiumAttempt {
+  player_id: string;
+  player_name: string;
+  score: number;
+  // Nullable: a Challenge's creator has no challenge_attempts row (their
+  // score is captured directly on the challenges table when the link is
+  // created), so their accuracy/speed genuinely aren't known.
+  correct_count: number | null;
+  avg_response_ms: number | null;
+}
 
 // Card order in the DOM is rank order (1st, 2nd, 3rd); order-* classes are
 // what actually arrange them -- mobile stacks by importance (champion
@@ -43,7 +57,7 @@ export function DailyPodium({
   totalRounds,
 }: {
   /** Top 3, already sorted by score descending. */
-  attempts: DailyAttempt[];
+  attempts: PodiumAttempt[];
   currentPlayerId: string | null;
   verifiedIds: Set<string>;
   totalRounds: number;
@@ -61,7 +75,8 @@ export function DailyPodium({
       {attempts.map((a, i) => {
         const rank = RANK_STYLES[i];
         const isMe = a.player_id === currentPlayerId;
-        const accuracy = totalRounds > 0 ? Math.round((a.correct_count / totalRounds) * 100) : 0;
+        const accuracy =
+          a.correct_count != null && totalRounds > 0 ? Math.round((a.correct_count / totalRounds) * 100) : null;
 
         return (
           <div
@@ -102,7 +117,7 @@ export function DailyPodium({
               <div>
                 <p className="text-muted-foreground uppercase tracking-wider text-[10px]">Accuracy</p>
                 <p className="font-bold text-foreground">
-                  {a.correct_count}/{totalRounds} ({accuracy}%)
+                  {accuracy != null ? `${a.correct_count}/${totalRounds} (${accuracy}%)` : "—"}
                 </p>
               </div>
               <div>

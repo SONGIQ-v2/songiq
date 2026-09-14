@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { motion } from "framer-motion";
 import { Music2, Play, Swords, Clock, Hash, Crown, Copy, Share2 } from "lucide-react";
@@ -239,7 +239,17 @@ export default function ChallengePage() {
               </div>
             )}
 
-            {board.length > 1 || myAttempt || isCreator ? <Leaderboard entries={board} verifiedIds={verifiedIds} /> : null}
+            {board.length > 1 || myAttempt || isCreator ? (
+              <>
+                <Leaderboard entries={board} verifiedIds={verifiedIds} />
+                <Link
+                  to={`/c/${challenge.code}/board`}
+                  className="inline-block -mt-4 mb-6 text-sm text-primary font-semibold hover:underline"
+                >
+                  View Full Board →
+                </Link>
+              </>
+            ) : null}
 
             {(isCreator || !!myAttempt) && (
               <div className="flex justify-center gap-6 mb-6 text-sm text-muted-foreground">

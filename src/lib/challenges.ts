@@ -90,6 +90,8 @@ export interface ChallengeAttempt {
   player_name: string;
   score: number;
   correct_count: number;
+  avg_response_ms: number | null;
+  created_at: string;
 }
 
 /**
@@ -101,7 +103,8 @@ export async function submitChallengeAttempt(
   playerId: string,
   playerName: string,
   score: number,
-  correctCount: number
+  correctCount: number,
+  avgResponseMs: number | null = null
 ): Promise<boolean> {
   const { error } = await (supabase as any).from("challenge_attempts").insert({
     challenge_code: code.toUpperCase(),
@@ -109,6 +112,7 @@ export async function submitChallengeAttempt(
     player_name: playerName,
     score,
     correct_count: correctCount,
+    avg_response_ms: avgResponseMs,
   });
   if (error && !/duplicate|unique/i.test(error.message || "")) {
     logError("challenge.attempt_failed", "Failed to record challenge attempt", {
@@ -126,7 +130,7 @@ export async function fetchMyChallengeAttempt(
 ): Promise<ChallengeAttempt | null> {
   const { data } = await (supabase as any)
     .from("challenge_attempts")
-    .select("player_id, player_name, score, correct_count")
+    .select("player_id, player_name, score, correct_count, avg_response_ms, created_at")
     .eq("challenge_code", code.toUpperCase())
     .eq("player_id", playerId)
     .maybeSingle();
@@ -137,7 +141,7 @@ export async function fetchMyChallengeAttempt(
 export async function fetchChallengeAttempts(code: string): Promise<ChallengeAttempt[]> {
   const { data, error } = await (supabase as any)
     .from("challenge_attempts")
-    .select("player_id, player_name, score, correct_count")
+    .select("player_id, player_name, score, correct_count, avg_response_ms, created_at")
     .eq("challenge_code", code.toUpperCase())
     .order("score", { ascending: false })
     .limit(50);

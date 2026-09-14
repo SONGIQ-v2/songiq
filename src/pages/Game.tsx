@@ -633,7 +633,8 @@ export default function Game() {
           pid,
           playerName || getSavedUsername() || "A music fan",
           soloScore,
-          roundResults.filter(Boolean).length
+          roundResults.filter(Boolean).length,
+          computeAvgResponseMs()
         );
         trackEvent("challenge_complete", {
           challenge_code: challenge.code,
@@ -1485,7 +1486,8 @@ export default function Game() {
                           pid,
                           playerName || getSavedUsername() || "A music fan",
                           soloScore,
-                          roundResults.filter(Boolean).length
+                          roundResults.filter(Boolean).length,
+                          computeAvgResponseMs()
                         );
                       }
                       trackEvent("challenge_complete", {
