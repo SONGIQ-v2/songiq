@@ -567,7 +567,7 @@ export default function Game() {
   // created (no updating creator_name after the fact).
   useEffect(() => {
     if (gameState !== "results") return;
-    if (challenge || createdChallengeRef.current || planRef.current.length === 0) return;
+    if (challenge || event || createdChallengeRef.current || planRef.current.length === 0) return;
     const knownName = playerName || getSavedUsername();
     if (!knownName) return;
     createChallenge({
@@ -734,7 +734,7 @@ export default function Game() {
   // this player hasn't attempted it yet, surface a conversion-focused prompt
   // on the results screen.
   useEffect(() => {
-    if (gameState !== "results" || daily) return;
+    if (gameState !== "results" || daily || event) return;
     (async () => {
       try {
         const todayChallenge = await fetchTodayChallenge();
@@ -1351,35 +1351,14 @@ export default function Game() {
 
           <SaveProgressPrompt />
 
-          <Button variant="gold" size="lg" className="w-full mb-4" onClick={handleShare} disabled={isSharing}>
-            <Share2 className="w-5 h-5 mr-2" />
-            {challenge && !daily ? "Share Result" : "Challenge your friends"}
-          </Button>
-
-          {daily ? (
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => navigate("/daily")}
-            >
-              See Daily Leaderboard
-            </Button>
-          ) : challenge ? (
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => navigate("/solo")}
-            >
-              Play More Music Quizzes
-            </Button>
-          ) : (
+          {event ? (
             <div className="flex gap-4">
               <Button
                 variant="outline"
                 className="flex-1"
-                onClick={() => navigate("/solo")}
+                onClick={() => navigate(`/${event.slug}`)}
               >
-                Categories
+                View Leaderboard
               </Button>
               <Button
                 variant="gold"
@@ -1389,9 +1368,51 @@ export default function Game() {
                 Play Again
               </Button>
             </div>
+          ) : (
+            <>
+              <Button variant="gold" size="lg" className="w-full mb-4" onClick={handleShare} disabled={isSharing}>
+                <Share2 className="w-5 h-5 mr-2" />
+                {challenge && !daily ? "Share Result" : "Challenge your friends"}
+              </Button>
+
+              {daily ? (
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => navigate("/daily")}
+                >
+                  See Daily Leaderboard
+                </Button>
+              ) : challenge ? (
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => navigate("/solo")}
+                >
+                  Play More Music Quizzes
+                </Button>
+              ) : (
+                <div className="flex gap-4">
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => navigate("/solo")}
+                  >
+                    Categories
+                  </Button>
+                  <Button
+                    variant="gold"
+                    className="flex-1"
+                    onClick={handlePlayAgain}
+                  >
+                    Play Again
+                  </Button>
+                </div>
+              )}
+            </>
           )}
 
-          {!daily && dailyPromo && (
+          {!daily && !event && dailyPromo && (
             <motion.div
               initial={{ opacity: 0, y: 12, scale: 0.96 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
