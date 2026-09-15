@@ -46,19 +46,25 @@ async function getPlaylistTracksCached(
   searchTerms: string[],
   playlistName: string,
   limit: number,
-  isArtist: boolean
+  isArtist: boolean,
+  poolSize?: number
 ): Promise<{ playlistName: string; playlistImage: string; tracks: iTunesTrack[]; cached: boolean }> {
   const admin = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   );
 
+  // A deeper pool gets its own cache row -- otherwise a normal-depth Solo
+  // request and a deep-pool event request for the same playlist name would
+  // race to overwrite each other's cached pool.
+  const cacheKey = poolSize && poolSize !== 50 ? `${playlistName}::pool${poolSize}` : playlistName;
+
   const { data: cached, error: readErr } = await admin
     .from('playlist_cache')
     .select('tracks, image_url, updated_at')
-    .eq('playlist_name', playlistName)
+    .eq('playlist_name', cacheKey)
     .maybeSingle();
-  if (readErr) console.error(`[Apple Music] Cache read failed for "${playlistName}":`, readErr.message);
+  if (readErr) console.error(`[Apple Music] Cache read failed for "${cacheKey}":`, readErr.message);
 
   const isFresh = cached &&
     Date.now() - new Date(cached.updated_at).getTime() < CACHE_TTL_MS;
@@ -71,10 +77,10 @@ async function getPlaylistTracksCached(
     pool = cached.tracks as iTunesTrack[];
     image = cached.image_url;
     servedFromCache = true;
-    console.log(`[Apple Music] Cache hit for "${playlistName}" (${pool.length} tracks)`);
+    console.log(`[Apple Music] Cache hit for "${cacheKey}" (${pool.length} tracks)`);
   } else {
     try {
-      const fetched = await fetchPlaylistPool(searchTerms, 50);
+      const fetched = await fetchPlaylistPool(searchTerms, poolSize ?? 50);
       // A tiny pool means iTunes was throttling/failing during the rebuild —
       // never cache it (a game needs 10+ tracks; a healthy pool is 40+).
       if (fetched.pool.length < 20) {
@@ -83,7 +89,7 @@ async function getPlaylistTracksCached(
       pool = fetched.pool;
       image = fetched.image;
       const { error: writeErr } = await admin.from('playlist_cache').upsert({
-        playlist_name: playlistName,
+        playlist_name: cacheKey,
         search_terms: searchTerms,
         tracks: pool,
         image_url: image,
@@ -91,14 +97,14 @@ async function getPlaylistTracksCached(
         updated_at: new Date().toISOString(),
       });
       if (writeErr) {
-        console.error(`[Apple Music] Cache write failed for "${playlistName}":`, writeErr.message);
+        console.error(`[Apple Music] Cache write failed for "${cacheKey}":`, writeErr.message);
       } else {
-        console.log(`[Apple Music] Cache refreshed for "${playlistName}" (${pool.length} tracks)`);
+        console.log(`[Apple Music] Cache refreshed for "${cacheKey}" (${pool.length} tracks)`);
       }
     } catch (e) {
       // iTunes trouble: serve the stale pool rather than failing the game
       if (cached && Array.isArray(cached.tracks) && cached.tracks.length > 0) {
-        console.error(`[Apple Music] Refresh failed for "${playlistName}", serving stale cache:`, e);
+        console.error(`[Apple Music] Refresh failed for "${cacheKey}", serving stale cache:`, e);
         pool = cached.tracks as iTunesTrack[];
         image = cached.image_url;
       } else {
@@ -121,7 +127,7 @@ serve(async (req) => {
   }
 
   try {
-    const { action, query, genre, searchTerms, playlistName, limit, isArtist } = await req.json();
+    const { action, query, genre, searchTerms, playlistName, limit, isArtist, poolSize } = await req.json();
 
     console.log(`[Apple Music] Action: ${action}`);
 
@@ -142,7 +148,7 @@ serve(async (req) => {
         if (!searchTerms || !Array.isArray(searchTerms) || searchTerms.length === 0) {
           throw new Error('searchTerms array parameter required for playlist action');
         }
-        result = await getPlaylistTracksCached(searchTerms, playlistName || 'Playlist', limit || 50, Boolean(isArtist));
+        result = await getPlaylistTracksCached(searchTerms, playlistName || 'Playlist', limit || 50, Boolean(isArtist), poolSize);
         break;
 
       case 'push-test': {

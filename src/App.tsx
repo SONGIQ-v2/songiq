@@ -12,6 +12,7 @@ import MultiplayerGame from "./pages/MultiplayerGame";
 import NotFound from "./pages/NotFound";
 import ChallengePage from "./pages/Challenge";
 import ChallengeBoard from "./pages/ChallengeBoard";
+import EventChallenge from "./pages/EventChallenge";
 import Daily from "./pages/Daily";
 import Leaderboard from "./pages/Leaderboard";
 import HowItWorks from "./pages/HowItWorks";
@@ -47,6 +48,7 @@ const App = () => (
           <Route path="/room/:code/game" element={<MultiplayerGame />} />
           <Route path="/c/:code" element={<ChallengePage />} />
           <Route path="/c/:code/board" element={<ChallengeBoard />} />
+          <Route path="/bnb" element={<EventChallenge slug="bnb" />} />
           <Route path="/daily" element={<Daily />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/how-it-works" element={<HowItWorks />} />

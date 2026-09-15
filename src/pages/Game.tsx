@@ -71,10 +71,15 @@ import {
   isStreakActive,
   buildDailyShareText,
 } from "@/lib/daily";
+import { submitEventAttempt } from "@/lib/events";
 
 const DEFAULT_ROUND_TIME = 15000; // 15 seconds per round
 const DEFAULT_TOTAL_ROUNDS = 10;
 const COUNTDOWN_TIME = 3; // 3 seconds countdown between rounds
+// Deeper draw pool for event plays only, so replaying the same event repeats
+// fewer songs across attempts -- normal Solo/Daily/Challenge pool depth (50)
+// is untouched.
+const EVENT_POOL_SIZE = 300;
 
 type QuestionType = "artist" | "song";
 
@@ -142,9 +147,14 @@ export default function Game() {
   // Challenge replay: /c/:code navigates here with the original game's plan,
   // so this game uses those exact tracks, question types and options.
   // Daily mode rides the same mechanism with an extra marker.
-  const navState = location.state as { challenge?: Challenge; daily?: { date: string; number: number } } | null;
+  const navState = location.state as {
+    challenge?: Challenge;
+    daily?: { date: string; number: number };
+    event?: { slug: string; endsAt: string };
+  } | null;
   const challenge = navState?.challenge ?? null;
   const daily = navState?.daily ?? null;
+  const event = navState?.event ?? null;
   const ROUND_TIME = (challenge ? challenge.time_per_round : DEFAULT_ROUND_TIME / 1000) * 1000;
   const TOTAL_ROUNDS = challenge ? challenge.plan.length : DEFAULT_TOTAL_ROUNDS;
 
@@ -347,7 +357,8 @@ export default function Game() {
       playlist.searchTerms,
       playlist.name,
       50,
-      playlist.isArtist
+      playlist.isArtist,
+      event ? EVENT_POOL_SIZE : undefined
     );
 
     if (result && result.tracks.length >= TOTAL_ROUNDS) {
@@ -698,6 +709,27 @@ export default function Game() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameState]);
 
+  // Event challenge finished: record (overwrite) this player's attempt.
+  // Additive to normal Solo behavior above -- record_game_session/Points
+  // still fire normally, mode stays "solo".
+  useEffect(() => {
+    if (gameState !== "results" || !event) return;
+    (async () => {
+      await submitEventAttempt(
+        event.slug,
+        soloScore,
+        roundResults.filter(Boolean).length,
+        computeAvgResponseMs()
+      );
+      trackEvent("event_challenge_complete", {
+        event_slug: event.slug,
+        score: soloScore,
+        correct_count: roundResults.filter(Boolean).length,
+      });
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameState]);
+
   // Regular (non-daily) game finished: if today's Daily Challenge exists and
   // this player hasn't attempted it yet, surface a conversion-focused prompt
   // on the results screen.
@@ -935,7 +967,7 @@ export default function Game() {
                     className="mt-4"
                     onClick={() => {
                       cleanupGame();
-                      navigate(challenge && !daily ? `/c/${challenge.code}` : daily ? "/daily" : "/solo");
+                      navigate(challenge && !daily ? `/c/${challenge.code}` : daily ? "/daily" : event ? `/${event.slug}` : "/solo");
                     }}
                   >
                     <ArrowLeft className="w-4 h-4 mr-2" />
@@ -983,7 +1015,7 @@ export default function Game() {
             className="w-full mt-2"
             onClick={() => {
               cleanupGame();
-              navigate(challenge && !daily ? `/c/${challenge.code}` : daily ? "/daily" : "/solo");
+              navigate(challenge && !daily ? `/c/${challenge.code}` : daily ? "/daily" : event ? `/${event.slug}` : "/solo");
             }}
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
@@ -1464,13 +1496,15 @@ export default function Game() {
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>
-                  {challenge && !daily ? "Leave Challenge?" : daily ? "Leave Daily Challenge?" : "Leave Game?"}
+                  {challenge && !daily ? "Leave Challenge?" : daily ? "Leave Daily Challenge?" : event ? "Leave Event Challenge?" : "Leave Game?"}
                 </AlertDialogTitle>
                 <AlertDialogDescription>
                   {challenge && !daily
                     ? `This ends the challenge — your current score (${soloScore} pts) will be recorded as your final score. You won't be able to play this challenge again.`
                     : daily
                     ? `This ends today's challenge — your current score (${soloScore} pts) will be recorded as your final score. You won't be able to play today's challenge again.`
+                    : event
+                    ? `This ends your run — your current score (${soloScore} pts) will be recorded. You can always play again.`
                     : "Are you sure you want to quit? Your current progress will be lost."}
                 </AlertDialogDescription>
               </AlertDialogHeader>
@@ -1520,14 +1554,27 @@ export default function Game() {
                         correct_count: roundResults.filter(Boolean).length,
                         source: "left_early",
                       });
+                    } else if (event) {
+                      await submitEventAttempt(
+                        event.slug,
+                        soloScore,
+                        roundResults.filter(Boolean).length,
+                        computeAvgResponseMs()
+                      );
+                      trackEvent("event_challenge_complete", {
+                        event_slug: event.slug,
+                        score: soloScore,
+                        correct_count: roundResults.filter(Boolean).length,
+                        source: "left_early",
+                      });
                     }
                     cleanupGame();
                     resetSoloGame();
-                    navigate(challenge && !daily ? `/c/${challenge.code}` : daily ? "/daily" : "/solo");
+                    navigate(challenge && !daily ? `/c/${challenge.code}` : daily ? "/daily" : event ? `/${event.slug}` : "/solo");
                   }}
                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 >
-                  {challenge && !daily ? "Leave Challenge" : daily ? "Leave Daily" : "Leave Game"}
+                  {challenge && !daily ? "Leave Challenge" : daily ? "Leave Daily" : event ? "Leave Event" : "Leave Game"}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>

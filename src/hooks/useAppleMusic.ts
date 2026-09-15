@@ -24,7 +24,7 @@ interface UseAppleMusicReturn {
   error: string | null;
   searchTracks: (query: string, limit?: number) => Promise<AppleMusicTrack[]>;
   getTracksByGenre: (genre: string, limit?: number) => Promise<AppleMusicTrack[]>;
-  getPlaylistTracks: (searchTerms: string[], playlistName: string, limit?: number, isArtist?: boolean) => Promise<PlaylistResult | null>;
+  getPlaylistTracks: (searchTerms: string[], playlistName: string, limit?: number, isArtist?: boolean, poolSize?: number) => Promise<PlaylistResult | null>;
   testConnection: () => Promise<boolean>;
 }
 
@@ -85,14 +85,15 @@ export function useAppleMusic(): UseAppleMusicReturn {
     searchTerms: string[],
     playlistName: string,
     limit: number = 50,
-    isArtist: boolean = false
+    isArtist: boolean = false,
+    poolSize?: number
   ): Promise<PlaylistResult | null> => {
     setLoading(true);
     setError(null);
 
     try {
       const { data, error: fnError } = await supabase.functions.invoke("apple-music", {
-        body: { action: "playlist", searchTerms, playlistName, limit, isArtist },
+        body: { action: "playlist", searchTerms, playlistName, limit, isArtist, poolSize },
       });
 
       if (fnError) throw fnError;
