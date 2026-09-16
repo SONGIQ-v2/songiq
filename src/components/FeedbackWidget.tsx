@@ -29,10 +29,12 @@ export const FeedbackWidget = () => {
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // Hide during gameplay
+  // Hide during gameplay, and on partner-event pages (their own bespoke
+  // branding, e.g. /bnb, shouldn't carry the default SongIQ feedback pill).
   const path = location.pathname;
   const isGameplay = path === "/solo/game" || /^\/room\/[^/]+\/game$/.test(path);
-  if (isGameplay) return null;
+  const isEventPage = path === "/bnb";
+  if (isGameplay || isEventPage) return null;
 
   const handleSubmit = async () => {
     const parsed = schema.safeParse({ name, email, message });

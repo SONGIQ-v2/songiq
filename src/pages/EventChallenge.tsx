@@ -2,8 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { motion } from "framer-motion";
-import { Music2, Play, Lock, Share2, Headphones, Zap, Repeat } from "lucide-react";
-import { Header } from "@/components/Header";
+import { Music2, Play, Lock, Headphones, Zap, Repeat } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
@@ -14,7 +13,6 @@ import { useGameStore } from "@/lib/gameStore";
 import { getKnownPlayerName, saveUsername } from "@/lib/challenges";
 import { fetchVerifiedPlayerIds } from "@/lib/verifiedPlayers";
 import { trackEvent } from "@/lib/analytics";
-import { toast } from "sonner";
 import { fetchEvent, fetchEventLeaderboard, fetchMyEventAttempt, type Event, type EventAttempt } from "@/lib/events";
 
 // This page is a one-off, hand-designed look for the Beach & Beyond
@@ -121,19 +119,6 @@ export default function EventChallenge({ slug }: { slug: string }) {
     });
   };
 
-  const handleShare = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: event?.name, url: window.location.href });
-        return;
-      } catch {
-        // fall through to clipboard
-      }
-    }
-    await navigator.clipboard.writeText(window.location.href);
-    toast.success("Link copied — challenge your group chat!");
-  };
-
   return (
     <div
       className="min-h-screen text-white antialiased"
@@ -143,7 +128,6 @@ export default function EventChallenge({ slug }: { slug: string }) {
         <title>{event ? `SongIQ x Crackers: ${event.name} | SongIQ` : "Event Challenge | SongIQ"}</title>
         <meta name="robots" content="noindex, follow" />
       </Helmet>
-      <Header />
 
       {status === "loading" && (
         <div className="min-h-screen flex items-center justify-center">
@@ -177,7 +161,7 @@ export default function EventChallenge({ slug }: { slug: string }) {
       )}
 
       {status === "ready" && event && (
-        <main className="pt-[var(--header-height)]">
+        <main>
           {/* Ticker */}
           <div className="bg-[#0e1117] text-slate-300 text-xs py-2.5 px-4 border-b border-slate-800/80">
             <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3 font-mono text-xs">
@@ -358,22 +342,6 @@ export default function EventChallenge({ slug }: { slug: string }) {
                     "Live standings for this event."
                   )}
                 </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <button
-                  className="px-4 py-2 rounded-lg bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 text-xs font-semibold transition flex items-center gap-1.5"
-                  onClick={handleShare}
-                >
-                  <Share2 className="w-3.5 h-3.5" /> Share Bracket
-                </button>
-                {!hasEnded && (
-                  <a
-                    className="px-4 py-2 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-bold uppercase transition flex items-center gap-1"
-                    href="#match-lobby"
-                  >
-                    Play Now ⚡
-                  </a>
-                )}
               </div>
             </div>
 
@@ -618,12 +586,12 @@ export default function EventChallenge({ slug }: { slug: string }) {
                     <h3 className="font-display font-bold text-xl sm:text-2xl mb-1 text-white">Ready to test your music IQ?</h3>
                     <p className="text-xs sm:text-sm text-slate-400">Jump in right now from your phone. No app install needed.</p>
                   </div>
-                  <a
+                  <button
                     className="w-full sm:w-auto px-6 py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-display font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all"
-                    href="#match-lobby"
+                    onClick={() => navigate("/")}
                   >
-                    Enter the Arena Now ⚡
-                  </a>
+                    Explore SongIQ
+                  </button>
                 </div>
               )}
             </div>
