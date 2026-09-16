@@ -34,7 +34,9 @@ export function SignInModal() {
       }
 
       const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: window.location.origin,
+        // Full current URL, not just the origin -- otherwise every sign-in
+        // lands on the homepage regardless of which page it was opened from.
+        redirect_uri: window.location.href,
       });
       if (result.error) {
         console.error("Sign-in failed:", result.error);
