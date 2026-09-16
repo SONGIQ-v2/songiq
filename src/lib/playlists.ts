@@ -98,7 +98,6 @@ export const PLAYLISTS: Playlist[] = [
       "bayanni",
       "fola",
       "2baba",
-      "portable",
       "__artist:26089928", // Asa -- plain "asa" is a 3-letter word that collides heavily with unrelated artists (Djavan, Âme, Caspian, etc.)
       "dbanj",
       "__artist:280325068", // Spyro -- plain "spyro" pulls the American jazz-fusion band Spyro Gyra
