@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       challenge_attempts: {
         Row: {
+          avg_response_ms: number | null
           challenge_code: string
           correct_count: number
           created_at: string
@@ -25,6 +26,7 @@ export type Database = {
           score: number
         }
         Insert: {
+          avg_response_ms?: number | null
           challenge_code: string
           correct_count?: number
           created_at?: string
@@ -34,6 +36,7 @@ export type Database = {
           score?: number
         }
         Update: {
+          avg_response_ms?: number | null
           challenge_code?: string
           correct_count?: number
           created_at?: string
@@ -336,6 +339,74 @@ export type Database = {
           id?: string
           token?: string
           used_at?: string | null
+        }
+        Relationships: []
+      }
+      event_attempts: {
+        Row: {
+          avg_response_ms: number | null
+          correct_count: number
+          event_slug: string
+          player_id: string
+          player_name: string
+          score: number
+          updated_at: string
+        }
+        Insert: {
+          avg_response_ms?: number | null
+          correct_count?: number
+          event_slug: string
+          player_id: string
+          player_name?: string
+          score?: number
+          updated_at?: string
+        }
+        Update: {
+          avg_response_ms?: number | null
+          correct_count?: number
+          event_slug?: string
+          player_id?: string
+          player_name?: string
+          score?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_attempts_event_slug_fkey"
+            columns: ["event_slug"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["slug"]
+          },
+        ]
+      }
+      events: {
+        Row: {
+          accent_color: string | null
+          background_image_url: string | null
+          ends_at: string
+          is_active: boolean
+          name: string
+          playlist_id: string
+          slug: string
+        }
+        Insert: {
+          accent_color?: string | null
+          background_image_url?: string | null
+          ends_at: string
+          is_active?: boolean
+          name: string
+          playlist_id: string
+          slug: string
+        }
+        Update: {
+          accent_color?: string | null
+          background_image_url?: string | null
+          ends_at?: string
+          is_active?: boolean
+          name?: string
+          playlist_id?: string
+          slug?: string
         }
         Relationships: []
       }
@@ -1224,6 +1295,15 @@ export type Database = {
       set_nickname: { Args: { p_name: string }; Returns: undefined }
       settle_daily_bonus: { Args: never; Returns: undefined }
       stage_anonymous_merge: { Args: never; Returns: string }
+      submit_event_attempt: {
+        Args: {
+          p_avg_response_ms?: number
+          p_correct_count: number
+          p_event_slug: string
+          p_score: number
+        }
+        Returns: undefined
+      }
       transfer_host_if_inactive: { Args: { p_room_id: string }; Returns: Json }
       verified_player_ids: {
         Args: { p_ids: string[] }
