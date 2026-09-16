@@ -347,6 +347,7 @@ export type Database = {
           avg_response_ms: number | null
           correct_count: number
           event_slug: string
+          play_count: number
           player_id: string
           player_name: string
           score: number
@@ -356,6 +357,7 @@ export type Database = {
           avg_response_ms?: number | null
           correct_count?: number
           event_slug: string
+          play_count?: number
           player_id: string
           player_name?: string
           score?: number
@@ -365,6 +367,7 @@ export type Database = {
           avg_response_ms?: number | null
           correct_count?: number
           event_slug?: string
+          play_count?: number
           player_id?: string
           player_name?: string
           score?: number
@@ -388,6 +391,7 @@ export type Database = {
           is_active: boolean
           name: string
           playlist_id: string
+          prize_label: string | null
           slug: string
         }
         Insert: {
@@ -397,6 +401,7 @@ export type Database = {
           is_active?: boolean
           name: string
           playlist_id: string
+          prize_label?: string | null
           slug: string
         }
         Update: {
@@ -406,6 +411,7 @@ export type Database = {
           is_active?: boolean
           name?: string
           playlist_id?: string
+          prize_label?: string | null
           slug?: string
         }
         Relationships: []
