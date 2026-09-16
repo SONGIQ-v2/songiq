@@ -15,6 +15,7 @@ export interface Event {
   is_active: boolean;
   background_image_url: string | null;
   accent_color: string | null;
+  prize_label: string | null;
 }
 
 export interface EventAttempt {
@@ -24,13 +25,17 @@ export interface EventAttempt {
   score: number;
   correct_count: number;
   avg_response_ms: number | null;
+  play_count: number;
   updated_at: string;
 }
+
+const EVENT_ATTEMPT_COLUMNS =
+  "event_slug, player_id, player_name, score, correct_count, avg_response_ms, play_count, updated_at";
 
 export async function fetchEvent(slug: string): Promise<Event | null> {
   const { data, error } = await (supabase as any)
     .from("events")
-    .select("slug, name, playlist_id, ends_at, is_active, background_image_url, accent_color")
+    .select("slug, name, playlist_id, ends_at, is_active, background_image_url, accent_color, prize_label")
     .eq("slug", slug)
     .maybeSingle();
   if (error || !data) return null;
@@ -41,7 +46,7 @@ export async function fetchEvent(slug: string): Promise<Event | null> {
 export async function fetchEventLeaderboard(slug: string): Promise<EventAttempt[]> {
   const { data, error } = await (supabase as any)
     .from("event_attempts")
-    .select("event_slug, player_id, player_name, score, correct_count, avg_response_ms, updated_at")
+    .select(EVENT_ATTEMPT_COLUMNS)
     .eq("event_slug", slug)
     .order("score", { ascending: false })
     .limit(50);
@@ -53,7 +58,7 @@ export async function fetchEventLeaderboard(slug: string): Promise<EventAttempt[
 export async function fetchMyEventAttempt(slug: string, playerId: string): Promise<EventAttempt | null> {
   const { data } = await (supabase as any)
     .from("event_attempts")
-    .select("event_slug, player_id, player_name, score, correct_count, avg_response_ms, updated_at")
+    .select(EVENT_ATTEMPT_COLUMNS)
     .eq("event_slug", slug)
     .eq("player_id", playerId)
     .maybeSingle();

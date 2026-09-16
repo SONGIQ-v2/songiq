@@ -12,7 +12,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { Lock, LinkIcon, RefreshCw, Users, Trophy, Radio, Flame, Calendar, Target, ListMusic, Eye, Globe, MapPin, Share2, Clock, UserCheck, LayoutDashboard, BarChart3, Mic2, LogOut, FileText, ArrowLeft, Megaphone, Trash2 } from "lucide-react";
+import { Lock, LinkIcon, RefreshCw, Users, Trophy, Radio, Flame, Calendar, Target, ListMusic, Eye, Globe, MapPin, Share2, Clock, UserCheck, LayoutDashboard, BarChart3, Mic2, LogOut, FileText, ArrowLeft, Megaphone, Trash2, PartyPopper } from "lucide-react";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Starfield } from "@/components/Starfield";
@@ -39,17 +39,29 @@ const ANALYTICS_TABS: { key: AnalyticsTab; label: string }[] = [
   { key: "keyEvents", label: "Key Events" },
 ];
 
-type AdminSection = "overview" | "analytics" | "playlists" | "daily" | "geography" | "multiplayer" | "notifications" | "users";
+type AdminSection = "overview" | "analytics" | "playlists" | "daily" | "events" | "geography" | "multiplayer" | "notifications" | "users";
 const SECTIONS: { key: AdminSection; label: string; icon: typeof Users }[] = [
   { key: "overview", label: "Overview", icon: LayoutDashboard },
   { key: "analytics", label: "Analytics", icon: BarChart3 },
   { key: "playlists", label: "Playlists", icon: ListMusic },
   { key: "daily", label: "Daily Challenge", icon: Mic2 },
+  { key: "events", label: "Events", icon: PartyPopper },
   { key: "geography", label: "Geography & Traffic", icon: Globe },
   { key: "multiplayer", label: "Multiplayer", icon: Radio },
   { key: "notifications", label: "Notifications", icon: Megaphone },
   { key: "users", label: "Signed-in Users", icon: UserCheck },
 ];
+
+interface EventAdminInfo {
+  slug: string;
+  name: string;
+  playlist_id: string;
+  ends_at: string;
+  is_active: boolean;
+  prize_label: string | null;
+  attemptCount: number;
+  topScore: number | null;
+}
 
 interface DailyChallengeInfo {
   today: { challengeDate: string; number: number; categoryName: string } | null;
@@ -117,6 +129,13 @@ function formatGa4Date(d: string) {
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
+/** ISO timestamp -> the local-time value a `datetime-local` input expects. */
+function toLocalInputValue(iso: string): string {
+  const d = new Date(iso);
+  const offsetMs = d.getTimezoneOffset() * 60000;
+  return new Date(d.getTime() - offsetMs).toISOString().slice(0, 16);
+}
+
 function StatTile({
   icon: Icon,
   label,
@@ -177,6 +196,14 @@ export default function Admin() {
   const [selectedPlaylist, setSelectedPlaylist] = useState("");
   const [settingDaily, setSettingDaily] = useState(false);
   const [confirmOverride, setConfirmOverride] = useState(false);
+
+  const [eventsInfo, setEventsInfo] = useState<EventAdminInfo[] | null>(null);
+  const [loadingEvents, setLoadingEvents] = useState(false);
+  const [eventsError, setEventsError] = useState<string | null>(null);
+  const [endsAtDrafts, setEndsAtDrafts] = useState<Record<string, string>>({});
+  const [savingEventSlug, setSavingEventSlug] = useState<string | null>(null);
+  const [resettingSlug, setResettingSlug] = useState<string | null>(null);
+  const [confirmResetSlug, setConfirmResetSlug] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -371,6 +398,63 @@ export default function Admin() {
       return;
     }
     fetchDailyInfo();
+  };
+
+  const fetchEventsInfo = useCallback(async () => {
+    setLoadingEvents(true);
+    setEventsError(null);
+    const { data, error } = await supabase.functions.invoke("admin-events", {
+      body: { action: "list" },
+    });
+    if (error || data?.error) {
+      setEventsError(error?.message ?? data?.error ?? "Failed to load");
+    } else {
+      const events = (data.events as EventAdminInfo[]) ?? [];
+      setEventsInfo(events);
+      // Seed the datetime-local drafts from the fetched rows without
+      // clobbering anything the admin is mid-edit on.
+      setEndsAtDrafts((prev) => {
+        const next = { ...prev };
+        for (const e of events) {
+          if (!(e.slug in next)) next[e.slug] = toLocalInputValue(e.ends_at);
+        }
+        return next;
+      });
+    }
+    setLoadingEvents(false);
+  }, []);
+
+  useEffect(() => {
+    if (isAdmin && activeSection === "events" && !eventsInfo) fetchEventsInfo();
+  }, [isAdmin, activeSection, eventsInfo, fetchEventsInfo]);
+
+  const handleSaveEvent = async (slug: string, patch: { endsAt?: string; isActive?: boolean }) => {
+    setSavingEventSlug(slug);
+    setEventsError(null);
+    const { data, error } = await supabase.functions.invoke("admin-events", {
+      body: { action: "update", slug, endsAt: patch.endsAt, isActive: patch.isActive },
+    });
+    setSavingEventSlug(null);
+    if (error || data?.error) {
+      setEventsError(error?.message ?? data?.error ?? "Failed to save");
+      return;
+    }
+    fetchEventsInfo();
+  };
+
+  const handleResetEvent = async (slug: string) => {
+    setResettingSlug(slug);
+    setEventsError(null);
+    const { data, error } = await supabase.functions.invoke("admin-events", {
+      body: { action: "reset", slug },
+    });
+    setResettingSlug(null);
+    setConfirmResetSlug(null);
+    if (error || data?.error) {
+      setEventsError(error?.message ?? data?.error ?? "Failed to reset");
+      return;
+    }
+    fetchEventsInfo();
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -777,6 +861,96 @@ export default function Admin() {
                               {settingDaily ? "Setting…" : "Set as today's challenge"}
                             </Button>
                           </div>
+                        )}
+                      </div>
+                    )}
+
+                    {activeSection === "events" && (
+                      <div className="space-y-4 max-w-2xl">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+                            <PartyPopper className="w-4 h-4 text-primary" /> Partner events
+                          </p>
+                          <Button variant="outline" size="icon" onClick={fetchEventsInfo} disabled={loadingEvents} aria-label="Refresh">
+                            <RefreshCw className={cn("w-4 h-4", loadingEvents && "animate-spin")} />
+                          </Button>
+                        </div>
+
+                        {eventsError && <p className="text-red-400 text-sm">{eventsError}</p>}
+
+                        {loadingEvents && !eventsInfo ? (
+                          <p className="text-muted-foreground text-sm">Loading…</p>
+                        ) : !eventsInfo || eventsInfo.length === 0 ? (
+                          <p className="text-muted-foreground text-sm">No events yet.</p>
+                        ) : (
+                          eventsInfo.map((e) => {
+                            const draft = endsAtDrafts[e.slug] ?? toLocalInputValue(e.ends_at);
+                            const dirty = draft !== toLocalInputValue(e.ends_at);
+                            return (
+                              <div key={e.slug} className="raised-panel p-5">
+                                <div className="flex items-start justify-between gap-3 mb-3">
+                                  <div>
+                                    <p className="font-bold text-foreground">
+                                      {e.name} <span className="text-muted-foreground font-normal">/{e.slug}</span>
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {e.playlist_id} {e.prize_label && `· ${e.prize_label}`}
+                                    </p>
+                                  </div>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <span className="text-xs text-muted-foreground">Active</span>
+                                    <Switch
+                                      checked={e.is_active}
+                                      onCheckedChange={(checked) => handleSaveEvent(e.slug, { isActive: checked })}
+                                      disabled={savingEventSlug === e.slug}
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-3 text-sm mb-4">
+                                  <span className="px-2.5 py-1 rounded-lg bg-card/50">
+                                    <span className="text-muted-foreground">Players: </span>
+                                    <span className="font-bold text-foreground">{e.attemptCount}</span>
+                                  </span>
+                                  <span className="px-2.5 py-1 rounded-lg bg-card/50">
+                                    <span className="text-muted-foreground">Top score: </span>
+                                    <span className="font-bold text-gold">{e.topScore ?? "—"}</span>
+                                  </span>
+                                </div>
+
+                                <div className="flex flex-wrap items-end gap-2 mb-4">
+                                  <div className="flex-1 min-w-[220px]">
+                                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">
+                                      Ends at (your local time)
+                                    </label>
+                                    <Input
+                                      type="datetime-local"
+                                      value={draft}
+                                      onChange={(ev) => setEndsAtDrafts((prev) => ({ ...prev, [e.slug]: ev.target.value }))}
+                                      className="h-10"
+                                    />
+                                  </div>
+                                  <Button
+                                    variant="gold"
+                                    disabled={!dirty || savingEventSlug === e.slug}
+                                    onClick={() => handleSaveEvent(e.slug, { endsAt: new Date(draft).toISOString() })}
+                                  >
+                                    {savingEventSlug === e.slug ? "Saving…" : "Save"}
+                                  </Button>
+                                </div>
+
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  disabled={resettingSlug === e.slug}
+                                  onClick={() => setConfirmResetSlug(e.slug)}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                                  Reset event
+                                </Button>
+                              </div>
+                            );
+                          })
                         )}
                       </div>
                     )}
@@ -1227,6 +1401,30 @@ export default function Admin() {
             </Button>
             <Button variant="gold" onClick={handleSetDaily} disabled={settingDaily}>
               {settingDaily ? "Setting…" : "Confirm"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!confirmResetSlug} onOpenChange={(open) => !open && setConfirmResetSlug(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reset "{confirmResetSlug}"?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            This permanently deletes every recorded attempt for this event — the leaderboard goes back to empty.
+            The event itself, its playlist, and its end date are unaffected. This can't be undone.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmResetSlug(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => confirmResetSlug && handleResetEvent(confirmResetSlug)}
+              disabled={!!resettingSlug}
+            >
+              {resettingSlug ? "Resetting…" : "Reset event"}
             </Button>
           </DialogFooter>
         </DialogContent>
