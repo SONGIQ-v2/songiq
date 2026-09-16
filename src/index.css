@@ -426,6 +426,50 @@
     50% { box-shadow: 0 0 0 20px hsl(var(--kente-green) / 0); }
   }
 
+  /* Animated shimmering-gradient border for the Beach & Beyond event page's
+     primary CTA -- always animating, not hover-triggered. A real element's
+     own background paints *below* its negative-z-index pseudo-elements, so
+     ::after repaints the button's face color on top of the blurred
+     ::before gradient, leaving only the blurred edge visible as a halo. */
+  .event-cta-glow {
+    position: relative;
+    z-index: 0;
+  }
+
+  .event-cta-glow::before {
+    content: '';
+    position: absolute;
+    top: -3px;
+    left: -3px;
+    width: calc(100% + 6px);
+    height: calc(100% + 6px);
+    background: linear-gradient(45deg, #b45309, #fbbf24, #fef08a, #fbbf24, #b45309);
+    background-size: 400% 400%;
+    filter: blur(6px);
+    z-index: -2;
+    border-radius: inherit;
+    animation: eventCtaGlow 6s linear infinite;
+  }
+
+  .event-cta-glow::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: #fbbf24; /* matches bg-amber-400 */
+    border-radius: inherit;
+    z-index: -1;
+  }
+
+  .event-cta-glow:hover::after {
+    background: #fcd34d; /* matches hover:bg-amber-300 */
+  }
+
+  @keyframes eventCtaGlow {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
   /* Room lobby layout — Room Code first on mobile, grouped with Players in a
      sidebar column alongside Game Settings on desktop */
   .room-lobby-grid {

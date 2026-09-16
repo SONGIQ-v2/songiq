@@ -317,7 +317,10 @@ export default function EventChallenge({ slug }: { slug: string }) {
                         />
                       )}
                       <Button
-                        className="hidden sm:inline-flex w-full py-3 px-8 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-display font-bold text-xs uppercase tracking-wider"
+                        className={cn(
+                          "hidden sm:inline-flex w-full py-3 px-8 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-display font-bold text-xs uppercase tracking-wider",
+                          name.trim() && "event-cta-glow"
+                        )}
                         onClick={handlePlay}
                         disabled={!name.trim()}
                       >
@@ -370,8 +373,8 @@ export default function EventChallenge({ slug }: { slug: string }) {
                       key={a.player_id}
                       className={
                         isChampion
-                          ? "order-first md:order-none w-full md:w-72 rounded-2xl p-1 bg-gradient-to-b from-amber-400/40 via-amber-500/20 to-transparent"
-                          : "w-full sm:w-64"
+                          ? "order-first md:order-none w-full md:w-80 rounded-2xl p-1 bg-gradient-to-b from-amber-400/40 via-amber-500/20 to-transparent"
+                          : "w-full sm:w-72"
                       }
                     >
                       <div
@@ -625,7 +628,10 @@ export default function EventChallenge({ slug }: { slug: string }) {
               </Button>
             ) : (
               <Button
-                className="w-full py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-display font-bold text-xs uppercase tracking-wider"
+                className={cn(
+                  "w-full py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-display font-bold text-xs uppercase tracking-wider",
+                  (name.trim() || hasKnownName) && "event-cta-glow"
+                )}
                 onClick={handlePlay}
                 disabled={!name.trim() && !hasKnownName}
               >
