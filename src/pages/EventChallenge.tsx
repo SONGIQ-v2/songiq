@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { motion } from "framer-motion";
 import { Music2, Play, Lock, Headphones, Zap, Repeat } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
@@ -161,7 +162,8 @@ export default function EventChallenge({ slug }: { slug: string }) {
       )}
 
       {status === "ready" && event && (
-        <main>
+        <>
+        <main className={cn(!hasEnded && "pb-20 sm:pb-0")}>
           {/* Ticker */}
           <div className="bg-[#0e1117] text-slate-300 text-xs py-2.5 px-4 border-b border-slate-800/80">
             <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3 font-mono text-xs">
@@ -215,10 +217,10 @@ export default function EventChallenge({ slug }: { slug: string }) {
               </div>
 
               <div className="max-w-xl mx-auto">
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 mb-6">
+                <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-6">
                   {myEntry ? (
                     <>
-                      <div className="rounded-xl p-4 text-center border border-slate-800 bg-[#11141a]">
+                      <div className="rounded-xl p-2.5 sm:p-4 text-center border border-slate-800 bg-[#11141a]">
                         <div className="flex items-center justify-center gap-1.5 mb-1.5">
                           <span className="text-[11px] font-mono font-semibold uppercase tracking-wider text-slate-400">
                             Your Score
@@ -228,7 +230,7 @@ export default function EventChallenge({ slug }: { slug: string }) {
                           {myEntry.score}
                         </span>
                       </div>
-                      <div className="rounded-xl p-4 text-center border border-slate-800 bg-[#11141a]">
+                      <div className="rounded-xl p-2.5 sm:p-4 text-center border border-slate-800 bg-[#11141a]">
                         <div className="flex items-center justify-center gap-1.5 mb-1.5">
                           <span className="text-[11px] font-mono font-semibold uppercase tracking-wider text-slate-400">
                             Rank
@@ -241,7 +243,7 @@ export default function EventChallenge({ slug }: { slug: string }) {
                     </>
                   ) : (
                     <>
-                      <div className="rounded-xl p-4 text-center border border-slate-800 bg-[#11141a]">
+                      <div className="rounded-xl p-2.5 sm:p-4 text-center border border-slate-800 bg-[#11141a]">
                         <div className="flex items-center justify-center gap-1.5 mb-1.5">
                           <span className="text-xs text-slate-400">👥</span>
                           <span className="text-[11px] font-mono font-semibold uppercase tracking-wider text-slate-400">
@@ -252,20 +254,20 @@ export default function EventChallenge({ slug }: { slug: string }) {
                           {attempts.length}
                         </span>
                       </div>
-                      <div className="rounded-xl p-4 text-center border border-slate-800 bg-[#11141a]">
+                      <div className="rounded-xl p-2.5 sm:p-4 text-center border border-slate-800 bg-[#11141a]">
                         <div className="flex items-center justify-center gap-1.5 mb-1.5">
                           <span className="text-xs text-amber-400">⏱️</span>
                           <span className="text-[11px] font-mono font-semibold uppercase tracking-wider text-slate-400">
                             {hasEnded ? "Status" : "Remaining"}
                           </span>
                         </div>
-                        <span className="font-mono font-bold text-sm sm:text-base text-amber-300 whitespace-nowrap">
+                        <span className="font-mono font-bold text-[11px] sm:text-base text-amber-300 whitespace-nowrap">
                           {hasEnded ? "Ended" : countdown || "—"}
                         </span>
                       </div>
                     </>
                   )}
-                  <div className="rounded-xl p-4 text-center border border-slate-800 bg-[#11141a]">
+                  <div className="rounded-xl p-2.5 sm:p-4 text-center border border-slate-800 bg-[#11141a]">
                     <div className="flex items-center justify-center gap-1.5 mb-1.5">
                       <span className="text-xs text-amber-400">👑</span>
                       <span className="text-[11px] font-mono font-semibold uppercase tracking-wider text-slate-400">
@@ -278,7 +280,15 @@ export default function EventChallenge({ slug }: { slug: string }) {
                   </div>
                 </div>
 
-                <div className="w-full rounded-2xl p-6 sm:p-7 border border-slate-800 bg-[#11141a]">
+                <div
+                  className={cn(
+                    "w-full rounded-2xl p-6 sm:p-7 border border-slate-800 bg-[#11141a]",
+                    // Nothing left to show here on mobile once the button
+                    // below moves to the sticky bar -- collapse the panel
+                    // instead of leaving an empty box with just a lock icon.
+                    isAnonymous && !hasEnded && "hidden sm:block"
+                  )}
+                >
                   {hasEnded ? (
                     <p className="text-center text-sm font-semibold text-slate-400">
                       This tournament has ended — thanks for playing!
@@ -287,7 +297,7 @@ export default function EventChallenge({ slug }: { slug: string }) {
                     <div className="flex flex-col items-center gap-3">
                       <Lock className="w-5 h-5 text-slate-500" />
                       <Button
-                        className="w-full sm:w-auto py-3 px-8 rounded-xl bg-white hover:bg-slate-100 text-slate-950 font-display font-bold text-xs uppercase tracking-wider"
+                        className="hidden sm:inline-flex w-full sm:w-auto py-3 px-8 rounded-xl bg-white hover:bg-slate-100 text-slate-950 font-display font-bold text-xs uppercase tracking-wider"
                         onClick={openSignInModal}
                       >
                         Sign In to Enter Tournament →
@@ -307,7 +317,7 @@ export default function EventChallenge({ slug }: { slug: string }) {
                         />
                       )}
                       <Button
-                        className="w-full py-3 px-8 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-display font-bold text-xs uppercase tracking-wider"
+                        className="hidden sm:inline-flex w-full py-3 px-8 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-display font-bold text-xs uppercase tracking-wider"
                         onClick={handlePlay}
                         disabled={!name.trim()}
                       >
@@ -401,6 +411,9 @@ export default function EventChallenge({ slug }: { slug: string }) {
                             {verifiedIds.has(a.player_id) && <VerifiedBadge className="ml-1 inline-block" />}
                           </h3>
                         </div>
+                        <p className="text-[10px] text-slate-500 font-mono mb-1">
+                          {a.play_count} {a.play_count === 1 ? "attempt" : "attempts"}
+                        </p>
                         {isChampion ? (
                           event.prize_label && (
                             <div className="flex items-center justify-center gap-1.5 mb-4 mt-2">
@@ -597,6 +610,32 @@ export default function EventChallenge({ slug }: { slug: string }) {
             </div>
           </section>
         </main>
+
+        {/* Sticky mobile CTA -- the hero's own Sign In / Play button is
+            hidden on mobile (see above) in favor of this, so it's always
+            reachable without scrolling back up. */}
+        {!hasEnded && (
+          <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-slate-800 bg-[#0e1117]/95 backdrop-blur-xl p-3">
+            {isAnonymous ? (
+              <Button
+                className="w-full py-3 rounded-xl bg-white hover:bg-slate-100 text-slate-950 font-display font-bold text-xs uppercase tracking-wider"
+                onClick={openSignInModal}
+              >
+                Sign In to Enter Tournament →
+              </Button>
+            ) : (
+              <Button
+                className="w-full py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-display font-bold text-xs uppercase tracking-wider"
+                onClick={handlePlay}
+                disabled={!name.trim() && !hasKnownName}
+              >
+                <Play className="w-4 h-4 mr-2 fill-current" />
+                {myEntry ? "Play Again" : "Enter the Arena"}
+              </Button>
+            )}
+          </div>
+        )}
+        </>
       )}
     </div>
   );
