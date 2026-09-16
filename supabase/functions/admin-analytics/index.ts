@@ -372,7 +372,11 @@ async function fetchSignedInUsers(
       nickname: pointsById.get(u.id)?.player_name ?? null,
       points: Number(pointsById.get(u.id)?.points ?? 0),
     }))
-    .sort((a, b) => b.points - a.points)
+    .sort((a, b) => {
+      const at = a.lastSignInAt ? new Date(a.lastSignInAt).getTime() : 0;
+      const bt = b.lastSignInAt ? new Date(b.lastSignInAt).getTime() : 0;
+      return bt - at; // most recent sign-in first
+    })
     .slice(0, 200);
 
   return { users, totalSignedIn, newSignedInInRange };

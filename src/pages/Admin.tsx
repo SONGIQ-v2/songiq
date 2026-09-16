@@ -1322,7 +1322,7 @@ export default function Admin() {
                           <p className="text-sm font-semibold text-foreground mb-4 flex items-center gap-1.5">
                             <UserCheck className="w-4 h-4 text-primary" /> Signed-in users ({report.signedInUsers.length})
                           </p>
-                          <div className="max-h-96 overflow-y-auto">
+                          <div className="max-h-[720px] overflow-y-auto">
                             <Table>
                               <TableHeader>
                                 <TableRow>
