@@ -37,13 +37,14 @@ const NAV_LINKS = [
 export const Header = () => {
   const location = useLocation();
   const [showProfileModal, setShowProfileModal] = useState(false);
-  const { playerName, setPlayer, avatarIndex, openSignInModal } = useGameStore();
+  const { playerName, setPlayer, avatarIndex, openSignInModal, playerId } = useGameStore();
   const [editName, setEditName] = useState("");
   // Signed-in players (Google-linked, once Lovable enables the provider)
   // get a profile chip instead of the Sign in button + account icon
   const [isAnonymous, setIsAnonymous] = useState(true);
   const [signedInUser, setSignedInUser] = useState<{ id: string; name: string } | null>(null);
   const [totalPoints, setTotalPoints] = useState<number | null>(null);
+  const [anonPoints, setAnonPoints] = useState<number | null>(null);
   const [savesAvailable, setSavesAvailable] = useState<number | null>(null);
   const [nextSaveExpires, setNextSaveExpires] = useState<string | null>(null);
   const fixedWrapperRef = useRef<HTMLDivElement>(null);
@@ -106,6 +107,24 @@ export const Header = () => {
       setTotalPoints(Number(data?.points ?? 0));
     })();
   }, [signedInUser?.id, location.pathname]);
+
+  // Points total shown next to "Keep my score" -- anonymous players already
+  // accrue real points locally, so showing the number makes the sign-in CTA
+  // concrete ("here's what you'd keep") instead of an abstract ask.
+  useEffect(() => {
+    if (!isAnonymous || !playerId) {
+      setAnonPoints(null);
+      return;
+    }
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("player_points")
+        .select("points")
+        .eq("player_id", playerId)
+        .maybeSingle();
+      setAnonPoints(Number(data?.points ?? 0));
+    })();
+  }, [isAnonymous, playerId, location.pathname]);
 
   // Streak Save balance for the account dropdown
   useEffect(() => {
@@ -277,8 +296,13 @@ export const Header = () => {
                 >
                   <UserCircle className="w-5 h-5" />
                 </Button>
+                {anonPoints !== null && anonPoints > 0 && (
+                  <span className="text-xs font-semibold text-gold ml-1.5 tabular-nums hidden sm:inline">
+                    {anonPoints.toLocaleString()} pts
+                  </span>
+                )}
                 <Button variant="outline" size="sm" onClick={openSignInModal} className="ml-1">
-                  Sign in
+                  Keep my score
                 </Button>
               </>
             )}

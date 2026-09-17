@@ -64,8 +64,7 @@ export function SignInModal() {
             Sign in to <span className="text-gold">SONGIQ</span>
           </DialogTitle>
           <DialogDescription>
-            Your Points, streaks and leaderboard spot only live on this device —
-            clear your browser or switch phones and they're gone for good.
+            Sign in once. Your Points, streak, and leaderboard spot sync across devices.
           </DialogDescription>
         </DialogHeader>
         <div className="pt-2">

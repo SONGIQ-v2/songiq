@@ -271,13 +271,13 @@ export default function Daily() {
 
             {myStreak > 0 && signInHint.show && (
               <p className="text-xs text-muted-foreground mt-4 flex items-center justify-center gap-2">
-                <span>Sign in to protect your {myStreak}-day streak</span>
+                <span>Don't lose this streak when you switch phones.</span>
                 <button onClick={openSignInModal} className="text-primary font-semibold hover:underline">
-                  Sign in
+                  Save streak
                 </button>
                 <span>·</span>
                 <button onClick={signInHint.dismiss} className="hover:text-foreground">
-                  Not now
+                  Maybe later
                 </button>
               </p>
             )}
