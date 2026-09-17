@@ -44,6 +44,16 @@ function formatSpeed(ms: number | null): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
+// "Sept 27 at 12:00 AM" -- driven by the real event.ends_at rather than
+// hardcoded, so the hero copy can't go stale if the deadline is ever
+// changed (e.g. via the Events admin panel).
+function formatEndDateTime(iso: string): string {
+  const d = new Date(iso);
+  const date = d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const time = d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  return `${date} at ${time}`;
+}
+
 const RANK_BADGE = ["🏆", "🥈", "🥉"];
 const RANK_LABEL = ["#1 CHAMPION", "2nd Contender", "3rd Contender"];
 
@@ -211,8 +221,8 @@ export default function EventChallenge({ slug }: { slug: string }) {
                   )}
                 </h1>
                 <p className="text-slate-400 text-sm sm:text-base max-w-2xl mx-auto font-normal leading-relaxed">
-                  Beat the 10-song gauntlet. Play as many times as you like — only your most recent run is recorded,
-                  so play again any time to improve your standing before the clock runs out.
+                  Compete in the official Beach & Beyond x SongIQ Challenge. Play 10 songs as many times as you like
+                  until you top the leaderboard — only your last play counts. Ends {formatEndDateTime(event.ends_at)}.
                 </p>
               </div>
 
@@ -533,20 +543,12 @@ export default function EventChallenge({ slug }: { slug: string }) {
                   </Table>
                 </div>
                 {!hasEnded && (
-                  <div className="p-4 bg-[#0e1117] border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
-                    <div className="flex items-center gap-2">
-                      <span className="text-amber-400">⚡</span>
-                      <span className="text-xs text-slate-300 font-medium">
-                        Unlimited plays until the clock runs out.
-                        {topScore != null && ` Beat ${topScore} to take the lead!`}
-                      </span>
-                    </div>
-                    <a
-                      className="px-4 py-2 rounded-lg bg-white hover:bg-slate-200 text-slate-950 font-bold text-xs uppercase tracking-wider transition flex items-center gap-1.5"
-                      href="#match-lobby"
-                    >
-                      Enter Arena Now →
-                    </a>
+                  <div className="p-4 bg-[#0e1117] border-t border-slate-800 flex items-center justify-center gap-2 text-center">
+                    <span className="text-amber-400">⚡</span>
+                    <span className="text-xs text-slate-300 font-medium">
+                      Unlimited plays until the clock runs out.
+                      {topScore != null && ` Beat ${topScore} to take the lead!`}
+                    </span>
                   </div>
                 )}
               </div>
