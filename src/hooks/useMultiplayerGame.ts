@@ -53,11 +53,16 @@ export interface RoundData {
 }
 
 const DEFAULT_ROUND_TIME = 20000; // fallback 20 seconds per round
-const BETWEEN_ROUNDS_TIME = 5000; // gap before each round; must match advance_game_round()
+const BETWEEN_ROUNDS_TIME = 10000; // gap before each round; must match advance_game_round(). Also the real audio-prefetch window (see the prefetch effect below) -- widened from 5s so slower connections have more time to finish downloading the next clip.
+// "Loading Results" wait before the client calls advance_game_round to
+// finish the game -- deliberately its own constant, independent of
+// BETWEEN_ROUNDS_TIME, so widening the between-rounds prefetch window
+// doesn't also silently double the end-of-game wait.
+const FINAL_RESULTS_DELAY_MS = 5000;
 // Kahoot-style reveal window after every round end (early or natural):
 // grading + everyone's picks show on the answer cards for this long before
 // the between-rounds countdown. Purely client-side — the server schedules
-// the next round 5s after the advance call, which this window delays.
+// the next round 10s after the advance call, which this window delays.
 const REVEAL_MS = 3000;
 const PRE_GAME_SECONDS = 5;
 const QUESTION_TYPES = ["Guess the Artist", "Guess the Song"] as const;
@@ -282,8 +287,10 @@ export function useMultiplayerGame(roomCode: string) {
   // too, so a game started while a player is still on that route already
   // has a head start on the fetch by the time MultiplayerGame.tsx mounts
   // and actually needs to play it. Never touches round N+1: game_rounds
-  // only gets a round's row inserted 5s before that round starts, so
-  // there's nothing to prefetch ahead of time even if this wanted to.
+  // only gets a round's row inserted BETWEEN_ROUNDS_TIME before that round
+  // starts, so there's nothing to prefetch ahead of time even if this
+  // wanted to -- that gap is the entire prefetch budget for every round
+  // after the first.
   const prefetchedUrlsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     const url = currentRound?.preview_url;
@@ -834,9 +841,9 @@ export function useMultiplayerGame(roomCode: string) {
     if (advanceRequestedForRef.current === currentRound.id) return;
 
     const isFinal = currentRound.round_number >= (room.total_rounds || 10);
-    // Final round: let the 5s "Loading Results" countdown play out first.
+    // Final round: let the "Loading Results" countdown play out first.
     const delay = isFinal
-      ? (isHost ? BETWEEN_ROUNDS_TIME : BETWEEN_ROUNDS_TIME + 3000)
+      ? (isHost ? FINAL_RESULTS_DELAY_MS : FINAL_RESULTS_DELAY_MS + 3000)
       : (isHost ? 0 : 2500);
 
     const t = setTimeout(async () => {
@@ -983,7 +990,7 @@ export function useMultiplayerGame(roomCode: string) {
 
   // Submit answer
   const submitAnswer = useCallback(async (answer: string) => {
-    if (hasAnswered || !currentRound || !room || !playerId) return;
+    if (hasAnswered || revealActive || !currentRound || !room || !playerId) return;
 
     setSelectedAnswer(answer);
     setHasAnswered(true);
@@ -1019,7 +1026,7 @@ export function useMultiplayerGame(roomCode: string) {
         error: (err as Error)?.message,
       }, (err as Error)?.stack);
     }
-  }, [hasAnswered, currentRound, room, playerId, roundNumber]);
+  }, [hasAnswered, revealActive, currentRound, room, playerId, roundNumber]);
 
   // Shuffle array helper
   const shuffleArray = <T,>(arr: T[]): T[] => {

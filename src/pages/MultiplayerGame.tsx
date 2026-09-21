@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { motion, AnimatePresence } from "framer-motion";
@@ -48,6 +48,14 @@ import { trackEvent } from "@/lib/analytics";
 
 const INACTIVITY_WARNING_TIME = 30000; // 30 seconds
 const TERMINATION_COUNTDOWN = 10; // 10 seconds
+
+// Stable references for the low-time timer pulse -- timeLeft updates every
+// 100ms, and an inline object/array literal there is a *new* value on
+// every render, which makes Framer Motion treat it as a new animate target
+// and restart the repeat:Infinity keyframe from scratch each time instead
+// of letting it play smoothly.
+const LOW_TIME_PULSE = { scale: [1, 1.1, 1] };
+const NO_PULSE = {};
 
 // Force HMR reset v2 - hook order stabilized
 export default function MultiplayerGame() {
@@ -191,6 +199,35 @@ export default function MultiplayerGame() {
     initializeAuth();
   }, [initializeAuth]);
 
+
+  // Mobile: reserve real scroll room below the answer grid equal to the
+  // fixed bottom leaderboard sheet's actual height (same ResizeObserver
+  // pattern Header.tsx uses for --header-height), so the grid can
+  // genuinely scroll clear of it instead of ending up hidden underneath.
+  const mobileLeaderboardRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const el = mobileLeaderboardRef.current;
+    if (!el) return;
+    const setHeightVar = () => {
+      document.documentElement.style.setProperty("--mp-leaderboard-height", `${el.offsetHeight}px`);
+    };
+    setHeightVar();
+    const observer = new ResizeObserver(setHeightVar);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  // Mobile: land on the answer grid (not the top of the page) the instant
+  // a new round starts, so players don't have to manually scroll past the
+  // header/art to reach options C/D. Matches the exact breakpoint the
+  // leaderboard itself switches on (lg:hidden bottom sheet vs. hidden
+  // lg:block sidebar below) -- not an arbitrary "mobile" guess.
+  const answerGridRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!currentRound?.id) return;
+    if (typeof window === "undefined" || window.innerWidth >= 1024) return;
+    answerGridRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [currentRound?.id]);
 
   // Kicked detection
   const wasInRoomRef = useRef(false);
@@ -489,7 +526,7 @@ export default function MultiplayerGame() {
   }, []);
 
   const handleAnswer = (answer: string) => {
-    if (!hasAnswered) {
+    if (!hasAnswered && !revealActive) {
       submitAnswer(answer);
       resetActivityTimer(); // Reset on answer
     }
@@ -1059,7 +1096,10 @@ export default function MultiplayerGame() {
 
       <div className="relative z-10 flex flex-col lg:flex-row min-h-screen">
         {/* Main Game Area */}
-        <div className="flex-1 flex flex-col">
+        <div
+          className="flex-1 flex flex-col lg:!pb-0"
+          style={{ paddingBottom: "var(--mp-leaderboard-height, 96px)" }}
+        >
           {/* Header */}
           <div className="p-4 safe-area-inset-top">
             <div className="raised-panel px-4 py-3 md:px-6 md:py-4 max-w-[1000px] mx-auto">
@@ -1147,7 +1187,7 @@ export default function MultiplayerGame() {
                     ? "drop-shadow(0 0 16px hsl(0 84% 60% / 0.6))"
                     : "drop-shadow(0 0 16px hsl(var(--gold) / 0.6))",
                 }}
-                animate={isTimeLow ? { scale: [1, 1.1, 1] } : {}}
+                animate={isTimeLow ? LOW_TIME_PULSE : NO_PULSE}
                 transition={{ repeat: Infinity, duration: 0.5 }}
               >
                 {Math.ceil(timeLeft / 1000)}s
@@ -1170,21 +1210,28 @@ export default function MultiplayerGame() {
               <span className="text-sm text-muted-foreground">Time remaining</span>
               <motion.span
                 className={cn("font-bold", isTimeLow ? "text-red-400" : "text-primary")}
-                animate={isTimeLow ? { scale: [1, 1.1, 1] } : {}}
+                animate={isTimeLow ? LOW_TIME_PULSE : NO_PULSE}
                 transition={{ repeat: Infinity, duration: 0.5 }}
               >
                 {Math.ceil(timeLeft / 1000)}s
               </motion.span>
             </div>
 
-            {/* Progress bar */}
+            {/* Progress bar -- plain div, driven by .progress-fill's own CSS
+                transition (index.css) only. This used to also carry a
+                Framer Motion animate={{ width }}, but with timeLeft
+                updating every 100ms (the ticker), the two engines fought
+                over the same reflow-triggering property and neither ever
+                finished a transition -- that fight was the visible
+                page-shake/jank during gameplay. A single CSS transition
+                interrupts-and-retargets natively without restart
+                artifacts, which is the right tool for a value that
+                updates this frequently. */}
             <div className="progress-track h-1.5">
-              <motion.div
+              <div
                 className="progress-fill"
-                initial={{ width: "100%" }}
-                animate={{ width: `${Math.min(100, (timeLeft / ROUND_TIME) * 100)}%` }}
-                transition={{ duration: 0.5 }}
                 style={{
+                  width: `${Math.min(100, (timeLeft / ROUND_TIME) * 100)}%`,
                   background: isTimeLow
                     ? "linear-gradient(90deg, hsl(0 70% 50%), hsl(0 70% 60%))"
                     : undefined,
@@ -1331,7 +1378,7 @@ export default function MultiplayerGame() {
             {/* Answer options - 2x2 grid. Grading is deferred: nothing turns
                 green/red until the round's reveal window, when everyone's
                 picks also appear as avatars on the cards they chose. */}
-            <div className="w-full max-w-2xl grid grid-cols-2 gap-4">
+            <div ref={answerGridRef} className="w-full max-w-2xl grid grid-cols-2 gap-4">
               {currentRound?.options.map((option, index) => {
                 const correctAnswer = currentQuestionType === "Guess the Song" ? currentRound.track_name : currentRound.artist_name;
                 const normalize = (v: string | null | undefined) => (v ?? "").trim().toLowerCase();
@@ -1352,7 +1399,7 @@ export default function MultiplayerGame() {
                       isSelected={optionIsSelected}
                       isCorrect={optionIsCorrect}
                       isRevealed={shouldRevealOption}
-                      disabled={hasAnswered}
+                      disabled={hasAnswered || revealActive}
                       onClick={() => handleAnswer(option)}
                     />
                     {pickers.length > 0 && (
@@ -1405,7 +1452,10 @@ export default function MultiplayerGame() {
         </div>
 
         {/* Mobile Leaderboard - Bottom Sheet Style */}
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-sm border-t border-border p-3 safe-area-inset-bottom">
+        <div
+          ref={mobileLeaderboardRef}
+          className="lg:hidden fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-sm border-t border-border p-3 safe-area-inset-bottom"
+        >
           <div className="flex items-center gap-2 overflow-x-auto pb-1">
             {[...players]
               .sort((a, b) => b.score - a.score)
