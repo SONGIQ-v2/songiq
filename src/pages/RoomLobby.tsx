@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { Copy, Check, Users, Play, Crown, LogOut, Loader2, UserCircle, Clock, Hash, UserX, Lightbulb, Search } from "lucide-react";
+import { Copy, Check, Users, Play, Crown, LogOut, Loader2, Clock, Hash, UserX, Lightbulb, Search } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Starfield } from "@/components/Starfield";
 import songiqLogo from "@/assets/songiq-logo.png";
@@ -32,6 +32,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useMultiplayerGame } from "@/hooks/useMultiplayerGame";
+import { NewTabNavMenu } from "@/components/NewTabNavMenu";
+import { NewTabAccountMenu } from "@/components/NewTabAccountMenu";
 import { useGameStore } from "@/lib/gameStore";
 import { getKnownPlayerName } from "@/lib/challenges";
 import { supabase } from "@/integrations/supabase/client";
@@ -75,8 +77,6 @@ export default function RoomLobby() {
   const [showNameModal, setShowNameModal] = useState(false);
   const [joinName, setJoinName] = useState("");
   const [isJoiningRoom, setIsJoiningRoom] = useState(false);
-  const [showProfileModal, setShowProfileModal] = useState(false);
-  const [editName, setEditName] = useState("");
   const [playlistImages, setPlaylistImages] = useState<Record<string, string>>({});
   const [activeCategory, setActiveCategory] = useState<"all" | PlaylistCategory>("all");
   const [artistsOnly, setArtistsOnly] = useState(false);
@@ -312,24 +312,6 @@ export default function RoomLobby() {
     navigate("/multiplayer");
   };
 
-  const handleUpdateName = async () => {
-    const newName = editName.trim();
-    if (!newName || !room || !playerId) return;
-    try {
-      await supabase
-        .from("room_players")
-        .update({ player_name: newName })
-        .eq("room_id", room.id)
-        .eq("player_id", playerId);
-      setPlayer(newName, currentPlayer?.avatar_index ?? 1);
-      setUsernameCookie(newName);
-      setShowProfileModal(false);
-      toast.success("Name updated!");
-    } catch {
-      toast.error("Failed to update name");
-    }
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen relative overflow-hidden flex items-center justify-center">
@@ -417,7 +399,7 @@ export default function RoomLobby() {
       <header className="fixed top-0 left-0 right-0 z-50 px-4 py-3 bg-background/60 backdrop-blur-xl border-b border-white/10">
         <div className="max-w-[1400px] mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link to="/" className="flex items-center">
+            <Link to="/" target="_blank" rel="noopener noreferrer" className="flex items-center">
               <img src={songiqLogo} alt="SongIQ — Music Trivia Game" className="h-8 md:h-10 w-auto" />
             </Link>
             <AlertDialog>
@@ -451,18 +433,16 @@ export default function RoomLobby() {
             </AlertDialog>
           </div>
 
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Open profile and edit nickname"
-            onClick={() => {
-              setEditName(currentPlayer?.player_name || playerName || "");
-              setShowProfileModal(true);
-            }}
-            className="text-foreground/70 hover:text-foreground"
-          >
-            <UserCircle className="w-6 h-6" />
-          </Button>
+          {/* Nav (desktop) + account section -- matches Header.tsx's own
+              3-way layout (logo-group / nav / right-actions-group). Every
+              click here opens a NEW TAB instead of navigating or showing an
+              in-page dialog, so this player's spot in the room is never
+              disturbed -- except the signed-in account chip itself, which
+              opens its usual in-page dropdown (see NewTabAccountMenu). */}
+          <NewTabNavMenu />
+          <div className="flex items-center gap-1">
+            <NewTabAccountMenu />
+          </div>
         </div>
       </header>
 
@@ -910,35 +890,6 @@ export default function RoomLobby() {
         </DialogContent>
       </Dialog>
 
-      {/* Profile / Change Name Modal */}
-      <Dialog open={showProfileModal} onOpenChange={setShowProfileModal}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Edit Profile</DialogTitle>
-            <DialogDescription>Change your display name</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 pt-2">
-            <Input
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
-              placeholder="Your nickname"
-              maxLength={20}
-              className="text-center text-lg"
-              onKeyDown={(e) => e.key === "Enter" && handleUpdateName()}
-              autoFocus
-            />
-            <Button
-              variant="gold"
-              size="lg"
-              className="w-full"
-              onClick={handleUpdateName}
-              disabled={!editName.trim()}
-            >
-              Save
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

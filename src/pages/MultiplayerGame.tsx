@@ -2,7 +2,7 @@ import { useState, useEffect, useLayoutEffect, useRef, useCallback } from "react
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { motion, AnimatePresence } from "framer-motion";
-import { Music2, Trophy, X, AlertTriangle, LogOut, UserCircle, Share2, Star, WifiOff, Loader2, Volume2 } from "lucide-react";
+import { Music2, Trophy, X, AlertTriangle, LogOut, Share2, Star, WifiOff, Loader2, Volume2 } from "lucide-react";
 import { toast } from "sonner";
 import { Starfield } from "@/components/Starfield";
 import songiqLogo from "@/assets/songiq-logo.png";
@@ -36,6 +36,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useMultiplayerGame } from "@/hooks/useMultiplayerGame";
+import { NewTabNavMenu } from "@/components/NewTabNavMenu";
+import { NewTabAccountMenu } from "@/components/NewTabAccountMenu";
 import { useGameStore } from "@/lib/gameStore";
 import { supabase } from "@/integrations/supabase/client";
 import { PLAYLISTS } from "@/lib/playlists";
@@ -700,7 +702,7 @@ export default function MultiplayerGame() {
         <header className="fixed top-0 left-0 right-0 z-50 px-4 py-3 bg-background/60 backdrop-blur-xl border-b border-white/10">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Link to="/" className="flex items-center">
+              <Link to="/" target="_blank" rel="noopener noreferrer" className="flex items-center">
                 <img src={songiqLogo} alt="SongIQ — Music Trivia Game" className="h-8 md:h-10 w-auto" />
               </Link>
               <AlertDialog>
@@ -729,14 +731,15 @@ export default function MultiplayerGame() {
                 </AlertDialogContent>
               </AlertDialog>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-foreground/70 hover:text-foreground"
-              onClick={() => navigate("/")}
-            >
-              <UserCircle className="w-6 h-6" />
-            </Button>
+            {/* Nav (desktop) + account section -- matches Header.tsx's own
+                3-way layout. Every click here opens a NEW TAB instead of
+                navigating or showing an in-page dialog, except the
+                signed-in account chip itself, which opens its usual
+                in-page dropdown (see NewTabAccountMenu). */}
+            <NewTabNavMenu />
+            <div className="flex items-center gap-1">
+              <NewTabAccountMenu />
+            </div>
           </div>
         </header>
         <div className="flex items-center justify-center min-h-[calc(100vh-80px)] pt-16 p-4">
@@ -836,13 +839,13 @@ export default function MultiplayerGame() {
             <SaveProgressPrompt />
 
             <div className="flex flex-col sm:flex-row gap-4 mb-6">
-              <Button variant="gold" size="lg" className="w-full sm:flex-1" onClick={handleShare}>
-                <Share2 className="w-5 h-5 mr-2" />
-                Challenge your friends
+              <Button variant="gold" size="lg" className="w-full sm:flex-1 sm:min-w-0" onClick={handleShare}>
+                <Share2 className="w-5 h-5 mr-2 shrink-0" />
+                Share your results
               </Button>
 
               {isHostPlayer && (
-                <Button variant="outline" size="lg" className="w-full sm:flex-1" onClick={async () => {
+                <Button variant="outline" size="lg" className="w-full sm:flex-1 sm:min-w-0" onClick={async () => {
                   await playAgain();
                   navigate(`/room/${code}`);
                 }}>
@@ -1280,12 +1283,15 @@ export default function MultiplayerGame() {
               </p>
             </div>
 
-            {/* Album art / Visualizer */}
+            {/* Album art / Visualizer -- hidden on mobile during Multiplayer
+                gameplay (screen real estate is at a premium there, and this
+                is purely decorative); everything else (question pill,
+                track/artist info, round stats) stays visible. */}
             <motion.div
               key={roundNumber}
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="relative mb-8"
+              className="relative mb-8 hidden md:block"
             >
               {revealActive && currentRound ? (
                 <div className="w-48 h-48 rounded-2xl overflow-hidden shadow-2xl">

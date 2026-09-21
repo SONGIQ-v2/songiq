@@ -426,6 +426,23 @@
     50% { box-shadow: 0 0 0 20px hsl(var(--kente-green) / 0); }
   }
 
+  /* Gentle "breathing" scale/opacity pulse for the points badge inside the
+     header's sign-in/save-points button. */
+  .points-breathe {
+    animation: pointsBreathe 2.5s ease-in-out infinite;
+  }
+
+  @keyframes pointsBreathe {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.06); opacity: 0.85; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .points-breathe {
+      animation: none;
+    }
+  }
+
   /* Animated shimmering-gradient border for the Beach & Beyond event page's
      primary CTA -- always animating, not hover-triggered. A real element's
      own background paints *below* its negative-z-index pseudo-elements, so

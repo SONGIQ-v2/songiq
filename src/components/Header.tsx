@@ -1,6 +1,6 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import songiqLogo from "@/assets/songiq-logo.png";
-import { Medal, Menu, Shield, UserCircle } from "lucide-react";
+import { ArrowRight, Medal, Menu, Shield, UserCircle } from "lucide-react";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +36,7 @@ const NAV_LINKS = [
 
 export const Header = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const [showProfileModal, setShowProfileModal] = useState(false);
   const { playerName, setPlayer, avatarIndex, openSignInModal, playerId } = useGameStore();
   const [editName, setEditName] = useState("");
@@ -73,6 +74,24 @@ export const Header = () => {
     }
   }, []);
 
+  // Lets a caller that can't safely show an in-page dialog (e.g. Multiplayer
+  // screens holding live room state) open one here instead, in a fresh tab
+  // -- ?openAccount=signin / =profile, landing on whichever route renders
+  // this Header. Stripped from the URL once handled so a refresh doesn't
+  // reopen it.
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const open = params.get("openAccount");
+    if (!open) return;
+    if (open === "signin") openSignInModal();
+    if (open === "profile") {
+      setEditName(playerName || localStorage.getItem("songiq_player_name") || "");
+      setShowProfileModal(true);
+    }
+    navigate(location.pathname + location.hash, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     // Nickname adoption/sync for signed-in accounts now happens centrally
     // in gameStore.ts's own auth listener (it needs to run regardless of
@@ -108,9 +127,10 @@ export const Header = () => {
     })();
   }, [signedInUser?.id, location.pathname]);
 
-  // Points total shown next to "Keep my score" -- anonymous players already
-  // accrue real points locally, so showing the number makes the sign-in CTA
-  // concrete ("here's what you'd keep") instead of an abstract ask.
+  // Points total shown next to the sign-in CTA, and drives its label --
+  // anonymous players already accrue real points locally, so once they have
+  // some, the button reads "Save my points" instead of a generic "Sign in,"
+  // making the ask concrete instead of abstract.
   useEffect(() => {
     if (!isAnonymous || !playerId) {
       setAnonPoints(null);
@@ -296,13 +316,14 @@ export const Header = () => {
                 >
                   <UserCircle className="w-5 h-5" />
                 </Button>
-                {anonPoints !== null && anonPoints > 0 && (
-                  <span className="text-xs font-semibold text-gold ml-1.5 tabular-nums hidden sm:inline">
-                    {anonPoints.toLocaleString()} pts
-                  </span>
-                )}
-                <Button variant="outline" size="sm" onClick={openSignInModal} className="ml-1">
-                  Keep my score
+                <Button variant="gold" size="sm" onClick={openSignInModal} className="ml-1 rounded-full gap-2 pl-1.5">
+                  {anonPoints !== null && anonPoints > 0 && (
+                    <span className="points-breathe inline-flex items-center px-2.5 py-1 rounded-full bg-background/90 text-gold text-[16px] font-bold tabular-nums normal-case tracking-normal">
+                      {anonPoints.toLocaleString()} pts
+                    </span>
+                  )}
+                  {anonPoints !== null && anonPoints > 0 ? "Save my points" : "Sign in"}
+                  <ArrowRight className="w-4 h-4" />
                 </Button>
               </>
             )}
