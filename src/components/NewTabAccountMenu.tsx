@@ -1,8 +1,17 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, Medal, Menu, Shield, UserCircle } from "lucide-react";
+import { toast } from "sonner";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,6 +22,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useGameStore } from "@/lib/gameStore";
 import { fetchStreakProtectionStatus } from "@/lib/daily";
+import { saveUsername } from "@/lib/challenges";
 
 const NAV_LINKS = [
   { to: "/solo", label: "Solo" },
@@ -30,22 +40,28 @@ const NAV_LINKS = [
  *
  * The signed-in account CHIP itself opens a normal in-page dropdown, same
  * as the real site -- that's just a lightweight popover, not a navigation,
- * so it doesn't risk the room's state. Only the actions *inside* it that
- * would actually navigate (editing your nickname, viewing the leaderboard)
- * open in a new tab; "Sign out" still happens immediately in place, same
- * as everywhere else on the site.
+ * so it doesn't risk the room's state. Inside it, only actions that
+ * actually navigate away (viewing the leaderboard) open in a new tab.
+ * Nickname editing is a quick in-place edit, not a navigation, so it opens
+ * a same-tab Dialog instead, same as "Sign out," which also still happens
+ * immediately in place.
  *
  * Self-contained (pulls playerId/playerName/avatarIndex from useGameStore
  * itself, same as Header.tsx does) -- drop in anywhere, no props needed.
+ * Nickname editing is the one exception: pass `roomId` so a rename can also
+ * update this room's `room_players` row (so other players in the room see
+ * it), same as the room-scoped rename this replaced used to do.
  */
-export function NewTabAccountMenu() {
-  const { playerId, playerName, avatarIndex } = useGameStore();
+export function NewTabAccountMenu({ roomId }: { roomId?: string } = {}) {
+  const { playerId, playerName, avatarIndex, setPlayer } = useGameStore();
   const [isAnonymous, setIsAnonymous] = useState(true);
   const [signedInUser, setSignedInUser] = useState<{ id: string; name: string } | null>(null);
   const [anonPoints, setAnonPoints] = useState<number | null>(null);
   const [totalPoints, setTotalPoints] = useState<number | null>(null);
   const [savesAvailable, setSavesAvailable] = useState<number | null>(null);
   const [nextSaveExpires, setNextSaveExpires] = useState<string | null>(null);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [editName, setEditName] = useState("");
 
   useEffect(() => {
     const applySession = (user: { id: string; is_anonymous?: boolean; user_metadata?: Record<string, unknown> } | null) => {
@@ -104,6 +120,34 @@ export function NewTabAccountMenu() {
   }, [signedInUser?.id]);
 
   const openInNewTab = (path: string) => window.open(path, "_blank", "noopener,noreferrer");
+
+  const openEditName = () => {
+    setEditName(playerName || signedInUser?.name || "");
+    setShowProfileModal(true);
+  };
+
+  const handleSaveName = async () => {
+    const trimmed = editName.trim().replace(/[\x00-\x1F\x7F]/g, "").slice(0, 20);
+    if (trimmed.length < 1) {
+      toast.error("Name must be at least 1 character");
+      return;
+    }
+    if (signedInUser) {
+      const { error } = await (supabase as any).rpc("set_nickname", { p_name: trimmed });
+      if (error) {
+        toast.error("Couldn't update name", { description: error.message });
+        return;
+      }
+    }
+    if (roomId && playerId) {
+      await supabase.from("room_players").update({ player_name: trimmed }).eq("room_id", roomId).eq("player_id", playerId);
+    }
+    setPlayer(trimmed, avatarIndex);
+    saveUsername(trimmed);
+    localStorage.setItem("songiq_player_name", trimmed);
+    setShowProfileModal(false);
+    toast.success(`You're now "${trimmed}"`);
+  };
 
   return (
     <>
@@ -169,7 +213,7 @@ export function NewTabAccountMenu() {
                 )}
               </DropdownMenuLabel>
             )}
-            <DropdownMenuItem onClick={() => openInNewTab("/?openAccount=profile")} className="cursor-pointer">
+            <DropdownMenuItem onClick={openEditName} className="cursor-pointer">
               Update nickname
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => openInNewTab("/leaderboard")} className="cursor-pointer">
@@ -188,8 +232,8 @@ export function NewTabAccountMenu() {
       ) : (
         <>
           <button
-            aria-label="Edit nickname (opens in a new tab)"
-            onClick={() => openInNewTab("/?openAccount=profile")}
+            aria-label="Edit nickname"
+            onClick={openEditName}
             className="text-foreground/70 hover:text-foreground"
           >
             <UserCircle className="w-5 h-5" />
@@ -210,6 +254,38 @@ export function NewTabAccountMenu() {
           </Button>
         </>
       )}
+
+      {/* Nickname editing happens in place -- unlike navigations elsewhere
+          in this menu, it's a quick edit the player wants to make without
+          losing their spot in the room, not a page they're leaving to. */}
+      <Dialog open={showProfileModal} onOpenChange={setShowProfileModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Profile</DialogTitle>
+            <DialogDescription>Change your display name</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <Input
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              placeholder="Your nickname"
+              maxLength={20}
+              className="text-center text-lg"
+              onKeyDown={(e) => e.key === "Enter" && handleSaveName()}
+              autoFocus
+            />
+            <Button
+              variant="gold"
+              size="lg"
+              className="w-full"
+              onClick={handleSaveName}
+              disabled={!editName.trim()}
+            >
+              Save
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

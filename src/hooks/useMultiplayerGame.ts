@@ -347,9 +347,6 @@ export function useMultiplayerGame(roomCode: string) {
 
         if (latestRound) {
           const round = latestRound as RoundData;
-          // Pre-mark this round as reset so the ticker doesn't wipe the
-          // answer state we restore below (mid-round rejoin)
-          lastResetRoundRef.current = round.id;
           ingestRound(round);
 
           if (playerId) {
@@ -363,11 +360,27 @@ export function useMultiplayerGame(roomCode: string) {
             if (answerData) {
               setHasAnswered(true);
               setSelectedAnswer(answerData.answer);
+              setIsCorrect(null);
               // Held back like a fresh answer — the ticker flushes it into
               // isCorrect once the round's reveal window opens
               pendingGradeRef.current = { roundId: round.id, isCorrect: answerData.is_correct };
+            } else {
+              // No answer on file for this round — clear anything left over
+              // from a previous round rather than leaving it stale.
+              setHasAnswered(false);
+              setSelectedAnswer(null);
+              setIsCorrect(null);
+              pendingGradeRef.current = null;
             }
           }
+
+          // Marked as reset only now that hasAnswered/selectedAnswer above
+          // actually reflect this round's real state -- stamping this
+          // before the async check resolves let the ticker's own reset
+          // (below) get short-circuited out of ever firing, leaving stale
+          // "locked in" state on screen for a round the player never
+          // answered.
+          lastResetRoundRef.current = round.id;
         } else {
           // Game just started; round not created yet — show the pre-game
           // screen until the round arrives via broadcast or the poll.

@@ -441,7 +441,7 @@ export default function RoomLobby() {
               opens its usual in-page dropdown (see NewTabAccountMenu). */}
           <NewTabNavMenu />
           <div className="flex items-center gap-1">
-            <NewTabAccountMenu />
+            <NewTabAccountMenu roomId={room?.id} />
           </div>
         </div>
       </header>

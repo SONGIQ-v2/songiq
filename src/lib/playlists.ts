@@ -1318,6 +1318,33 @@ export const PLAYLISTS: Playlist[] = [
     image: "",
     searchTerms: ["__artist:358714030"],
   },
+  {
+    id: "artist-jon-bellion",
+    category: "pop",
+    isArtist: true,
+    name: "Jon Bellion",
+    description: "Jon Bellion, top to bottom",
+    image: "",
+    searchTerms: ["__artist:659289673"],
+  },
+  {
+    id: "artist-one-direction",
+    category: "pop",
+    isArtist: true,
+    name: "One Direction",
+    description: "One Direction, wall to wall",
+    image: "",
+    searchTerms: ["__artist:396754057"],
+  },
+  {
+    id: "artist-billie-eilish",
+    category: "pop",
+    isArtist: true,
+    name: "Billie Eilish",
+    description: "Just Billie Eilish — every hit",
+    image: "",
+    searchTerms: ["__artist:1065981054"],
+  },
 ];
 // Get a playlist by ID
 export function getPlaylistById(id: string): Playlist | undefined {

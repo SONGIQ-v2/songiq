@@ -734,11 +734,12 @@ export default function MultiplayerGame() {
             {/* Nav (desktop) + account section -- matches Header.tsx's own
                 3-way layout. Every click here opens a NEW TAB instead of
                 navigating or showing an in-page dialog, except the
-                signed-in account chip itself, which opens its usual
-                in-page dropdown (see NewTabAccountMenu). */}
+                signed-in account chip itself (its usual in-page dropdown)
+                and nickname editing (an in-place dialog) -- see
+                NewTabAccountMenu. */}
             <NewTabNavMenu />
             <div className="flex items-center gap-1">
-              <NewTabAccountMenu />
+              <NewTabAccountMenu roomId={room?.id} />
             </div>
           </div>
         </header>
