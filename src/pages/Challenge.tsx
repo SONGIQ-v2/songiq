@@ -142,7 +142,15 @@ export default function ChallengePage() {
 
   const handleAccept = () => {
     if (!challenge) return;
-    const trimmed = name.trim() || "A music fan";
+    // The button's disabled state normally blocks this, but that's a UI
+    // affordance, not enforcement -- without this guard too, any click that
+    // slips through empty (seen on iOS) would silently start the game as
+    // "A music fan" instead of actually requiring a nickname.
+    const trimmed = name.trim();
+    if (!trimmed) {
+      toast.error("Enter a nickname to play");
+      return;
+    }
     saveUsername(trimmed);
     setPlayer(trimmed, 1);
     trackEvent("challenge_accept", {
@@ -152,8 +160,62 @@ export default function ChallengePage() {
     navigate("/solo/game", { state: { challenge } });
   };
 
+  // The interactive controls (not the description text above them) for
+  // whichever state this page is in -- rendered twice below: in-flow inside
+  // the card on desktop, and again in a fixed bottom bar on mobile, so a
+  // long leaderboard can never push them past the fold without a manual
+  // screenshot being the only way to grab a result.
+  const ctaControls = !challenge ? null : isCreator ? (
+    <Button
+      variant="gold"
+      size="lg"
+      className="w-full"
+      onClick={async () => {
+        await navigator.clipboard.writeText(challengeUrl(challenge.code));
+        toast.success("Challenge link copied!");
+      }}
+    >
+      <Copy className="w-5 h-5 mr-2" />
+      Copy Challenge Link
+    </Button>
+  ) : myAttempt ? (
+    <>
+      <Button variant="gold" size="lg" className="w-full" onClick={() => navigate("/")}>
+        Play more on SongIQ
+      </Button>
+      <Button variant="outline" size="lg" className="w-full mt-2" onClick={handleShareMyAttempt}>
+        <Share2 className="w-5 h-5 mr-2" />
+        Share my result
+      </Button>
+    </>
+  ) : (
+    <>
+      {!hasKnownName && (
+        <Input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Your nickname"
+          aria-label="Your nickname"
+          maxLength={20}
+          className="text-center text-lg mb-4"
+          onKeyDown={(e) => e.key === "Enter" && name.trim() && handleAccept()}
+        />
+      )}
+      <Button
+        variant="gold"
+        size="lg"
+        className="w-full"
+        onClick={handleAccept}
+        disabled={!name.trim()}
+      >
+        <Play className="w-5 h-5 mr-2" />
+        Accept Challenge →
+      </Button>
+    </>
+  );
+
   return (
-    <div className="min-h-screen bg-background relative overflow-hidden flex items-center justify-center p-4 pt-[calc(var(--header-height)+50px)] md:pt-[calc(var(--header-height)+100px)]">
+    <div className="min-h-screen bg-background relative overflow-hidden flex items-center justify-center p-4 pt-[calc(var(--header-height)+20px)] md:pt-[calc(var(--header-height)+100px)]">
       <Helmet>
         <title>Music Challenge — Beat My Score | SongIQ</title>
         <meta name="description" content="A friend challenged you to a music quiz on SongIQ. Same songs, same options — can you beat their score?" />
@@ -188,25 +250,25 @@ export default function ChallengePage() {
       )}
 
       {status === "ready" && challenge && (
-        <div className="z-10 max-w-md w-full flex flex-col items-center">
+        <div className="z-10 max-w-md w-full flex flex-col items-center pb-24 sm:pb-0">
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="raised-panel p-8 w-full text-center"
+            className="raised-panel p-6 sm:p-8 w-full text-center"
           >
-            <Badge className="uppercase tracking-wide mb-4">
+            <Badge className="uppercase tracking-wide mb-3 sm:mb-4">
               <Swords className="w-3 h-3 mr-1" />
               Challenge
             </Badge>
 
-            <h1 className="glow-heading !text-[2.5rem] mb-4">
+            <h1 className="glow-heading !text-[1.75rem] sm:!text-[2.5rem] mb-2 sm:mb-4">
               {isCreator
                 ? "Your challenge"
                 : myAttempt
                 ? "You played this challenge"
                 : "You've been challenged!"}
             </h1>
-            <p className="text-muted-foreground mb-6">{challenge.category_name}</p>
+            <p className="text-muted-foreground mb-4 sm:mb-6">{challenge.category_name}</p>
 
             {!myAttempt && !isCreator && (
               <div className="bg-background/50 rounded-xl px-0 sm:px-4 py-4 mb-6 flex items-center justify-between text-left gap-3">
@@ -264,66 +326,24 @@ export default function ChallengePage() {
               </div>
             )}
 
-            {isCreator ? (
-            <>
-              <p className="text-foreground/80 font-semibold mb-4">
-                This is your challenge — share the link and watch the leaderboard fill up.
-              </p>
-              <Button
-                variant="gold"
-                size="lg"
-                className="w-full"
-                onClick={async () => {
-                  await navigator.clipboard.writeText(challengeUrl(challenge.code));
-                  toast.success("Challenge link copied!");
-                }}
-              >
-                <Copy className="w-5 h-5 mr-2" />
-                Copy Challenge Link
-              </Button>
-            </>
-          ) : myAttempt ? (
-            <>
-              <p className="text-foreground/80 font-semibold mb-4">
-                First attempt counts — your {myAttempt.score} points are locked in.
-              </p>
-              <Button variant="gold" size="lg" className="w-full" onClick={() => navigate("/")}>
-                Play more on SongIQ
-              </Button>
-              <Button variant="outline" size="lg" className="w-full mt-2" onClick={handleShareMyAttempt}>
-                <Share2 className="w-5 h-5 mr-2" />
-                Share my result
-              </Button>
-            </>
-          ) : (
-            <>
-              <p className="text-foreground/80 font-semibold mb-4">
-                Same songs. Same options. One attempt — make it count.
-              </p>
-              {!hasKnownName && (
-                <Input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Your nickname"
-                  aria-label="Your nickname"
-                  maxLength={20}
-                  className="text-center text-lg mb-4"
-                  onKeyDown={(e) => e.key === "Enter" && name.trim() && handleAccept()}
-                />
-              )}
-              <Button
-                variant="gold"
-                size="lg"
-                className="w-full"
-                onClick={handleAccept}
-                disabled={!name.trim()}
-              >
-                <Play className="w-5 h-5 mr-2" />
-                Accept Challenge →
-              </Button>
-            </>
-          )}
+            <p className="text-foreground/80 font-semibold mb-4">
+              {isCreator
+                ? "This is your challenge — share the link and watch the leaderboard fill up."
+                : myAttempt
+                ? `First attempt counts — your ${myAttempt.score} points are locked in.`
+                : "Same songs. Same options. One attempt — make it count."}
+            </p>
+
+            {/* Desktop only -- mobile gets the same controls in the fixed
+                bottom bar below, so they're never scrolled out of reach. */}
+            <div className="hidden sm:block">{ctaControls}</div>
           </motion.div>
+        </div>
+      )}
+
+      {status === "ready" && challenge && (
+        <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card/95 backdrop-blur-xl p-3">
+          <div className="max-w-md mx-auto">{ctaControls}</div>
         </div>
       )}
     </div>

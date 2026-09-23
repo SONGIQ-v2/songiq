@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { motion } from "framer-motion";
 import { Music2, Play, CalendarDays, Flame, Share2 } from "lucide-react";
+import { toast } from "sonner";
 import { Starfield } from "@/components/Starfield";
 import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
@@ -153,7 +154,15 @@ export default function Daily() {
 
   const handlePlay = () => {
     if (!daily) return;
-    const trimmed = name.trim() || "A music fan";
+    // The Play buttons' disabled state normally blocks this, but that's a
+    // UI affordance, not enforcement -- without this guard too, any click
+    // that slips through empty (seen on iOS) would silently start the game
+    // as "A music fan" instead of actually requiring a nickname.
+    const trimmed = name.trim();
+    if (!trimmed) {
+      toast.error("Enter a nickname to play");
+      return;
+    }
     saveUsername(trimmed);
     setPlayer(trimmed, 1);
     // Reuse the solo engine's challenge mode with the daily plan

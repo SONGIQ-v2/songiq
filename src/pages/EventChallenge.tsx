@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { motion } from "framer-motion";
 import { Music2, Play, Lock, Headphones, Zap, Repeat } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -120,7 +121,15 @@ export default function EventChallenge({ slug }: { slug: string }) {
 
   const handlePlay = () => {
     if (!event) return;
-    const trimmed = name.trim() || "A music fan";
+    // The Play buttons' disabled state normally blocks this, but that's a
+    // UI affordance, not enforcement -- without this guard too, any click
+    // that slips through empty (seen on iOS) would silently start the game
+    // as "A music fan" instead of actually requiring a nickname.
+    const trimmed = name.trim();
+    if (!trimmed) {
+      toast.error("Enter a nickname to play");
+      return;
+    }
     saveUsername(trimmed);
     setPlayer(trimmed, 1);
     setCategory(event.playlist_id);

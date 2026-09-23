@@ -84,6 +84,7 @@
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^15.15.0",
     "lovable-tagger": "^1.1.13",
+    "playwright": "^1.63.0",
     "postcss": "^8.5.6",
     "react-email": "^6.9.3",
     "tailwindcss": "^3.4.17",
