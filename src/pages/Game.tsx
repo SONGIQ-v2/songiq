@@ -44,7 +44,7 @@ import { calculatePoints } from "@/lib/spotify";
 import { logError, logWarn, logInfo } from "@/lib/clientLogger";
 import { vibrateRoundStart, vibrateCorrect, vibrateIncorrect } from "@/lib/haptics";
 import { warmAudioUrl, preloadAudio, playWithWatchdog, prefetchAudio } from "@/lib/audioPreload";
-import { buildShareText, buildStreakRepairShareText, shareResult } from "@/lib/shareCard";
+import { buildShareText, buildStreakRepairShareText, shareResult, isIOSDevice } from "@/lib/shareCard";
 import { StreakSaveModal, type StreakSaveEvent } from "@/components/StreakSaveModal";
 import { shareResultImage } from "@/lib/shareImage";
 import { trackEvent } from "@/lib/analytics";
@@ -1044,15 +1044,28 @@ export default function Game() {
       if (!challenge && !createdChallengeRef.current && planRef.current.length > 0) {
         const knownName = playerName || getSavedUsername();
         if (knownName) {
-          const code = await createChallenge({
+          const createOpts = {
             creator_name: knownName,
             creator_score: soloScore,
             category_name: playlistName || playlist?.name || "Music Quiz",
             time_per_round: ROUND_TIME / 1000,
             plan: planRef.current,
-          });
-          createdChallengeRef.current = code;
-          trackEvent("challenge_create", { challenge_code: code, score: soloScore, source: "solo" });
+          };
+          if (isIOSDevice()) {
+            // Don't block the share on this network round-trip -- iOS loses
+            // navigator.share()'s user-gesture eligibility across any async
+            // delay before the call. This share just goes out without an
+            // embedded link this one time; the code still lands in
+            // createdChallengeRef for next time once it resolves.
+            createChallenge(createOpts).then((code) => {
+              createdChallengeRef.current = code;
+              trackEvent("challenge_create", { challenge_code: code, score: soloScore, source: "solo" });
+            });
+          } else {
+            const code = await createChallenge(createOpts);
+            createdChallengeRef.current = code;
+            trackEvent("challenge_create", { challenge_code: code, score: soloScore, source: "solo" });
+          }
         }
       }
 
@@ -1096,7 +1109,9 @@ export default function Game() {
       // toward the creator's own repair progress if they're mid-window --
       // frame the share as "help me," not just "beat my score."
       let text = buildShareText(cardOpts);
-      if (code && !challenge) {
+      // Skipped on iOS -- same user-gesture reasoning as above; the plain
+      // "beat my score" text still goes out, just without this framing.
+      if (code && !challenge && !isIOSDevice()) {
         const status = await fetchStreakProtectionStatus();
         if (status?.status === "repair") {
           text = buildStreakRepairShareText({ streak: status.current_streak, challengeUrl: challengeUrl(code) });

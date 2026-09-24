@@ -8,6 +8,7 @@ import { Starfield } from "@/components/Starfield";
 import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { DailyReminderButton } from "@/components/DailyReminderButton";
+import { InstallPrompt } from "@/components/InstallPrompt";
 import { DailyPodium } from "@/components/DailyPodium";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
@@ -314,7 +315,8 @@ export default function Daily() {
             />
           </div>
 
-          <DailyReminderButton variant="card" className="mb-12 max-w-[800px] mx-auto" />
+          <DailyReminderButton variant="card" className="mb-4 max-w-[800px] mx-auto" />
+          <InstallPrompt className="mb-12 max-w-[800px] mx-auto" />
 
           {/* Podium */}
           <div className="mb-12">

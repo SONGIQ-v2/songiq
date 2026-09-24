@@ -3,7 +3,7 @@
 // share in shareCard.ts if anything here fails.
 
 import songiqLogo from "@/assets/songiq-logo.png";
-import { copyText, isMobileDevice, type ShareCardOptions } from "@/lib/shareCard";
+import { copyText, isMobileDevice, isIOSDevice, type ShareCardOptions } from "@/lib/shareCard";
 
 // Theme tokens (mirrors src/index.css)
 const COLORS = {
@@ -182,6 +182,15 @@ export type ImageShareOutcome =
  * file sharing) download the PNG and copy the text so it can be pasted.
  */
 export async function shareResultImage(opts: ShareCardOptions, text: string): Promise<ImageShareOutcome> {
+  // The render below (font loading, logo fetch, canvas encode) is real
+  // async work between the click and navigator.share() -- on iOS that
+  // reliably loses the user-gesture eligibility share() needs, so the
+  // share sheet silently fails to open instead of showing up with the
+  // image. Skip straight to the caller's existing text-only fallback
+  // (shareResult(), which calls share() with nothing awaited first) rather
+  // than racing a gesture we already know we'll lose.
+  if (isIOSDevice()) return "failed";
+
   let blob: Blob | null = null;
   try {
     blob = await renderShareCard(opts);

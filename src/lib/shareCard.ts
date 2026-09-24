@@ -90,6 +90,20 @@ export function isMobileDevice(): boolean {
   return false;
 }
 
+/**
+ * True on iOS/iPadOS, regardless of browser -- Chrome, Edge, Firefox, etc.
+ * are all required to run on WebKit there (App Store policy), so they all
+ * inherit Safari's much stricter navigator.share() user-gesture window:
+ * any async delay (a fetch, a canvas render) between the click and the
+ * share() call reliably loses it, where Chromium tolerates it fine.
+ */
+export function isIOSDevice(): boolean {
+  const ua = navigator.userAgent;
+  if (/iphone|ipad|ipod/i.test(ua)) return true;
+  if (/mac/i.test(ua) && navigator.maxTouchPoints > 1) return true;
+  return false;
+}
+
 /** Legacy copy fallback for when the async Clipboard API rejects
  * (stale user gesture, unfocused document, older browsers). */
 export function legacyCopyText(text: string): boolean {

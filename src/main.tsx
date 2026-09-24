@@ -3,6 +3,7 @@ import { HelmetProvider } from "react-helmet-async";
 import App from "./App.tsx";
 import "./index.css";
 import { installGlobalErrorLogging } from "./lib/clientLogger";
+import "./lib/pwaInstall";
 
 installGlobalErrorLogging();
 
