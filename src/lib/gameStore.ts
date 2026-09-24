@@ -230,4 +230,12 @@ async function resolveSignedInIdentity(user: { id: string; user_metadata?: Recor
     useGameStore.getState().setPlayer(dbName, useGameStore.getState().avatarIndex);
     localStorage.setItem("songiq_player_name", dbName);
   }
+
+  // Fire-and-forget admin alert for brand-new accounts. The edge function
+  // decides whether this is genuinely a first sign-in (it reads the caller's
+  // own JWT and claims a once-per-account row), so calling it on every
+  // sign-in transition is safe and never double-sends.
+  supabase.functions
+    .invoke("notify-new-signup")
+    .catch((e) => console.error("notify-new-signup failed:", e));
 }
