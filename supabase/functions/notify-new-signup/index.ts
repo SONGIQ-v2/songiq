@@ -55,20 +55,18 @@ Deno.serve(async (req) => {
 
     // Claim the alert. ON CONFLICT DO NOTHING means a second caller gets zero
     // rows back and quietly stops here.
-    const { data: claimed, error: claimErr } = await admin
+    // A plain INSERT, not an upsert: the primary key is the lock. Exactly one
+    // concurrent caller can succeed; everyone else gets 23505 and stops.
+    const { error: claimErr } = await admin
       .from('signup_notifications')
-      .upsert(
-        { user_id: user.id, email: user.email ?? null, provider },
-        { onConflict: 'user_id', ignoreDuplicates: true }
-      )
-      .select('user_id')
+      .insert({ user_id: user.id, email: user.email ?? null, provider })
 
     if (claimErr) {
+      if (claimErr.code === '23505') {
+        return json({ skipped: 'already-notified' })
+      }
       console.error('[notify-new-signup] claim failed:', claimErr.message)
       return json({ error: 'Failed to record signup' }, 500)
-    }
-    if (!claimed || claimed.length === 0) {
-      return json({ skipped: 'already-notified' })
     }
 
     const { count } = await admin
@@ -80,7 +78,11 @@ Deno.serve(async (req) => {
       (user.user_metadata?.name as string | undefined) ??
       'Player'
 
+    // The Authorization header must be set explicitly: functions.invoke()
+    // does not forward the client's own service-role key, and without it the
+    // send function correctly rejects the call as unauthenticated.
     const { error: sendErr } = await admin.functions.invoke('send-transactional-email', {
+      headers: { Authorization: `Bearer ${serviceKey}` },
       body: {
         templateName: 'new-signup-notification',
         idempotencyKey: `new-signup-${user.id}`,
@@ -95,8 +97,18 @@ Deno.serve(async (req) => {
     })
 
     if (sendErr) {
-      console.error('[notify-new-signup] email queue failed:', sendErr.message)
-      return json({ error: 'Failed to queue notification' }, 500)
+      let detail = ''
+      try {
+        const ctx = (sendErr as { context?: Response }).context
+        if (ctx && typeof ctx.text === 'function') {
+          detail = `${ctx.status} ${await ctx.text()}`
+        }
+      } catch { /* best effort */ }
+      console.error('[notify-new-signup] email queue failed:', sendErr.message, detail)
+      // 200, not 500: the player's sign-in succeeded and nothing on their side
+      // can retry this. Surfacing a 5xx only breaks the client; the failure is
+      // recorded in the logs for us instead.
+      return json({ success: false, warning: 'email-queue-failed' })
     }
 
     console.log(`[notify-new-signup] alert queued for ${user.email ?? user.id}`)

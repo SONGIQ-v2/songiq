@@ -58,7 +58,10 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    await supabase.functions.invoke('send-transactional-email', {
+    // functions.invoke() does not forward the client's own service-role key,
+    // so set it explicitly -- otherwise the send function rejects the call.
+    const { error: sendErr } = await supabase.functions.invoke('send-transactional-email', {
+      headers: { Authorization: `Bearer ${supabaseServiceKey}` },
       body: {
         templateName: 'feedback-notification',
         idempotencyKey: `feedback-${feedbackId}`,
@@ -74,6 +77,10 @@ Deno.serve(async (req) => {
         },
       },
     })
+
+    if (sendErr) {
+      console.error('[feedback-notify] email queue failed:', sendErr.message)
+    }
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
