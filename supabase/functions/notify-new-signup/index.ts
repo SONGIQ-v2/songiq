@@ -93,7 +93,14 @@ Deno.serve(async (req) => {
     })
 
     if (sendErr) {
-      console.error('[notify-new-signup] email queue failed:', sendErr.message)
+      let detail = ''
+      try {
+        const ctx = (sendErr as { context?: Response }).context
+        if (ctx && typeof ctx.text === 'function') {
+          detail = `${ctx.status} ${await ctx.text()}`
+        }
+      } catch { /* best effort */ }
+      console.error('[notify-new-signup] email queue failed:', sendErr.message, detail)
       return json({ error: 'Failed to queue notification' }, 500)
     }
 
