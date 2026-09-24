@@ -55,20 +55,18 @@ Deno.serve(async (req) => {
 
     // Claim the alert. ON CONFLICT DO NOTHING means a second caller gets zero
     // rows back and quietly stops here.
-    const { data: claimed, error: claimErr } = await admin
+    // A plain INSERT, not an upsert: the primary key is the lock. Exactly one
+    // concurrent caller can succeed; everyone else gets 23505 and stops.
+    const { error: claimErr } = await admin
       .from('signup_notifications')
-      .upsert(
-        { user_id: user.id, email: user.email ?? null, provider },
-        { onConflict: 'user_id', ignoreDuplicates: true }
-      )
-      .select('user_id')
+      .insert({ user_id: user.id, email: user.email ?? null, provider })
 
     if (claimErr) {
+      if (claimErr.code === '23505') {
+        return json({ skipped: 'already-notified' })
+      }
       console.error('[notify-new-signup] claim failed:', claimErr.message)
       return json({ error: 'Failed to record signup' }, 500)
-    }
-    if (!claimed || claimed.length === 0) {
-      return json({ skipped: 'already-notified' })
     }
 
     const { count } = await admin
