@@ -78,6 +78,10 @@ Deno.serve(async (req) => {
       },
     })
 
+    if (sendErr) {
+      console.error('[feedback-notify] email queue failed:', sendErr.message)
+    }
+
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
