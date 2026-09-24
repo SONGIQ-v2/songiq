@@ -78,7 +78,11 @@ Deno.serve(async (req) => {
       (user.user_metadata?.name as string | undefined) ??
       'Player'
 
+    // The Authorization header must be set explicitly: functions.invoke()
+    // does not forward the client's own service-role key, and without it the
+    // send function correctly rejects the call as unauthenticated.
     const { error: sendErr } = await admin.functions.invoke('send-transactional-email', {
+      headers: { Authorization: `Bearer ${serviceKey}` },
       body: {
         templateName: 'new-signup-notification',
         idempotencyKey: `new-signup-${user.id}`,
