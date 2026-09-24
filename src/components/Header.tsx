@@ -188,7 +188,19 @@ export const Header = () => {
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           {/* Logo - left aligned */}
           <Link to="/" className="flex items-center" aria-label="SongIQ home">
-            <img src={songiqLogo} alt="SongIQ — Music Trivia Game" width="160" height="40" fetchPriority="high" decoding="async" className="h-8 md:h-10 w-auto" />
+            <img
+              src={songiqLogo}
+              alt="SongIQ — Music Trivia Game"
+              width="160"
+              height="40"
+              decoding="async"
+              className="h-8 md:h-10 w-auto"
+              // @ts-expect-error -- lowercase DOM attribute, not the typed
+              // camelCase `fetchPriority`: React 18 (installed here) doesn't
+              // recognize that prop yet (added in React 19) and warns unless
+              // it's spelled as the raw HTML attribute name instead.
+              fetchpriority="high"
+            />
           </Link>
 
           {/* Nav - desktop */}
