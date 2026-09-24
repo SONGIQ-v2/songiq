@@ -105,7 +105,10 @@ Deno.serve(async (req) => {
         }
       } catch { /* best effort */ }
       console.error('[notify-new-signup] email queue failed:', sendErr.message, detail)
-      return json({ error: 'Failed to queue notification' }, 500)
+      // 200, not 500: the player's sign-in succeeded and nothing on their side
+      // can retry this. Surfacing a 5xx only breaks the client; the failure is
+      // recorded in the logs for us instead.
+      return json({ success: false, warning: 'email-queue-failed' })
     }
 
     console.log(`[notify-new-signup] alert queued for ${user.email ?? user.id}`)
