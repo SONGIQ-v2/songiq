@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { motion } from "framer-motion";
-import { Music2, Play, CalendarDays, Flame, Share2 } from "lucide-react";
+import { Music2, Play, CalendarDays, Flame, Share2, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { Starfield } from "@/components/Starfield";
 import { Header } from "@/components/Header";
@@ -27,6 +27,7 @@ import {
   fetchMyDailyRank,
   fetchDailyStatsLeaderboard,
   fetchMyDailyStats,
+  fetchStreakProtectionStatus,
   isStreakActive,
   isStreakAtRisk,
   DAILY_URL,
@@ -34,6 +35,7 @@ import {
   type DailyAttempt,
   type DailyStats,
   type DailyLeaderboardStats,
+  type StreakProtectionStatus,
 } from "@/lib/daily";
 
 // Day boundary is Lagos midnight (UTC+1), i.e. 23:00 UTC -- same convention
@@ -87,6 +89,7 @@ export default function Daily() {
   const [myStats, setMyStats] = useState<DailyStats | null>(null);
   const [myAttempt, setMyAttempt] = useState<DailyAttempt | null>(null);
   const [myRank, setMyRank] = useState<number | null>(null);
+  const [streakStatus, setStreakStatus] = useState<StreakProtectionStatus | null>(null);
   const [tab, setTab] = useState<"today" | "alltime">("today");
   const [streakSortBy, setStreakSortBy] = useState<"streak" | "score">("streak");
   const [name, setName] = useState("");
@@ -116,6 +119,7 @@ export default function Daily() {
       setAllTime(board);
       setMyStats(mine);
       setMyAttempt(attempt);
+      if (pid) fetchStreakProtectionStatus().then(setStreakStatus);
       fetchVerifiedPlayerIds([
         ...rows.map((r) => r.player_id),
         ...board.map((b) => b.player_id),
@@ -261,6 +265,19 @@ export default function Daily() {
 
             {myAttempt ? null : (
               <div className="max-w-sm mx-auto">
+                {streakStatus?.status === "repair" && (
+                  <div className="bg-destructive/10 border border-destructive/30 rounded-xl px-4 py-3 mb-4 text-left flex items-start gap-2.5">
+                    <ShieldAlert className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+                    <p className="text-xs text-muted-foreground">
+                      <span className="text-foreground font-semibold">Playing now resets your streak to 1</span> instead
+                      of restoring your {streakStatus.current_streak}-day streak —{" "}
+                      {streakStatus.repair_day_number != null && streakStatus.repair_day_number >= 4
+                        ? `${streakStatus.repair_progress_challenges ?? 0} of ${streakStatus.repair_target_challenges} challenges filled`
+                        : `${streakStatus.repair_progress_friends ?? 0} of ${streakStatus.repair_target_friends} friends played`}{" "}
+                      so far. Wait for your friends to finish your challenge link, or play anyway to start fresh.
+                    </p>
+                  </div>
+                )}
                 {!hasKnownName && (
                   <Input
                     value={name}

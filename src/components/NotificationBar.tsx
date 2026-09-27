@@ -91,12 +91,23 @@ export function NotificationBar({ isAnonymous }: { isAnonymous: boolean }) {
       setStreakStatus(status);
       if (!status) return;
       // A player who was mid-repair last time we checked and no longer is
-      // (without having played Daily themselves -- that always resets the
-      // key too) had it cleared by their friends. Detected here rather than
-      // in Daily.tsx since restoration is friend-triggered, not tied to any
-      // action this player took.
+      // had it cleared by their friends -- detected here rather than in
+      // Daily.tsx since restoration is friend-triggered, not tied to any
+      // action this player took. But leaving repair status isn't proof of
+      // that on its own: playing Daily directly during an open window also
+      // leaves "repair" status (apply_daily_attempt() resets the streak to
+      // 1 and overwrites last_played, which is what "repair" is keyed off).
+      // Entering repair requires current_streak >= 2 in the first place
+      // (get_streak_protection_status()), so a real restoration can never
+      // leave current_streak at exactly 1 -- only the forfeit-by-playing
+      // case does. That's the actual discriminator, not the status alone.
       const lastStatus = localStorage.getItem(LAST_STATUS_KEY);
-      if (lastStatus === "repair" && status.status !== "repair" && status.status !== "lost") {
+      if (
+        lastStatus === "repair" &&
+        status.status !== "repair" &&
+        status.status !== "lost" &&
+        status.current_streak > 1
+      ) {
         setRestoredModalStreak(status.current_streak);
       }
       localStorage.setItem(LAST_STATUS_KEY, status.status);
