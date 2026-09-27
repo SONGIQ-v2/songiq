@@ -65,11 +65,21 @@ async function ensureUserId(): Promise<string | null> {
   return data.user?.id ?? null;
 }
 
-export async function createChallenge(input: Omit<Challenge, "code" | "creator_id">): Promise<string | null> {
+/**
+ * @param presetCode Use this exact code on the first attempt instead of
+ * generating a fresh one -- for a caller that already committed to a code
+ * client-side (e.g. sharing it immediately, before this insert resolves)
+ * and needs the eventual row to match. Falls back to a generated code on
+ * retry if it collides, same as the normal path.
+ */
+export async function createChallenge(
+  input: Omit<Challenge, "code" | "creator_id">,
+  presetCode?: string
+): Promise<string | null> {
   const creatorId = await ensureUserId();
   // Retry on the (unlikely) code collision
   for (let attempt = 0; attempt < 3; attempt++) {
-    const code = generateRoomCode();
+    const code = attempt === 0 && presetCode ? presetCode : generateRoomCode();
     const { error } = await (supabase as any)
       .from("challenges")
       .insert({ code, creator_id: creatorId, ...input });

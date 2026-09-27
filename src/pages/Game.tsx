@@ -40,7 +40,7 @@ import { useAppleMusic, type AppleMusicTrack } from "@/hooks/useAppleMusic";
 import { supabase } from "@/integrations/supabase/client";
 import { useGameStore } from "@/lib/gameStore";
 import { PLAYLISTS, getPlaylistById } from "@/lib/playlists";
-import { calculatePoints } from "@/lib/spotify";
+import { calculatePoints, generateRoomCode } from "@/lib/spotify";
 import { logError, logWarn, logInfo } from "@/lib/clientLogger";
 import { vibrateRoundStart, vibrateCorrect, vibrateIncorrect } from "@/lib/haptics";
 import { warmAudioUrl, preloadAudio, playWithWatchdog, prefetchAudio } from "@/lib/audioPreload";
@@ -1052,14 +1052,17 @@ export default function Game() {
             plan: planRef.current,
           };
           if (isIOSDevice()) {
-            // Don't block the share on this network round-trip -- iOS loses
+            // Don't block the share on the actual insert -- iOS loses
             // navigator.share()'s user-gesture eligibility across any async
-            // delay before the call. This share just goes out without an
-            // embedded link this one time; the code still lands in
-            // createdChallengeRef for next time once it resolves.
-            createChallenge(createOpts).then((code) => {
-              createdChallengeRef.current = code;
-              trackEvent("challenge_create", { challenge_code: code, score: soloScore, source: "solo" });
+            // delay before the call. The code itself is generated
+            // client-side (createChallenge()'s own logic) though, so there's
+            // no need to wait on the network just to know it -- use it in
+            // the share immediately and let the real insert land in the
+            // background, passing the same code through so the two agree.
+            const code = generateRoomCode();
+            createdChallengeRef.current = code;
+            createChallenge(createOpts, code).then((finalCode) => {
+              if (finalCode) trackEvent("challenge_create", { challenge_code: finalCode, score: soloScore, source: "solo" });
             });
           } else {
             const code = await createChallenge(createOpts);
