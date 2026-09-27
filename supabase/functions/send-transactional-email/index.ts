@@ -57,8 +57,16 @@ Deno.serve(async (req) => {
     )
   }
 
-  const callerClaims = parseJwtClaims(authHeader.slice('Bearer '.length).trim())
-  if (callerClaims?.role !== 'service_role') {
+  // Two accepted shapes for the caller's credential:
+  //  1. A legacy service-role JWT, whose `role` claim we read below.
+  //  2. The project's current secret API key (`sb_secret_...`), which is not a
+  //     JWT at all -- match it directly against the env value. Without this,
+  //     every server-to-server send fails with 403 after a key-format rotation.
+  const callerToken = authHeader.slice('Bearer '.length).trim()
+  const serviceKeyEnv = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  const isServiceKey = serviceKeyEnv.length > 0 && callerToken === serviceKeyEnv
+  const callerClaims = parseJwtClaims(callerToken)
+  if (!isServiceKey && callerClaims?.role !== 'service_role') {
     return new Response(
       JSON.stringify({ error: 'Forbidden' }),
       { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

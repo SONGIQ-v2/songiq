@@ -998,6 +998,27 @@ export type Database = {
           },
         ]
       }
+      signup_notifications: {
+        Row: {
+          email: string | null
+          notified_at: string
+          provider: string | null
+          user_id: string
+        }
+        Insert: {
+          email?: string | null
+          notified_at?: string
+          provider?: string | null
+          user_id: string
+        }
+        Update: {
+          email?: string | null
+          notified_at?: string
+          provider?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       site_notifications: {
         Row: {
           created_at: string

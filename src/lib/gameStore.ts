@@ -230,4 +230,23 @@ async function resolveSignedInIdentity(user: { id: string; user_metadata?: Recor
     useGameStore.getState().setPlayer(dbName, useGameStore.getState().avatarIndex);
     localStorage.setItem("songiq_player_name", dbName);
   }
+
+  // Fire-and-forget admin alert for brand-new accounts. The edge function
+  // decides whether this is genuinely a first sign-in (it reads the caller's
+  // own JWT and claims a once-per-account row), so calling it on every
+  // sign-in transition is safe and never double-sends.
+  // Deliberately swallowed: this is an internal admin alert. A failure here
+  // must never surface to the player or interrupt sign-in, so both the
+  // returned error and any thrown/rejected error are logged at debug level
+  // only. invoke() reports non-2xx via `error` rather than rejecting.
+  void (async () => {
+    try {
+      const { error: notifyError } = await supabase.functions.invoke("notify-new-signup");
+      if (notifyError) {
+        console.debug("notify-new-signup skipped:", notifyError.message);
+      }
+    } catch (e) {
+      console.debug("notify-new-signup skipped:", e);
+    }
+  })();
 }
