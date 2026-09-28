@@ -6,6 +6,7 @@ const NAV_LINKS = [
   { to: "/solo", label: "Solo" },
   { to: "/multiplayer", label: "Multiplayer" },
   { to: "/daily", label: "Daily Challenge" },
+  { to: "/challenges", label: "Challenges" },
   { to: "/leaderboard", label: "Leaderboard" },
   { to: "/how-it-works", label: "How it works" },
 ];

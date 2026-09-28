@@ -14,6 +14,7 @@ import ChallengePage from "./pages/Challenge";
 import ChallengeBoard from "./pages/ChallengeBoard";
 import EventChallenge from "./pages/EventChallenge";
 import Daily from "./pages/Daily";
+import BrowseChallenges from "./pages/BrowseChallenges";
 import Leaderboard from "./pages/Leaderboard";
 import HowItWorks from "./pages/HowItWorks";
 import Admin from "./pages/Admin";
@@ -50,6 +51,7 @@ const App = () => (
           <Route path="/c/:code/board" element={<ChallengeBoard />} />
           <Route path="/bnb" element={<EventChallenge slug="bnb" />} />
           <Route path="/daily" element={<Daily />} />
+          <Route path="/challenges" element={<BrowseChallenges />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/how-it-works" element={<HowItWorks />} />
           <Route path="/anonymous" element={<Admin />} />

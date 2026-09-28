@@ -159,6 +159,52 @@ export async function fetchChallengeAttempts(code: string): Promise<ChallengeAtt
   return data as ChallengeAttempt[];
 }
 
+export interface PublicChallengeSummary {
+  code: string;
+  creator_id: string | null;
+  creator_name: string;
+  category_name: string;
+  time_per_round: number;
+  song_count: number;
+  attempt_count: number;
+  top_name: string;
+  top_score: number;
+  created_at: string;
+}
+
+export const PUBLIC_CHALLENGES_PAGE_SIZE = 20;
+
+/** Public feed of recently created challenges, for social proof on the
+ *  Browse Challenges page. Never returns `plan` -- see the RPC's own
+ *  migration comment for why that matters. */
+export async function listPublicChallenges(
+  offset: number,
+  limit: number = PUBLIC_CHALLENGES_PAGE_SIZE
+): Promise<PublicChallengeSummary[]> {
+  const { data, error } = await (supabase as any).rpc("list_public_challenges", {
+    p_limit: limit,
+    p_offset: offset,
+  });
+  if (error || !data) return [];
+  return data as PublicChallengeSummary[];
+}
+
+/** This viewer's own score on each of the given challenges, if they've
+ *  already played it -- challenge_attempts is already fully public
+ *  (SELECT ... USING (true)), no new RPC needed. */
+export async function fetchMyChallengeScores(
+  codes: string[],
+  playerId: string
+): Promise<Map<string, number>> {
+  if (codes.length === 0) return new Map();
+  const { data } = await (supabase as any)
+    .from("challenge_attempts")
+    .select("challenge_code, score")
+    .in("challenge_code", codes)
+    .eq("player_id", playerId);
+  return new Map((data ?? []).map((r: any) => [r.challenge_code, r.score as number]));
+}
+
 export async function fetchChallenge(code: string): Promise<Challenge | null> {
   // Via the RPC, not a direct table select -- challenges is now scoped to
   // "your own creations" at the RLS level; a shared link's recipient is
