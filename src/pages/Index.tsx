@@ -8,6 +8,7 @@ import { Header } from "@/components/Header";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
 import { PlaylistCard } from "@/components/PlaylistCard";
+import { ChallengeCard } from "@/components/ChallengeCard";
 import { Button } from "@/components/ui/button";
 import { getMotionVariants, BUTTON_SPRING } from "@/lib/motion";
 import { useGameStore } from "@/lib/gameStore";
@@ -24,6 +25,11 @@ import {
   type DailyAttempt,
   type DailyStats,
 } from "@/lib/daily";
+import {
+  listPublicChallenges,
+  fetchMyChallengeScores,
+  type PublicChallengeSummary,
+} from "@/lib/challenges";
 import { fetchVerifiedPlayerIds } from "@/lib/verifiedPlayers";
 
 const HOW_TO_PLAY = [
@@ -65,7 +71,7 @@ function formatCountdown(ms: number): string {
 
 const Index = () => {
   const navigate = useNavigate();
-  const { initializeAuth, setCategory } = useGameStore();
+  const { playerId, initializeAuth, setCategory } = useGameStore();
   const { getPlaylistTracks } = useAppleMusic();
   const shouldReduceMotion = useReducedMotion();
   const { container, pop, fade } = getMotionVariants(!!shouldReduceMotion);
@@ -76,6 +82,10 @@ const Index = () => {
   const [totalPlayedToday, setTotalPlayedToday] = useState(0);
   const [verifiedIds, setVerifiedIds] = useState<Set<string>>(new Set());
   const [dailyCountdown, setDailyCountdown] = useState("");
+
+  const [activeChallenges, setActiveChallenges] = useState<PublicChallengeSummary[]>([]);
+  const [challengeVerifiedIds, setChallengeVerifiedIds] = useState<Set<string>>(new Set());
+  const [myChallengeScores, setMyChallengeScores] = useState<Map<string, number>>(new Map());
 
   // Ticks once a second while today's challenge is shown, so "Ends in" stays live.
   useEffect(() => {
@@ -119,6 +129,23 @@ const Index = () => {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const rows = await listPublicChallenges(0, 3);
+        setActiveChallenges(rows);
+        fetchVerifiedPlayerIds(rows.map((r) => r.creator_id)).then(setChallengeVerifiedIds);
+      } catch {
+        // homepage works fine without the active-challenges section
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (!playerId || activeChallenges.length === 0) return;
+    fetchMyChallengeScores(activeChallenges.map((c) => c.code), playerId).then(setMyChallengeScores);
+  }, [playerId, activeChallenges]);
 
   useEffect(() => {
     (async () => {
@@ -293,6 +320,39 @@ const Index = () => {
                 )}
               </div>
             </motion.div>
+          )}
+
+          {/* Active Challenges — real players' scores, pulled straight to the
+              homepage so this is the first thing a visitor sees, not just a
+              nav link away (see src/pages/BrowseChallenges.tsx for the full
+              feed). Omitted entirely (no empty-state teaser) until at least
+              one challenge has actually been played. */}
+          {activeChallenges.length > 0 && (
+            <motion.section className="mb-[100px]" variants={container(0.08)}>
+              <motion.h2 variants={fade} className="font-display text-4xl text-center mb-2">
+                Active Challenges
+              </motion.h2>
+              <p className="text-muted-foreground text-sm text-center mb-8">
+                Real players, real scores — pick one and beat it
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {activeChallenges.map((c) => (
+                  <ChallengeCard
+                    key={c.code}
+                    variants={pop}
+                    challenge={c}
+                    verified={challengeVerifiedIds.has(c.creator_id ?? "")}
+                    isOwn={!!playerId && c.creator_id === playerId}
+                    myScore={myChallengeScores.get(c.code)}
+                  />
+                ))}
+              </div>
+              <motion.div variants={fade} className="flex justify-center mt-6">
+                <Button variant="outline" onClick={() => navigate("/challenges")}>
+                  View All Challenges
+                </Button>
+              </motion.div>
+            </motion.section>
           )}
 
           {/* Pick Your Battlefield — deliberately wider than the page's 900px column */}

@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, type Variants } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
 import { Hash, Clock, Trophy, Users } from "lucide-react";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
@@ -13,9 +13,13 @@ interface ChallengeCardProps {
   isOwn: boolean;
   /** Set if the viewer already has an attempt on this code */
   myScore?: number;
+  /** Lets a parent stagger this card into its own entrance animation
+   *  (e.g. Index.tsx's container()/pop convention) -- optional since
+   *  BrowseChallenges.tsx doesn't stagger its own grid. */
+  variants?: Variants;
 }
 
-export function ChallengeCard({ challenge, verified, isOwn, myScore }: ChallengeCardProps) {
+export function ChallengeCard({ challenge, verified, isOwn, myScore, variants }: ChallengeCardProps) {
   const {
     code,
     creator_id,
@@ -34,24 +38,28 @@ export function ChallengeCard({ challenge, verified, isOwn, myScore }: Challenge
   return (
     <Link to={`/c/${code}`} className="block">
       <motion.div
+        variants={variants}
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
         className="rounded-xl border-2 border-border/50 hover:border-primary/50 bg-card/50 transition-colors p-4 h-full"
       >
-        <div className="flex items-center justify-between gap-2 mb-3">
+        <div className="flex items-center justify-between gap-x-2 gap-y-1 flex-wrap mb-3">
           <div className="flex items-center gap-2 min-w-0">
             <PlayerAvatar variant="icon-only" size="xs" name={creator_name} avatarIndex={1} playerId={creator_id ?? undefined} />
-            <span className="text-xs text-muted-foreground truncate">
-              Created by <span className="font-semibold text-foreground">{creator_name}</span>
-            </span>
-            {verified && <VerifiedBadge />}
-            {isOwn && (
+            {isOwn ? (
               <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-primary bg-primary/10 border border-primary/30 rounded-full px-2 py-0.5">
                 Your challenge
               </span>
+            ) : (
+              <>
+                <span className="text-xs text-muted-foreground truncate">
+                  Created by <span className="font-semibold text-foreground">{creator_name}</span>
+                </span>
+                {verified && <VerifiedBadge />}
+              </>
             )}
           </div>
-          <span className="shrink-0 text-xs text-muted-foreground">
+          <span className="shrink-0 text-xs text-muted-foreground ml-auto">
             {formatDistanceToNow(new Date(created_at), { addSuffix: true })}
           </span>
         </div>
