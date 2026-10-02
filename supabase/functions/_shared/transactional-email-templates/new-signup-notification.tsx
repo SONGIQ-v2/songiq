@@ -63,6 +63,18 @@ const Email = ({ name, email, provider, signedUpAt, totalAccounts, ip, country, 
               <Text style={value}>{String(totalAccounts)}</Text>
             </>
           )}
+
+          <Hr style={hr} />
+
+          <Text style={label}>IP address</Text>
+          <Text style={value}>{ip || '—'}</Text>
+
+          <Hr style={hr} />
+
+          <Text style={label}>Location</Text>
+          <Text style={value}>
+            {[city, region, country].filter(Boolean).join(', ') || '—'}
+          </Text>
         </Section>
 
         <Text style={footer}>SongIQ · account notifications</Text>
