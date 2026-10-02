@@ -1265,6 +1265,21 @@ export type Database = {
       is_room_participant: { Args: { p_room_id: string }; Returns: boolean }
       is_room_player: { Args: { p_room_id: string }; Returns: boolean }
       leave_room_with_handoff: { Args: { p_room_id: string }; Returns: Json }
+      list_public_challenges: {
+        Args: { p_limit: number; p_offset: number }
+        Returns: {
+          attempt_count: number
+          category_name: string
+          code: string
+          created_at: string
+          creator_id: string
+          creator_name: string
+          song_count: number
+          time_per_round: number
+          top_name: string
+          top_score: number
+        }[]
+      }
       merge_player_data: {
         Args: { v_new: string; v_old: string }
         Returns: undefined

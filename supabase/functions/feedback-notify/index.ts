@@ -1,3 +1,4 @@
+import { sendAndLog } from '../_shared/email-send-log.ts'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 
 const corsHeaders = {
@@ -60,26 +61,13 @@ Deno.serve(async (req) => {
 
     // functions.invoke() does not forward the client's own service-role key,
     // so set it explicitly -- otherwise the send function rejects the call.
-    const { error: sendErr } = await supabase.functions.invoke('send-transactional-email', {
-      headers: { Authorization: `Bearer ${supabaseServiceKey}` },
-      body: {
-        templateName: 'feedback-notification',
+    try {
+      await sendAndLog('feedback-notification', '', {
         idempotencyKey: `feedback-${feedbackId}`,
-        templateData: {
-          name,
-          email,
-          message,
-          submittedAt,
-          ip,
-          country,
-          region,
-          city,
-        },
-      },
-    })
-
-    if (sendErr) {
-      console.error('[feedback-notify] email queue failed:', sendErr.message)
+        templateData: { name, email, message, submittedAt, ip, country, region, city },
+      })
+    } catch (sendErr) {
+      console.error('[feedback-notify] email send failed:', (sendErr as Error).message)
     }
 
     return new Response(JSON.stringify({ success: true }), {

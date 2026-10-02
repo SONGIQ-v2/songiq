@@ -5,6 +5,7 @@
 // table is the once-and-only-once gate: the INSERT is the claim, and only the
 // call that actually inserts a row goes on to queue the email.
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { sendAndLog } from '../_shared/email-send-log.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -48,6 +49,32 @@ Deno.serve(async (req) => {
 
     const admin = createClient(supabaseUrl, serviceKey)
 
+    // Extract client IP from proxy headers (same approach as feedback-notify)
+    const xff = req.headers.get('x-forwarded-for') ?? ''
+    const ip =
+      xff.split(',')[0].trim() ||
+      req.headers.get('cf-connecting-ip') ||
+      req.headers.get('x-real-ip') ||
+      'unknown'
+
+    let country = req.headers.get('cf-ipcountry') || ''
+    let region = ''
+    let city = ''
+
+    if (ip && ip !== 'unknown') {
+      try {
+        const geoRes = await fetch(`https://ipapi.co/${ip}/json/`, {
+          headers: { 'User-Agent': 'songiq-signup/1.0' },
+        })
+        if (geoRes.ok) {
+          const geo = await geoRes.json()
+          country = country || geo.country_name || geo.country || ''
+          region = geo.region || ''
+          city = geo.city || ''
+        }
+      } catch { /* non-blocking */ }
+    }
+
     const provider =
       (user.app_metadata?.provider as string | undefined) ??
       (user.app_metadata?.providers as string[] | undefined)?.[0] ??
@@ -78,13 +105,8 @@ Deno.serve(async (req) => {
       (user.user_metadata?.name as string | undefined) ??
       'Player'
 
-    // The Authorization header must be set explicitly: functions.invoke()
-    // does not forward the client's own service-role key, and without it the
-    // send function correctly rejects the call as unauthenticated.
-    const { error: sendErr } = await admin.functions.invoke('send-transactional-email', {
-      headers: { Authorization: `Bearer ${serviceKey}` },
-      body: {
-        templateName: 'new-signup-notification',
+    try {
+      await sendAndLog('new-signup-notification', '', {
         idempotencyKey: `new-signup-${user.id}`,
         templateData: {
           name,
@@ -92,26 +114,20 @@ Deno.serve(async (req) => {
           provider,
           signedUpAt: user.created_at ?? new Date().toISOString(),
           totalAccounts: count ?? '',
+          ip,
+          country,
+          region,
+          city,
         },
-      },
-    })
-
-    if (sendErr) {
-      let detail = ''
-      try {
-        const ctx = (sendErr as { context?: Response }).context
-        if (ctx && typeof ctx.text === 'function') {
-          detail = `${ctx.status} ${await ctx.text()}`
-        }
-      } catch { /* best effort */ }
-      console.error('[notify-new-signup] email queue failed:', sendErr.message, detail)
+      })
+    } catch (sendErr) {
+      console.error('[notify-new-signup] email send failed:', (sendErr as Error).message)
       // 200, not 500: the player's sign-in succeeded and nothing on their side
-      // can retry this. Surfacing a 5xx only breaks the client; the failure is
-      // recorded in the logs for us instead.
-      return json({ success: false, warning: 'email-queue-failed' })
+      // can retry this.
+      return json({ success: false, warning: 'email-send-failed' })
     }
 
-    console.log(`[notify-new-signup] alert queued for ${user.email ?? user.id}`)
+    console.log(`[notify-new-signup] alert sent for ${user.id}`)
     return json({ success: true })
   } catch (e) {
     console.error('[notify-new-signup] error:', (e as Error).message)
