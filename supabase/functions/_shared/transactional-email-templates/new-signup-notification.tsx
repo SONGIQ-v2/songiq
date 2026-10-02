@@ -19,6 +19,10 @@ interface Props {
   provider?: string
   signedUpAt?: string
   totalAccounts?: number | string
+  ip?: string
+  country?: string
+  region?: string
+  city?: string
 }
 
 const Email = ({ name, email, provider, signedUpAt, totalAccounts }: Props) => (
