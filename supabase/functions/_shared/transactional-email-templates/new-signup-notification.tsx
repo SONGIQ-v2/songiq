@@ -94,6 +94,10 @@ export const template = {
     provider: 'google',
     signedUpAt: new Date().toISOString(),
     totalAccounts: 128,
+    ip: '102.89.32.14',
+    country: 'Nigeria',
+    region: 'Lagos',
+    city: 'Lagos',
   },
 } satisfies TemplateEntry
 
