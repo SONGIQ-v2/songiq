@@ -1214,15 +1214,6 @@ export type Database = {
       advance_all_playing_rounds: { Args: never; Returns: undefined }
       advance_game_round: { Args: { _room_id: string }; Returns: Json }
       count_unique_players: { Args: { p_cutoff?: string }; Returns: number }
-      delete_email: {
-        Args: { message_id: number; queue_name: string }
-        Returns: boolean
-      }
-      email_queue_dispatch: { Args: never; Returns: undefined }
-      enqueue_email: {
-        Args: { payload: Json; queue_name: string }
-        Returns: number
-      }
       get_challenge_by_code: { Args: { p_code: string }; Returns: Json }
       get_multiplayer_profile_stats: {
         Args: { p_player_id: string }
@@ -1291,24 +1282,7 @@ export type Database = {
           mode: string
         }[]
       }
-      move_to_dlq: {
-        Args: {
-          dlq_name: string
-          message_id: number
-          payload: Json
-          source_queue: string
-        }
-        Returns: number
-      }
       normalize_quiz_answer: { Args: { _value: string }; Returns: string }
-      read_email_batch: {
-        Args: { batch_size: number; queue_name: string; vt: number }
-        Returns: {
-          message: Json
-          msg_id: number
-          read_ct: number
-        }[]
-      }
       recompute_daily_stats: {
         Args: { p_player_id: string }
         Returns: undefined
