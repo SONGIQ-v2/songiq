@@ -289,7 +289,7 @@ export const PLAYLISTS: Playlist[] = [
       "chinedu nwadike",
       "osinachi nwachukwu",
       "sammie okposo",
-      "midnight crew",
+      "__artist:344770358", // Midnight Crew -- plain "midnight crew" collides with unrelated tracks literally titled "Midnight Crew" (a South African Amapiano group, an Electronic artist)
       "lara george",
       "kefee",
       "nosa",
