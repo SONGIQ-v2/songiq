@@ -5,6 +5,7 @@
 // table is the once-and-only-once gate: the INSERT is the claim, and only the
 // call that actually inserts a row goes on to queue the email.
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { sendAndLog } from '../_shared/email-send-log.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
