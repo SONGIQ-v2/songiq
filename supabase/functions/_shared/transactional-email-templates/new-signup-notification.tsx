@@ -19,9 +19,13 @@ interface Props {
   provider?: string
   signedUpAt?: string
   totalAccounts?: number | string
+  ip?: string
+  country?: string
+  region?: string
+  city?: string
 }
 
-const Email = ({ name, email, provider, signedUpAt, totalAccounts }: Props) => (
+const Email = ({ name, email, provider, signedUpAt, totalAccounts, ip, country, region, city }: Props) => (
   <Html lang="en" dir="ltr">
     <Head />
     <Preview>{`New SongIQ account: ${email ?? 'a new player'}`}</Preview>
@@ -59,6 +63,18 @@ const Email = ({ name, email, provider, signedUpAt, totalAccounts }: Props) => (
               <Text style={value}>{String(totalAccounts)}</Text>
             </>
           )}
+
+          <Hr style={hr} />
+
+          <Text style={label}>IP address</Text>
+          <Text style={value}>{ip || '—'}</Text>
+
+          <Hr style={hr} />
+
+          <Text style={label}>Location</Text>
+          <Text style={value}>
+            {[city, region, country].filter(Boolean).join(', ') || '—'}
+          </Text>
         </Section>
 
         <Text style={footer}>SongIQ · account notifications</Text>
@@ -78,6 +94,10 @@ export const template = {
     provider: 'google',
     signedUpAt: new Date().toISOString(),
     totalAccounts: 128,
+    ip: '102.89.32.14',
+    country: 'Nigeria',
+    region: 'Lagos',
+    city: 'Lagos',
   },
 } satisfies TemplateEntry
 

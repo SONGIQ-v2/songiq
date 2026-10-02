@@ -48,6 +48,32 @@ Deno.serve(async (req) => {
 
     const admin = createClient(supabaseUrl, serviceKey)
 
+    // Extract client IP from proxy headers (same approach as feedback-notify)
+    const xff = req.headers.get('x-forwarded-for') ?? ''
+    const ip =
+      xff.split(',')[0].trim() ||
+      req.headers.get('cf-connecting-ip') ||
+      req.headers.get('x-real-ip') ||
+      'unknown'
+
+    let country = req.headers.get('cf-ipcountry') || ''
+    let region = ''
+    let city = ''
+
+    if (ip && ip !== 'unknown') {
+      try {
+        const geoRes = await fetch(`https://ipapi.co/${ip}/json/`, {
+          headers: { 'User-Agent': 'songiq-signup/1.0' },
+        })
+        if (geoRes.ok) {
+          const geo = await geoRes.json()
+          country = country || geo.country_name || geo.country || ''
+          region = geo.region || ''
+          city = geo.city || ''
+        }
+      } catch { /* non-blocking */ }
+    }
+
     const provider =
       (user.app_metadata?.provider as string | undefined) ??
       (user.app_metadata?.providers as string[] | undefined)?.[0] ??
@@ -92,6 +118,10 @@ Deno.serve(async (req) => {
           provider,
           signedUpAt: user.created_at ?? new Date().toISOString(),
           totalAccounts: count ?? '',
+          ip,
+          country,
+          region,
+          city,
         },
       },
     })
