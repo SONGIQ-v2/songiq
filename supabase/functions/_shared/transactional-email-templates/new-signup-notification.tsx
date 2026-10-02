@@ -25,7 +25,7 @@ interface Props {
   city?: string
 }
 
-const Email = ({ name, email, provider, signedUpAt, totalAccounts }: Props) => (
+const Email = ({ name, email, provider, signedUpAt, totalAccounts, ip, country, region, city }: Props) => (
   <Html lang="en" dir="ltr">
     <Head />
     <Preview>{`New SongIQ account: ${email ?? 'a new player'}`}</Preview>
