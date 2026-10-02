@@ -65,21 +65,11 @@ async function ensureUserId(): Promise<string | null> {
   return data.user?.id ?? null;
 }
 
-/**
- * @param presetCode Use this exact code on the first attempt instead of
- * generating a fresh one -- for a caller that already committed to a code
- * client-side (e.g. sharing it immediately, before this insert resolves)
- * and needs the eventual row to match. Falls back to a generated code on
- * retry if it collides, same as the normal path.
- */
-export async function createChallenge(
-  input: Omit<Challenge, "code" | "creator_id">,
-  presetCode?: string
-): Promise<string | null> {
+export async function createChallenge(input: Omit<Challenge, "code" | "creator_id">): Promise<string | null> {
   const creatorId = await ensureUserId();
   // Retry on the (unlikely) code collision
   for (let attempt = 0; attempt < 3; attempt++) {
-    const code = attempt === 0 && presetCode ? presetCode : generateRoomCode();
+    const code = generateRoomCode();
     const { error } = await (supabase as any)
       .from("challenges")
       .insert({ code, creator_id: creatorId, ...input });
@@ -105,8 +95,8 @@ export interface ChallengeAttempt {
 }
 
 /**
- * Record a player's (single) attempt. Returns false if it couldn't be saved —
- * including when this player already has an attempt (unique constraint).
+ * Record a player's (single) attempt. "duplicate" means this player already
+ * has one (first attempt counts, unique constraint) -- not a failure.
  */
 export async function submitChallengeAttempt(
   code: string,
@@ -115,7 +105,7 @@ export async function submitChallengeAttempt(
   score: number,
   correctCount: number,
   avgResponseMs: number | null = null
-): Promise<boolean> {
+): Promise<"saved" | "duplicate" | "failed"> {
   const { error } = await (supabase as any).from("challenge_attempts").insert({
     challenge_code: code.toUpperCase(),
     player_id: playerId,
@@ -124,13 +114,13 @@ export async function submitChallengeAttempt(
     correct_count: correctCount,
     avg_response_ms: avgResponseMs,
   });
-  if (error && !/duplicate|unique/i.test(error.message || "")) {
-    logError("challenge.attempt_failed", "Failed to record challenge attempt", {
-      code,
-      error: error.message,
-    });
-  }
-  return !error;
+  if (!error) return "saved";
+  if (/duplicate|unique/i.test(error.message || "")) return "duplicate";
+  logError("challenge.attempt_failed", "Failed to record challenge attempt", {
+    code,
+    error: error.message,
+  });
+  return "failed";
 }
 
 /** This player's attempt, regardless of leaderboard position. */
@@ -205,6 +195,12 @@ export async function fetchMyChallengeScores(
   return new Map((data ?? []).map((r: any) => [r.challenge_code, r.score as number]));
 }
 
+/**
+ * null = no challenge with this code. Throws on a transport/RPC error so a
+ * caller can tell "doesn't exist" from "couldn't reach the server" -- both
+ * used to collapse into "Challenge not found", so a recipient on a flaky
+ * connection was told a perfectly good link had expired.
+ */
 export async function fetchChallenge(code: string): Promise<Challenge | null> {
   // Via the RPC, not a direct table select -- challenges is now scoped to
   // "your own creations" at the RLS level; a shared link's recipient is
@@ -214,7 +210,8 @@ export async function fetchChallenge(code: string): Promise<Challenge | null> {
     p_code: code.toUpperCase(),
   });
 
-  if (error || !data) return null;
+  if (error) throw error;
+  if (!data) return null;
 
   const plan = typeof data.plan === "string" ? JSON.parse(data.plan) : data.plan;
   if (!Array.isArray(plan) || plan.length === 0) return null;

@@ -40,7 +40,7 @@ import { useAppleMusic, type AppleMusicTrack } from "@/hooks/useAppleMusic";
 import { supabase } from "@/integrations/supabase/client";
 import { useGameStore } from "@/lib/gameStore";
 import { PLAYLISTS, getPlaylistById } from "@/lib/playlists";
-import { calculatePoints, generateRoomCode } from "@/lib/spotify";
+import { calculatePoints } from "@/lib/spotify";
 import { logError, logWarn, logInfo } from "@/lib/clientLogger";
 import { vibrateRoundStart, vibrateCorrect, vibrateIncorrect } from "@/lib/haptics";
 import { warmAudioUrl, preloadAudio, playWithWatchdog, prefetchAudio } from "@/lib/audioPreload";
@@ -206,6 +206,9 @@ export default function Game() {
   // Rounds captured as played, so a normal game can be shared as a challenge
   const planRef = useRef<ChallengeRound[]>([]);
   const createdChallengeRef = useRef<string | null>(null);
+  // The results-screen pre-create's in-flight insert, so a Share tap that
+  // lands before it resolves waits on it instead of creating a duplicate.
+  const pendingChallengeRef = useRef<Promise<string | null> | null>(null);
   // Per-round answer times (ms), timeouts excluded -- feeds Daily's Avg
   // Response stat. Not React state: nothing needs to re-render on push.
   const roundTimesRef = useRef<number[]>([]);
@@ -570,7 +573,7 @@ export default function Game() {
     if (challenge || event || createdChallengeRef.current || planRef.current.length === 0) return;
     const knownName = playerName || getSavedUsername();
     if (!knownName) return;
-    createChallenge({
+    pendingChallengeRef.current = createChallenge({
       creator_name: knownName,
       creator_score: soloScore,
       category_name: playlistName || playlist?.name || "Music Quiz",
@@ -578,7 +581,9 @@ export default function Game() {
       plan: planRef.current,
     }).then((code) => {
       createdChallengeRef.current = code;
-      trackEvent("challenge_create", { challenge_code: code, score: soloScore, source: "solo" });
+      pendingChallengeRef.current = null;
+      if (code) trackEvent("challenge_create", { challenge_code: code, score: soloScore, source: "solo" });
+      return code;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameState]);
@@ -632,27 +637,54 @@ export default function Game() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameState]);
 
-  // Challenge replay finished: record this player's (single) attempt, then
-  // load the leaderboard. The DB unique constraint makes retries no-ops.
-  useEffect(() => {
-    if (gameState !== "results" || !challenge || daily) return;
-    (async () => {
-      const pid = playerId ?? (await initializeAuth());
-      if (pid) {
-        await submitChallengeAttempt(
+  // Records this player's (single) challenge attempt. A failed save used to
+  // be silently dropped -- no session (guest sign-in never landed) skipped
+  // the insert outright, and a rejected insert was ignored -- so the player
+  // finished and simply never appeared on the board. Now it says so, with a
+  // retry that persists until they act on it.
+  const recordChallengeAttempt = async (source?: string): Promise<boolean> => {
+    if (!challenge) return false;
+    const pid = playerId ?? (await initializeAuth());
+    const result = pid
+      ? await submitChallengeAttempt(
           challenge.code,
           pid,
           playerName || getSavedUsername() || "A music fan",
           soloScore,
           roundResults.filter(Boolean).length,
           computeAvgResponseMs()
-        );
-        trackEvent("challenge_complete", {
-          challenge_code: challenge.code,
-          score: soloScore,
-          correct_count: roundResults.filter(Boolean).length,
-        });
-      }
+        )
+      : "failed";
+    if (result === "failed") {
+      toast.error("Your score couldn't be saved to the challenge board", {
+        duration: Infinity,
+        action: {
+          label: "Retry",
+          onClick: async () => {
+            if (await recordChallengeAttempt(source)) {
+              toast.success("Score saved!");
+              setChallengeAttempts(await fetchChallengeAttempts(challenge.code));
+            }
+          },
+        },
+      });
+      return false;
+    }
+    trackEvent("challenge_complete", {
+      challenge_code: challenge.code,
+      score: soloScore,
+      correct_count: roundResults.filter(Boolean).length,
+      ...(source ? { source } : {}),
+    });
+    return true;
+  };
+
+  // Challenge replay finished: record this player's (single) attempt, then
+  // load the leaderboard. The DB unique constraint makes retries no-ops.
+  useEffect(() => {
+    if (gameState !== "results" || !challenge || daily) return;
+    (async () => {
+      await recordChallengeAttempt();
       setChallengeAttempts(await fetchChallengeAttempts(challenge.code));
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -666,67 +698,109 @@ export default function Game() {
     return Math.round(times.reduce((a, b) => a + b, 0) / times.length);
   };
 
-  // Daily challenge finished: record the attempt (streak trigger runs
-  // server-side), then load rank and streak for the results screen.
-  useEffect(() => {
-    if (gameState !== "results" || !daily) return;
-    (async () => {
-      const pid = playerId ?? (await initializeAuth());
-      if (pid) {
-        // Snapshot the Save balance before submitting -- if it drops after,
-        // apply_daily_attempt() silently spent one to bridge a missed day,
-        // and the player should be told (it'd otherwise look like a bug:
-        // "why didn't my streak reset like it always does").
-        const savesBefore = (await fetchStreakProtectionStatus())?.saves_available ?? 0;
-        await submitDailyAttempt(
+  // Records this player's (single) Daily attempt -- same silent-drop gap
+  // challenges had (see recordChallengeAttempt): no session skipped the
+  // insert, a rejected insert was ignored, and the streak quietly didn't
+  // extend. onSaved runs once the row is confirmed, on the first try or a
+  // later Retry.
+  const recordDailyAttempt = async (
+    onSaved: (pid: string, savesBefore: number) => Promise<void> | void
+  ): Promise<void> => {
+    if (!daily) return;
+    const pid = playerId ?? (await initializeAuth());
+    // Snapshot the Save balance before submitting -- if it drops after,
+    // apply_daily_attempt() silently spent one to bridge a missed day,
+    // and the player should be told (it'd otherwise look like a bug:
+    // "why didn't my streak reset like it always does").
+    const savesBefore = pid ? (await fetchStreakProtectionStatus())?.saves_available ?? 0 : 0;
+    const result = pid
+      ? await submitDailyAttempt(
           daily.date,
           pid,
           playerName || getSavedUsername() || "A music fan",
           soloScore,
           roundResults.filter(Boolean).length,
           computeAvgResponseMs()
-        );
-        const [{ rank, total }, stats, statusAfter] = await Promise.all([
-          fetchMyDailyRank(daily.date, soloScore),
-          fetchMyDailyStats(pid),
-          fetchStreakProtectionStatus(),
-        ]);
-        const streak = isStreakActive(stats) ? stats?.current_streak ?? 0 : 0;
-        setDailyResult({ rank, total, streak });
-        if (statusAfter && statusAfter.saves_available < savesBefore) {
-          setStreakSaveEvent("save_used");
-        }
-        trackEvent("daily_challenge_complete", {
-          daily_number: daily.number,
-          daily_date: daily.date,
-          score: soloScore,
-          correct_count: roundResults.filter(Boolean).length,
-          rank,
-          streak,
-        });
+        )
+      : "failed";
+    if (!pid || result === "failed") {
+      toast.error("Your Daily Challenge score couldn't be saved", {
+        duration: Infinity,
+        action: {
+          label: "Retry",
+          onClick: () => {
+            recordDailyAttempt(async (p, s) => {
+              toast.success("Score saved!");
+              await onSaved(p, s);
+            });
+          },
+        },
+      });
+      return;
+    }
+    await onSaved(pid, savesBefore);
+  };
+
+  // Daily challenge finished: record the attempt (streak trigger runs
+  // server-side), then load rank and streak for the results screen.
+  useEffect(() => {
+    if (gameState !== "results" || !daily) return;
+    recordDailyAttempt(async (pid, savesBefore) => {
+      const [{ rank, total }, stats, statusAfter] = await Promise.all([
+        fetchMyDailyRank(daily.date, soloScore),
+        fetchMyDailyStats(pid),
+        fetchStreakProtectionStatus(),
+      ]);
+      const streak = isStreakActive(stats) ? stats?.current_streak ?? 0 : 0;
+      setDailyResult({ rank, total, streak });
+      if (statusAfter && statusAfter.saves_available < savesBefore) {
+        setStreakSaveEvent("save_used");
       }
-    })();
+      trackEvent("daily_challenge_complete", {
+        daily_number: daily.number,
+        daily_date: daily.date,
+        score: soloScore,
+        correct_count: roundResults.filter(Boolean).length,
+        rank,
+        streak,
+      });
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameState]);
 
   // Event challenge finished: record (overwrite) this player's attempt.
   // Additive to normal Solo behavior above -- record_game_session/Points
   // still fire normally, mode stays "solo".
+  // Same confirm-or-retry treatment as challenge/daily -- this one's a
+  // tournament with a prize on the line, so a silently dropped run is the
+  // worst place to be quiet about it.
+  const recordEventAttempt = async (source?: string, isRetry = false): Promise<void> => {
+    if (!event) return;
+    const ok = await submitEventAttempt(
+      event.slug,
+      soloScore,
+      roundResults.filter(Boolean).length,
+      computeAvgResponseMs()
+    );
+    if (!ok) {
+      toast.error("Your tournament score couldn't be saved", {
+        duration: Infinity,
+        action: { label: "Retry", onClick: () => recordEventAttempt(source, true) },
+      });
+      return;
+    }
+    if (isRetry) toast.success("Score saved!");
+    trackEvent("event_challenge_complete", {
+      event_slug: event.slug,
+      score: soloScore,
+      correct_count: roundResults.filter(Boolean).length,
+      ...(source ? { source } : {}),
+    });
+  };
+
   useEffect(() => {
     if (gameState !== "results" || !event) return;
-    (async () => {
-      await submitEventAttempt(
-        event.slug,
-        soloScore,
-        roundResults.filter(Boolean).length,
-        computeAvgResponseMs()
-      );
-      trackEvent("event_challenge_complete", {
-        event_slug: event.slug,
-        score: soloScore,
-        correct_count: roundResults.filter(Boolean).length,
-      });
-    })();
+    recordEventAttempt();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameState]);
 
@@ -1039,35 +1113,37 @@ export default function Game() {
         score: soloScore,
       });
 
-      // The auto-create effect skips creating a challenge link when no name
-      // is known yet — create it now that handleShare has guaranteed one.
+      // No confirmed challenge link yet -- either the results-screen
+      // pre-create is still in flight, it failed, or it was skipped because
+      // no name was known. Never share a code that isn't confirmed saved:
+      // a link to a row that never landed (e.g. the insert was rejected for
+      // an unauthenticated session) opens as "Challenge not found".
       if (!challenge && !createdChallengeRef.current && planRef.current.length > 0) {
         const knownName = playerName || getSavedUsername();
         if (knownName) {
-          const createOpts = {
-            creator_name: knownName,
-            creator_score: soloScore,
-            category_name: playlistName || playlist?.name || "Music Quiz",
-            time_per_round: ROUND_TIME / 1000,
-            plan: planRef.current,
-          };
+          const code = await (pendingChallengeRef.current ??
+            createChallenge({
+              creator_name: knownName,
+              creator_score: soloScore,
+              category_name: playlistName || playlist?.name || "Music Quiz",
+              time_per_round: ROUND_TIME / 1000,
+              plan: planRef.current,
+            }).then((c) => {
+              if (c) trackEvent("challenge_create", { challenge_code: c, score: soloScore, source: "solo" });
+              return c;
+            }));
+          createdChallengeRef.current = code;
+
+          if (!code) {
+            toast.error("Couldn't create your challenge link — check your connection and try again");
+            return;
+          }
           if (isIOSDevice()) {
-            // Don't block the share on the actual insert -- iOS loses
-            // navigator.share()'s user-gesture eligibility across any async
-            // delay before the call. The code itself is generated
-            // client-side (createChallenge()'s own logic) though, so there's
-            // no need to wait on the network just to know it -- use it in
-            // the share immediately and let the real insert land in the
-            // background, passing the same code through so the two agree.
-            const code = generateRoomCode();
-            createdChallengeRef.current = code;
-            createChallenge(createOpts, code).then((finalCode) => {
-              if (finalCode) trackEvent("challenge_create", { challenge_code: finalCode, score: soloScore, source: "solo" });
-            });
-          } else {
-            const code = await createChallenge(createOpts);
-            createdChallengeRef.current = code;
-            trackEvent("challenge_create", { challenge_code: code, score: soloScore, source: "solo" });
+            // Waiting on that insert spent this tap's user gesture, and
+            // iOS won't open the share sheet without a fresh one -- the
+            // link is confirmed saved now, so the next tap shares instantly.
+            toast.success("Your challenge link is ready — tap Share again to send it");
+            return;
           }
         }
       }
@@ -1552,60 +1628,23 @@ export default function Game() {
                 <AlertDialogAction
                   onClick={async () => {
                     if (challenge && !daily) {
-                      const pid = playerId ?? (await initializeAuth());
-                      if (pid) {
-                        await submitChallengeAttempt(
-                          challenge.code,
-                          pid,
-                          playerName || getSavedUsername() || "A music fan",
-                          soloScore,
-                          roundResults.filter(Boolean).length,
-                          computeAvgResponseMs()
-                        );
-                      }
-                      trackEvent("challenge_complete", {
-                        challenge_code: challenge.code,
-                        score: soloScore,
-                        correct_count: roundResults.filter(Boolean).length,
-                        source: "left_early",
-                      });
+                      await recordChallengeAttempt("left_early");
                     } else if (daily) {
-                      const pid = playerId ?? (await initializeAuth());
-                      if (pid) {
-                        const savesBefore = (await fetchStreakProtectionStatus())?.saves_available ?? 0;
-                        await submitDailyAttempt(
-                          daily.date,
-                          pid,
-                          playerName || getSavedUsername() || "A music fan",
-                          soloScore,
-                          roundResults.filter(Boolean).length,
-                          computeAvgResponseMs()
-                        );
+                      await recordDailyAttempt(async (_pid, savesBefore) => {
                         const statusAfter = await fetchStreakProtectionStatus();
                         if (statusAfter && statusAfter.saves_available < savesBefore) {
                           toast.success(`🛡️ Streak Save used — your ${statusAfter.current_streak}-day streak is protected!`);
                         }
-                      }
-                      trackEvent("daily_challenge_complete", {
-                        daily_number: daily.number,
-                        daily_date: daily.date,
-                        score: soloScore,
-                        correct_count: roundResults.filter(Boolean).length,
-                        source: "left_early",
+                        trackEvent("daily_challenge_complete", {
+                          daily_number: daily.number,
+                          daily_date: daily.date,
+                          score: soloScore,
+                          correct_count: roundResults.filter(Boolean).length,
+                          source: "left_early",
+                        });
                       });
                     } else if (event) {
-                      await submitEventAttempt(
-                        event.slug,
-                        soloScore,
-                        roundResults.filter(Boolean).length,
-                        computeAvgResponseMs()
-                      );
-                      trackEvent("event_challenge_complete", {
-                        event_slug: event.slug,
-                        score: soloScore,
-                        correct_count: roundResults.filter(Boolean).length,
-                        source: "left_early",
-                      });
+                      await recordEventAttempt("left_early");
                     }
                     cleanupGame();
                     resetSoloGame();

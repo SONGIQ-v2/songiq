@@ -157,7 +157,7 @@ export default function Daily() {
       ? [...allTime].sort((a, b) => b.total_score - a.total_score)
       : allTime;
 
-  const handlePlay = () => {
+  const handlePlay = async () => {
     if (!daily) return;
     // The Play buttons' disabled state normally blocks this, but that's a
     // UI affordance, not enforcement -- without this guard too, any click
@@ -166,6 +166,14 @@ export default function Daily() {
     const trimmed = name.trim();
     if (!trimmed) {
       toast.error("Enter a nickname to play");
+      return;
+    }
+    // The attempt (and the streak it extends) can only be recorded under a
+    // real session. If the guest sign-in on page load never landed, retry
+    // it now -- and if it still fails, stop here rather than let them play
+    // the whole thing and then lose the day.
+    if (!(playerId ?? (await initializeAuth()))) {
+      toast.error("Couldn't connect to SongIQ — check your connection and try again");
       return;
     }
     saveUsername(trimmed);

@@ -47,13 +47,21 @@ export default function ChallengeBoard() {
 
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const [attempts, setAttempts] = useState<ChallengeAttempt[]>([]);
-  const [status, setStatus] = useState<"loading" | "ready" | "not_found">("loading");
+  const [status, setStatus] = useState<"loading" | "ready" | "not_found" | "error">("loading");
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [verifiedIds, setVerifiedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     (async () => {
+      setStatus("loading");
       await initializeAuth();
-      const c = code ? await fetchChallenge(code) : null;
+      let c: Challenge | null = null;
+      try {
+        c = code ? await fetchChallenge(code) : null;
+      } catch {
+        setStatus("error");
+        return;
+      }
       if (!c) {
         setStatus("not_found");
         return;
@@ -64,7 +72,7 @@ export default function ChallengeBoard() {
       setStatus("ready");
       fetchVerifiedPlayerIds([c.creator_id, ...board.map((a) => a.player_id)]).then(setVerifiedIds);
     })();
-  }, [code, initializeAuth]);
+  }, [code, initializeAuth, loadAttempt]);
 
   // Creator's score lives directly on `challenges` -- they have no
   // challenge_attempts row, so accuracy/speed/completed-at aren't known for
@@ -131,6 +139,18 @@ export default function ChallengeBoard() {
             <p className="text-muted-foreground mb-6">This challenge link has expired or doesn't exist.</p>
             <Button variant="gold" size="lg" onClick={() => navigate("/")}>
               Play SongIQ
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {status === "error" && (
+        <div className="min-h-screen flex items-center justify-center p-4">
+          <div className="text-center z-10 max-w-md">
+            <p className="text-2xl font-bold text-foreground mb-2">Couldn't load this challenge</p>
+            <p className="text-muted-foreground mb-6">Check your connection and try again — the link itself is fine.</p>
+            <Button variant="gold" size="lg" onClick={() => setLoadAttempt((n) => n + 1)}>
+              Retry
             </Button>
           </div>
         </div>

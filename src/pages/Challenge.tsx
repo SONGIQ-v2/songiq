@@ -72,14 +72,22 @@ export default function ChallengePage() {
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const [attempts, setAttempts] = useState<ChallengeAttempt[]>([]);
   const [myAttempt, setMyAttempt] = useState<ChallengeAttempt | null>(null);
-  const [status, setStatus] = useState<"loading" | "ready" | "not_found">("loading");
+  const [status, setStatus] = useState<"loading" | "ready" | "not_found" | "error">("loading");
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [name, setName] = useState("");
   const [verifiedIds, setVerifiedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     (async () => {
+      setStatus("loading");
       const pid = await initializeAuth();
-      const c = code ? await fetchChallenge(code) : null;
+      let c: Challenge | null = null;
+      try {
+        c = code ? await fetchChallenge(code) : null;
+      } catch {
+        setStatus("error");
+        return;
+      }
       if (!c) {
         setStatus("not_found");
         return;
@@ -99,7 +107,7 @@ export default function ChallengePage() {
         ...board.map((a) => a.player_id),
       ]).then(setVerifiedIds);
     })();
-  }, [code, initializeAuth]);
+  }, [code, initializeAuth, loadAttempt]);
   const isCreator = !!challenge?.creator_id && challenge.creator_id === playerId;
   // Skip asking for a nickname when one is already known (profile, Google
   // sign-in, or the multiplayer cookie) -- computed fresh each render, not
@@ -140,7 +148,7 @@ export default function ChallengePage() {
     if (outcome === "failed") toast.error("Couldn't share your result");
   };
 
-  const handleAccept = () => {
+  const handleAccept = async () => {
     if (!challenge) return;
     // The button's disabled state normally blocks this, but that's a UI
     // affordance, not enforcement -- without this guard too, any click that
@@ -149,6 +157,14 @@ export default function ChallengePage() {
     const trimmed = name.trim();
     if (!trimmed) {
       toast.error("Enter a nickname to play");
+      return;
+    }
+    // The attempt can only be recorded under a real session (RLS:
+    // auth.uid() = player_id). If the guest sign-in on page load never
+    // landed, retry it now -- and if it still fails, stop here rather than
+    // let them play the whole thing and then not appear on the board.
+    if (!(playerId ?? (await initializeAuth()))) {
+      toast.error("Couldn't connect to SongIQ — check your connection and try again");
       return;
     }
     saveUsername(trimmed);
@@ -245,6 +261,18 @@ export default function ChallengePage() {
           </p>
           <Button variant="gold" size="lg" onClick={() => navigate("/")}>
             Play SongIQ
+          </Button>
+        </div>
+      )}
+
+      {status === "error" && (
+        <div className="text-center z-10 max-w-md">
+          <p className="text-2xl font-bold text-foreground mb-2">Couldn't load this challenge</p>
+          <p className="text-muted-foreground mb-6">
+            Check your connection and try again — the link itself is fine.
+          </p>
+          <Button variant="gold" size="lg" onClick={() => setLoadAttempt((n) => n + 1)}>
+            Retry
           </Button>
         </div>
       )}

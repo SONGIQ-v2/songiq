@@ -89,7 +89,7 @@ export async function submitDailyAttempt(
   score: number,
   correctCount: number,
   avgResponseMs: number | null = null
-): Promise<boolean> {
+): Promise<"saved" | "duplicate" | "failed"> {
   const { error } = await (supabase as any).from("daily_attempts").insert({
     challenge_date: date,
     player_id: playerId,
@@ -98,13 +98,14 @@ export async function submitDailyAttempt(
     correct_count: correctCount,
     avg_response_ms: avgResponseMs,
   });
-  if (error && !/duplicate|unique/i.test(error.message || "")) {
-    logError("daily.attempt_failed", "Failed to record daily attempt", {
-      date,
-      error: error.message,
-    });
-  }
-  return !error;
+  if (!error) return "saved";
+  // Already played today (first attempt counts, unique constraint) -- not a failure.
+  if (/duplicate|unique/i.test(error.message || "")) return "duplicate";
+  logError("daily.attempt_failed", "Failed to record daily attempt", {
+    date,
+    error: error.message,
+  });
+  return "failed";
 }
 
 /** This player's rank for the day (1-based) and the total player count. */
