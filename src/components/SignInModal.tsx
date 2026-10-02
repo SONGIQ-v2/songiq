@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { useGameStore, PENDING_MERGE_TOKEN_KEY } from "@/lib/gameStore";
+import { useGameStore, PENDING_MERGE_TOKEN_KEY, SIGNIN_PENDING_KEY } from "@/lib/gameStore";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { toast } from "@/hooks/use-toast";
@@ -33,6 +33,9 @@ export function SignInModal() {
         if (token) localStorage.setItem(PENDING_MERGE_TOKEN_KEY, token as string);
       }
 
+      // Read by gameStore.ts's auth listener to fire "sign_in_success" once
+      // the session actually lands -- see SIGNIN_PENDING_KEY.
+      localStorage.setItem(SIGNIN_PENDING_KEY, String(Date.now()));
       const result = await lovable.auth.signInWithOAuth("google", {
         // Full current URL, not just the origin -- otherwise every sign-in
         // lands on the homepage regardless of which page it was opened from.
@@ -41,6 +44,7 @@ export function SignInModal() {
       if (result.error) {
         console.error("Sign-in failed:", result.error);
         localStorage.removeItem(PENDING_MERGE_TOKEN_KEY);
+        localStorage.removeItem(SIGNIN_PENDING_KEY);
         toast({
           title: "Couldn't sign in",
           description: "Google sign-in failed. Please try again.",

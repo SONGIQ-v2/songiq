@@ -176,6 +176,14 @@ export const useGameStore = create<GameState>((set, get) => ({
 // sides share the exact same key instead of duplicating the string.
 export const PENDING_MERGE_TOKEN_KEY = "songiq_pending_merge_token";
 
+// Timestamp set by SignInModal.tsx when "Continue with Google" is tapped.
+// Google OAuth finishes either in a popup or via a full-page redirect back
+// here, so localStorage is the one place that survives both. A signed-in
+// session showing up WITH this marker is a real sign-in; without it, it's
+// just a returning user's page load, which must not fire the event.
+export const SIGNIN_PENDING_KEY = "songiq_signin_pending";
+const SIGNIN_PENDING_MAX_AGE_MS = 15 * 60 * 1000;
+
 // Keeps playerId honest across auth changes -- without this, initializeAuth()'s
 // cached-return guard (`if isInitialized && playerId, return it`) would keep
 // handing back a just-invalidated id after sign-out until a full page reload,
@@ -192,6 +200,7 @@ supabase.auth.onAuthStateChange((_event, session) => {
     // no-op timer.
     if (idChanged && !session.user.is_anonymous) {
       resolveSignedInIdentity(session.user);
+      reportSignInSuccess(session.user);
     }
   } else {
     // No session -- in practice this only happens right after an explicit
@@ -205,6 +214,26 @@ supabase.auth.onAuthStateChange((_event, session) => {
     useGameStore.setState({ playerId: null, isInitialized: false, playerName: "" });
   }
 });
+
+// Fires "sign_in_success" to GTM, the Meta Pixel and Meta CAPI (all via
+// trackEvent) exactly once per completed sign-in. A stale marker (an
+// abandoned attempt from long ago) is discarded rather than credited.
+function reportSignInSuccess(user: { created_at?: string }) {
+  const startedAt = Number(localStorage.getItem(SIGNIN_PENDING_KEY));
+  if (!startedAt) return;
+  localStorage.removeItem(SIGNIN_PENDING_KEY);
+  if (Date.now() - startedAt > SIGNIN_PENDING_MAX_AGE_MS) return;
+
+  // An account created since the sign-in started is a brand-new sign-up.
+  const createdAt = user.created_at ? Date.parse(user.created_at) : NaN;
+  const isNewAccount = createdAt >= startedAt - 60 * 1000;
+
+  // Dynamic import: analytics.ts imports this module, so a static import
+  // here would be circular.
+  import("@/lib/analytics").then(({ trackEvent }) =>
+    trackEvent("sign_in_success", { method: "google", is_new_account: isNewAccount })
+  );
+}
 
 // The single call site for establishing a signed-in account's identity --
 // deliberately not split across multiple independent listeners (that
