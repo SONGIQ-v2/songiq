@@ -28,13 +28,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useAppleMusic, type AppleMusicTrack } from "@/hooks/useAppleMusic";
 import { supabase } from "@/integrations/supabase/client";
@@ -192,11 +185,12 @@ export default function Game() {
   // fetch exceptions) — this also covers a *successful* fetch that simply
   // came back with fewer tracks than a round needs.
   const [loadError, setLoadError] = useState<string | null>(null);
-  // Solo Play never collects a name up front — prompt for one only when
-  // they try to share, so the result/challenge isn't attributed to
-  // "A music fan".
-  const [showNamePrompt, setShowNamePrompt] = useState(false);
+  // Solo Play never collects a name up front -- the results screen asks for
+  // one inline, above Share, so a shared challenge isn't "A music fan".
   const [nameInput, setNameInput] = useState("");
+  // True while the challenge link is being created -- Share waits on it
+  // so the tap that opens the share sheet never has a network wait in front.
+  const [linkPending, setLinkPending] = useState(false);
   // Guards doShare() against a double-tap creating two challenge rows for
   // one game -- createdChallengeRef is only set after createChallenge()
   // resolves, so a second tap before that finishes would otherwise pass
@@ -209,6 +203,9 @@ export default function Game() {
   // The results-screen pre-create's in-flight insert, so a Share tap that
   // lands before it resolves waits on it instead of creating a duplicate.
   const pendingChallengeRef = useRef<Promise<string | null> | null>(null);
+  // Bumped per new game, so a previous game's late-resolving insert (Play
+  // Again tapped mid-create) can't attach its link to the new game.
+  const challengeGenRef = useRef(0);
   // Per-round answer times (ms), timeouts excluded -- feeds Daily's Avg
   // Response stat. Not React state: nothing needs to re-render on push.
   const roundTimesRef = useRef<number[]>([]);
@@ -372,6 +369,9 @@ export default function Game() {
       roundTimesRef.current = [];
       planRef.current = [];
       createdChallengeRef.current = null;
+      pendingChallengeRef.current = null;
+      challengeGenRef.current++;
+      setLinkPending(false);
       setTracks(shuffledTracks);
       setPlaylistName(result.playlistName);
       // Warm round 2 so the background queue's first download is instant.
@@ -562,29 +562,37 @@ export default function Game() {
     loadTracks();
   };
 
-  // Pre-create the challenge link when results appear, so tapping Share stays
-  // within the browser's user-gesture window (navigator.share requires it).
-  // Skipped when there's no known name yet (a Solo Play game started without
-  // one) — doShare() creates it lazily once the name prompt resolves, rather
-  // than baking in "A music fan" here, since challenges are immutable once
-  // created (no updating creator_name after the fact).
-  useEffect(() => {
-    if (gameState !== "results") return;
-    if (challenge || event || createdChallengeRef.current || planRef.current.length === 0) return;
-    const knownName = playerName || getSavedUsername();
-    if (!knownName) return;
+  // Pre-create the challenge link before Share is ever tapped, so the tap
+  // that opens the share sheet stays within the browser's user-gesture
+  // window (navigator.share requires it -- iOS refuses after any network
+  // wait). Runs when results appear if a name is known, or the moment one
+  // is entered on the results screen. Never with a placeholder name:
+  // challenges are immutable once created (no fixing creator_name later).
+  const precreateChallenge = (creatorName: string) => {
+    if (challenge || event || createdChallengeRef.current || pendingChallengeRef.current) return;
+    if (planRef.current.length === 0) return;
+    setLinkPending(true);
+    const gen = challengeGenRef.current;
     pendingChallengeRef.current = createChallenge({
-      creator_name: knownName,
+      creator_name: creatorName,
       creator_score: soloScore,
       category_name: playlistName || playlist?.name || "Music Quiz",
       time_per_round: ROUND_TIME / 1000,
       plan: planRef.current,
     }).then((code) => {
+      if (gen !== challengeGenRef.current) return code;
       createdChallengeRef.current = code;
       pendingChallengeRef.current = null;
+      setLinkPending(false);
       if (code) trackEvent("challenge_create", { challenge_code: code, score: soloScore, source: "solo" });
       return code;
     });
+  };
+
+  useEffect(() => {
+    if (gameState !== "results") return;
+    const knownName = playerName || getSavedUsername();
+    if (knownName) precreateChallenge(knownName);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameState]);
 
@@ -1217,22 +1225,16 @@ export default function Game() {
       }
     };
 
-    const handleShare = () => {
-      if ((playerName || getSavedUsername()).trim()) {
-        doShare();
-      } else {
-        setNameInput("");
-        setShowNamePrompt(true);
-      }
-    };
+    const hasName = !!(playerName || getSavedUsername()).trim();
 
+    // Saving the name starts link creation right away, while they're still
+    // looking at their score -- by the time they reach for Share it's ready.
     const handleNameSubmit = () => {
-      const trimmed = nameInput.trim();
+      const trimmed = nameInput.trim().replace(/[\x00-\x1F\x7F]/g, "").slice(0, 20);
       if (!trimmed) return;
       saveUsername(trimmed);
       setPlayer(trimmed, avatarIndex);
-      setShowNamePrompt(false);
-      doShare();
+      precreateChallenge(trimmed);
     };
 
     return (
@@ -1464,9 +1466,39 @@ export default function Game() {
             </div>
           ) : (
             <>
-              <Button variant="gold" size="lg" className="w-full mb-4" onClick={handleShare} disabled={isSharing}>
+              {!hasName && (
+                <div className="mb-3 text-left">
+                  <label htmlFor="share-name" className="block text-xs text-muted-foreground mb-1.5">
+                    Add your name to challenge friends
+                  </label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="share-name"
+                      value={nameInput}
+                      onChange={(e) => setNameInput(e.target.value)}
+                      placeholder="Your nickname"
+                      maxLength={20}
+                      onKeyDown={(e) => e.key === "Enter" && nameInput.trim() && handleNameSubmit()}
+                    />
+                    <Button variant="outline" onClick={handleNameSubmit} disabled={!nameInput.trim()}>
+                      Save
+                    </Button>
+                  </div>
+                </div>
+              )}
+              <Button
+                variant="gold"
+                size="lg"
+                className="w-full mb-4"
+                onClick={doShare}
+                disabled={isSharing || !hasName || linkPending}
+              >
                 <Share2 className="w-5 h-5 mr-2" />
-                {challenge && !daily ? "Share Result" : "Challenge your friends"}
+                {linkPending
+                  ? "Preparing your link…"
+                  : challenge && !daily
+                  ? "Share Result"
+                  : "Challenge your friends"}
               </Button>
 
               {daily ? (
@@ -1541,36 +1573,6 @@ export default function Game() {
           )}
         </motion.div>
 
-        <Dialog open={showNamePrompt} onOpenChange={setShowNamePrompt}>
-          <DialogContent className="sm:max-w-sm">
-            <DialogHeader>
-              <DialogTitle>What's your name?</DialogTitle>
-              <DialogDescription>
-                So your shared result isn't just "A music fan."
-              </DialogDescription>
-            </DialogHeader>
-            <Input
-              value={nameInput}
-              onChange={(e) => setNameInput(e.target.value)}
-              placeholder="Your nickname"
-              aria-label="Your nickname"
-              maxLength={20}
-              className="text-center text-lg"
-              onKeyDown={(e) => e.key === "Enter" && nameInput.trim() && handleNameSubmit()}
-              autoFocus
-            />
-            <Button
-              variant="gold"
-              size="lg"
-              className="w-full"
-              onClick={handleNameSubmit}
-              disabled={!nameInput.trim() || isSharing}
-            >
-              <Share2 className="w-5 h-5 mr-2" />
-              {challenge && !daily ? "Share Result" : "Challenge your friends"}
-            </Button>
-          </DialogContent>
-        </Dialog>
       </div>
     );
   }
