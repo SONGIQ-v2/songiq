@@ -118,6 +118,10 @@ Deno.serve(async (req) => {
           provider,
           signedUpAt: user.created_at ?? new Date().toISOString(),
           totalAccounts: count ?? '',
+          ip,
+          country,
+          region,
+          city,
         },
       },
     })
