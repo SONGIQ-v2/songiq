@@ -18,6 +18,17 @@ const json = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   })
 
+// Cloudflare's header and ipapi's `country` are ISO-3166 alpha-2 codes, but
+// the two used to be mixed with ipapi's full `country_name` -- normalize to
+// the code so "NG" and "Nigeria" can't split into two buckets. XX = unknown,
+// T1 = Tor exit node: neither is a real country.
+function normalizeCountry(value: unknown): string | null {
+  const code = typeof value === 'string' ? value.trim().toUpperCase() : ''
+  return /^[A-Z]{2}$/.test(code) && code !== 'XX' && code !== 'T1' ? code : null
+}
+
+type Geo = { country?: string; country_name?: string; region?: string; city?: string }
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -57,22 +68,40 @@ Deno.serve(async (req) => {
       req.headers.get('x-real-ip') ||
       'unknown'
 
-    let country = req.headers.get('cf-ipcountry') || ''
-    let region = ''
-    let city = ''
+    // ipapi's free tier is capped per day, so it's looked up lazily and at
+    // most once per request -- only when Cloudflare didn't supply a country
+    // and none is stored yet, or when the first-signup email needs city/region.
+    let geo: Geo | null | undefined
+    const lookupGeo = async (): Promise<Geo | null> => {
+      if (geo !== undefined) return geo
+      geo = null
+      if (ip && ip !== 'unknown') {
+        try {
+          const geoRes = await fetch(`https://ipapi.co/${ip}/json/`, {
+            headers: { 'User-Agent': 'songiq-signup/1.0' },
+          })
+          if (geoRes.ok) geo = await geoRes.json()
+        } catch { /* non-blocking */ }
+      }
+      return geo
+    }
 
-    if (ip && ip !== 'unknown') {
-      try {
-        const geoRes = await fetch(`https://ipapi.co/${ip}/json/`, {
-          headers: { 'User-Agent': 'songiq-signup/1.0' },
-        })
-        if (geoRes.ok) {
-          const geo = await geoRes.json()
-          country = country || geo.country_name || geo.country || ''
-          region = geo.region || ''
-          city = geo.city || ''
-        }
-      } catch { /* non-blocking */ }
+    // This function runs on every signed-in page load (see gameStore.ts), so
+    // keeping the account's country current here also fills it in for
+    // accounts that signed up before it was captured. Stored as the ISO
+    // code in app_metadata -- writable only with the service role, so a
+    // player can't set their own, and visible to admin-analytics'
+    // listUsers() scan without a separate table.
+    const storedCountry = normalizeCountry(user.app_metadata?.country)
+    const countryCode =
+      normalizeCountry(req.headers.get('cf-ipcountry')) ??
+      storedCountry ??
+      normalizeCountry((await lookupGeo())?.country)
+    if (countryCode && countryCode !== storedCountry) {
+      const { error: geoErr } = await admin.auth.admin.updateUserById(user.id, {
+        app_metadata: { ...user.app_metadata, country: countryCode },
+      })
+      if (geoErr) console.error('[notify-new-signup] country save failed:', geoErr.message)
     }
 
     const provider =
@@ -104,6 +133,11 @@ Deno.serve(async (req) => {
       (user.user_metadata?.full_name as string | undefined) ??
       (user.user_metadata?.name as string | undefined) ??
       'Player'
+
+    const emailGeo = await lookupGeo()
+    const country = emailGeo?.country_name || countryCode || ''
+    const region = emailGeo?.region || ''
+    const city = emailGeo?.city || ''
 
     try {
       await sendAndLog('new-signup-notification', '', {

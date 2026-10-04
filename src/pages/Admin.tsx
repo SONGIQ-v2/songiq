@@ -11,6 +11,7 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  LabelList,
 } from "recharts";
 import { Lock, LinkIcon, RefreshCw, Users, Trophy, Radio, Flame, Calendar, Target, ListMusic, Eye, Globe, MapPin, Share2, Clock, UserCheck, LayoutDashboard, BarChart3, Mic2, LogOut, FileText, ArrowLeft, Megaphone, Trash2, PartyPopper } from "lucide-react";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
@@ -89,10 +90,13 @@ interface ReportData {
     name: string | null;
     nickname: string | null;
     email: string | null;
+    country: string | null;
     createdAt: string;
     lastSignInAt: string | null;
     points: number;
   }[];
+  /** Across ALL signed-in accounts, not just the 200-row table. null code = not captured yet. */
+  signedInByCountry?: { code: string | null; count: number }[];
   stats?: {
     playersWithStreak: number;
     newSignedInInRange: number;
@@ -120,6 +124,22 @@ interface ReportData {
 
 function formatEventName(event: string) {
   return event.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+// Signed-in users' countries are stored as ISO codes ("NG"); render the
+// full name for the admin. null = not captured yet.
+const regionNames = new Intl.DisplayNames(["en"], { type: "region" });
+function countryName(code: string | null): string {
+  if (!code) return "Unknown";
+  try {
+    return regionNames.of(code) ?? code;
+  } catch {
+    return code;
+  }
+}
+function countryFlag(code: string | null): string {
+  if (!code) return "🌐";
+  return String.fromCodePoint(...[...code].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65));
 }
 
 function formatGa4Date(d: string) {
@@ -1317,6 +1337,94 @@ export default function Admin() {
                         )}
                       </div>
 
+                      {report.signedInByCountry && report.signedInByCountry.length > 0 && (() => {
+                        const rows = report.signedInByCountry;
+                        const total = rows.reduce((sum, r) => sum + r.count, 0);
+                        const unknown = rows.find((r) => r.code === null)?.count ?? 0;
+                        const known = rows.filter((r) => r.code !== null);
+                        const pct = (n: number) => (total ? Math.round((n / total) * 1000) / 10 : 0);
+                        const chartData = known.slice(0, 10).map((r) => ({
+                          label: `${countryFlag(r.code)} ${countryName(r.code)}`,
+                          count: r.count,
+                          pct: pct(r.count),
+                        }));
+                        return (
+                          <div className="raised-panel p-5">
+                            <p className="text-sm font-semibold text-foreground mb-4 flex items-center gap-1.5">
+                              <Globe className="w-4 h-4 text-primary" /> Signed-in users by country
+                            </p>
+                            <div className="grid grid-cols-3 gap-3 mb-5">
+                              {[
+                                { label: "Signed-in users", value: total },
+                                { label: "Countries", value: known.length },
+                                { label: "Unknown country", value: `${unknown} (${pct(unknown)}%)` },
+                              ].map((s) => (
+                                <div key={s.label} className="rounded-lg bg-card/50 px-3 py-2.5">
+                                  <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">{s.label}</p>
+                                  <p className="text-lg font-bold text-foreground tabular-nums">{s.value}</p>
+                                </div>
+                              ))}
+                            </div>
+                            {chartData.length > 0 && (
+                              <div style={{ height: Math.max(160, chartData.length * 36) }} className="mb-5">
+                                <ResponsiveContainer width="100%" height="100%">
+                                  <BarChart data={chartData} layout="vertical" margin={{ left: 8, right: 56 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border) / 0.3)" horizontal={false} />
+                                    <XAxis type="number" allowDecimals={false} stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                                    <YAxis type="category" dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={11} width={150} />
+                                    <Tooltip
+                                      formatter={(value: number, _name, item) => [`${value} (${item.payload.pct}%)`, "Users"]}
+                                      contentStyle={{
+                                        background: "hsl(var(--card))",
+                                        border: "1px solid hsl(var(--border))",
+                                        borderRadius: 8,
+                                        fontSize: 12,
+                                      }}
+                                    />
+                                    <Bar dataKey="count" fill="hsl(var(--gold))" radius={[0, 4, 4, 0]}>
+                                      <LabelList
+                                        dataKey="pct"
+                                        position="right"
+                                        formatter={(v: number) => `${v}%`}
+                                        fill="hsl(var(--muted-foreground))"
+                                        fontSize={11}
+                                      />
+                                    </Bar>
+                                  </BarChart>
+                                </ResponsiveContainer>
+                              </div>
+                            )}
+                            <div className="space-y-1.5 max-h-80 overflow-y-auto">
+                              {rows.map((r) => (
+                                <div key={r.code ?? "unknown"} className="px-3 py-1.5 rounded-lg text-sm bg-card/50">
+                                  <div className="flex items-center justify-between gap-3">
+                                    <span className="font-semibold text-foreground truncate">
+                                      {countryFlag(r.code)} {countryName(r.code)}
+                                    </span>
+                                    <span className="shrink-0 tabular-nums">
+                                      <span className="font-bold text-gold">{r.count}</span>
+                                      <span className="text-muted-foreground text-xs ml-2">{pct(r.count)}%</span>
+                                    </span>
+                                  </div>
+                                  <div className="mt-1 h-1 rounded-full bg-border/40 overflow-hidden">
+                                    <div
+                                      className={r.code ? "h-full bg-gold" : "h-full bg-muted-foreground/50"}
+                                      style={{ width: `${pct(r.count)}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            {unknown > 0 && (
+                              <p className="text-xs text-muted-foreground mt-3">
+                                "Unknown" is accounts whose country hasn't been captured yet — it fills in as they next visit
+                                the site while signed in.
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })()}
+
                       {report.signedInUsers && report.signedInUsers.length > 0 ? (
                         <div className="raised-panel p-5">
                           <p className="text-sm font-semibold text-foreground mb-4 flex items-center gap-1.5">
@@ -1329,6 +1437,7 @@ export default function Admin() {
                                   <TableHead>Name</TableHead>
                                   <TableHead>Nickname</TableHead>
                                   <TableHead>Email</TableHead>
+                                  <TableHead>Country</TableHead>
                                   <TableHead>ID</TableHead>
                                   <TableHead className="text-right">Points</TableHead>
                                   <TableHead className="text-right">Joined</TableHead>
@@ -1341,6 +1450,9 @@ export default function Admin() {
                                     <TableCell className="font-semibold text-foreground">{u.name || "—"}</TableCell>
                                     <TableCell className="text-muted-foreground">{u.nickname || "—"}</TableCell>
                                     <TableCell className="text-muted-foreground">{u.email || "—"}</TableCell>
+                                    <TableCell className="text-muted-foreground whitespace-nowrap">
+                                      {u.country ? `${countryFlag(u.country)} ${countryName(u.country)}` : "—"}
+                                    </TableCell>
                                     <TableCell>
                                       <Link
                                         to={`/anonymous/player/${u.id}`}

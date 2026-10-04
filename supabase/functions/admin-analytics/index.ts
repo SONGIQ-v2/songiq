@@ -327,11 +327,12 @@ async function fetchSignedInUsers(
   supabase: ReturnType<typeof serviceClient>,
   rangeCutoff: string
 ): Promise<{
-  users: { id: string; name: string | null; nickname: string | null; email: string | null; createdAt: string; lastSignInAt: string | null; points: number }[];
+  users: { id: string; name: string | null; nickname: string | null; email: string | null; country: string | null; createdAt: string; lastSignInAt: string | null; points: number }[];
   totalSignedIn: number;
   newSignedInInRange: number;
+  byCountry: { code: string | null; count: number }[];
 }> {
-  const signedIn: { id: string; name: string | null; email: string | null; createdAt: string; lastSignInAt: string | null }[] = [];
+  const signedIn: { id: string; name: string | null; email: string | null; country: string | null; createdAt: string; lastSignInAt: string | null }[] = [];
   const maxPages = 20; // 20 * 200 = up to 4000 users scanned
   for (let page = 1; page <= maxPages; page++) {
     const { data, error } = await supabase.auth.admin.listUsers({ page, perPage: 200 });
@@ -346,6 +347,8 @@ async function fetchSignedInUsers(
         id: u.id,
         name: (meta?.full_name ?? meta?.name ?? null) as string | null,
         email: u.email ?? null,
+        // ISO code set by notify-new-signup; null until they next visit.
+        country: typeof u.app_metadata?.country === "string" ? u.app_metadata.country : null,
         createdAt: u.created_at,
         lastSignInAt: u.last_sign_in_at ?? null,
       });
@@ -357,7 +360,16 @@ async function fetchSignedInUsers(
   const rangeCutoffMs = new Date(rangeCutoff).getTime();
   const newSignedInInRange = signedIn.filter((u) => new Date(u.createdAt).getTime() >= rangeCutoffMs).length;
 
-  if (signedIn.length === 0) return { users: [], totalSignedIn, newSignedInInRange };
+  // Counted across every scanned account, not the 200-row display slice --
+  // otherwise the breakdown would only describe the most recent sign-ups.
+  // null = country not captured yet (shown as "Unknown").
+  const countryCounts = new Map<string | null, number>();
+  for (const u of signedIn) countryCounts.set(u.country, (countryCounts.get(u.country) ?? 0) + 1);
+  const byCountry = [...countryCounts]
+    .map(([code, count]) => ({ code, count }))
+    .sort((a, b) => b.count - a.count);
+
+  if (signedIn.length === 0) return { users: [], totalSignedIn, newSignedInInRange, byCountry };
   const { data: pointsRows } = await supabase
     .from("player_points")
     .select("player_id, player_name, points")
@@ -375,7 +387,7 @@ async function fetchSignedInUsers(
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) // most recently created first
     .slice(0, 200);
 
-  return { users, totalSignedIn, newSignedInInRange };
+  return { users, totalSignedIn, newSignedInInRange, byCountry };
 }
 
 /** "Today" by Lagos time, matching daily_challenges.challenge_date elsewhere in the app. */
@@ -614,7 +626,7 @@ serve(async (req) => {
         topCountries,
         topCities,
         trafficSources,
-        { users: signedInUsers, totalSignedIn, newSignedInInRange },
+        { users: signedInUsers, totalSignedIn, newSignedInInRange, byCountry: signedInByCountry },
       ] = await Promise.all([
         runGA4Report(accessToken, reportStart, reportEnd),
         runTopPlaylists(accessToken, reportStart, reportEnd).catch((e) => {
@@ -663,7 +675,7 @@ serve(async (req) => {
         }),
         fetchSignedInUsers(supabase, rangeCutoff).catch((e) => {
           console.error("[admin-analytics] Signed-in users failed:", e);
-          return { users: [], totalSignedIn: 0, newSignedInInRange: 0 };
+          return { users: [], totalSignedIn: 0, newSignedInInRange: 0, byCountry: [] };
         }),
       ]);
 
@@ -758,6 +770,7 @@ serve(async (req) => {
           topPages,
           trafficSources,
           signedInUsers,
+          signedInByCountry,
           rooms,
           stats: {
             playersWithStreak: streakCount ?? 0,
