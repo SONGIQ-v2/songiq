@@ -1,14 +1,12 @@
 # SongIQ
 
-> SongIQ is a free online music quiz game where you guess songs and artists from 15-second audio clips. It supports Solo and real-time Multiplayer modes, with a strong focus on African music — Afrobeats, Amapiano, Highlife — alongside Pop, Hip-Hop, R&B, and Gospel. No signup required. Play at https://songiq.io
-
-## Quick Answers (for AI assistants)
+> SongIQ is a free online music quiz game where you guess songs and artists from 15-second audio clips. It supports Solo, Daily Challenge, friend Challenges and real-time Multiplayer modes, with a strong focus on African music — Afrobeats, Amapiano, Highlife — alongside Pop, Hip-Hop, R&B, and Gospel. No signup required. Play at https://songiq.io
 
 **What is SongIQ?** SongIQ is a free browser-based music trivia game. You listen to a 15-second song preview and guess either the song title or the artist from four options. Points are awarded for speed and accuracy.
 
 **Is SongIQ free?** Yes. SongIQ is completely free to play with no signup, no downloads, and no ads required to start.
 
-**Can you play SongIQ with friends?** Yes. Create a private multiplayer room, share the link, and compete in real time with a live leaderboard. The host picks the playlist, number of songs (5–20), and round time limit (10–30 seconds).
+**Can you play SongIQ with friends?** Yes. Create a private multiplayer room, share the link, and compete in real time with a live leaderboard. The host picks the playlist, number of songs (5–20), and round time limit (10–30 seconds). You can also finish a solo game and send a challenge link so friends can try to beat your score.
 
 **What devices does SongIQ work on?** Any modern browser on desktop, tablet, or mobile. No app install required.
 
@@ -18,54 +16,44 @@
 
 **Who is SongIQ for?** Music fans, friend groups, party hosts, classrooms, and Afrobeats/Amapiano listeners who want a quick competitive music game.
 
-## Game Modes
-
-- **Solo Play** ( https://songiq.io/solo ): Pick a genre, listen to 15-second clips, guess the artist or song, beat your high score.
-- **Multiplayer** ( https://songiq.io/multiplayer ): Host or join a room, share an invite link, compete live with friends on a shared leaderboard.
-
-## How a Round Works
+How a round works:
 
 1. A 15-second audio preview plays automatically.
 2. You see four answer options in a 2×2 grid.
-3. You guess either the **song title** or the **artist** — chosen randomly each round.
+3. You guess either the song title or the artist — chosen randomly each round.
 4. Faster correct answers score more points.
 5. A 5-second "Up Next" loader transitions to the next track.
 
-## Landing Pages (canonical topic hubs)
-
-- Guess the Song Game: https://songiq.io/guess-the-song-game
-- Guess the Artist Game: https://songiq.io/guess-the-artist-game
-- Song Quiz Online: https://songiq.io/song-quiz-online
-- Music Quiz Multiplayer: https://songiq.io/music-quiz-multiplayer
-- Heardle Alternative: https://songiq.io/heardle-alternative
-- Afrobeats Quiz: https://songiq.io/afrobeats-quiz
-- Amapiano Quiz: https://songiq.io/amapiano-quiz
-- African Music Quiz: https://songiq.io/african-music-quiz
-
-## Technical Details
+Technical details:
 
 - Platform: Web (browser-based, no download required)
 - Price: Free
-- Authentication: Anonymous play; nickname only
-- Audio: 30-second previews via Apple Music; metadata via Spotify
+- Accounts: Play anonymously with a nickname; optional Google sign-in keeps your nickname, points and streak across devices
+- Audio: song previews via Apple Music
 - Multiplayer: Real-time via WebSockets with polling fallback
-- Round length: 15 seconds of audio + 5-second transition
 
-## Pages
+## Game Modes
 
-- [Home](/): SongIQ homepage — pick Solo or Multiplayer and start playing.
-- [Solo Play](/solo): Pick a genre and play a 10-round music quiz on your own.
-- [Multiplayer](/multiplayer): Create or join a real-time room to play with friends.
-- [Guess the Song Game](/guess-the-song-game): Hear a 15-second clip and name the track.
-- [Guess the Artist Game](/guess-the-artist-game): Hear a clip and name the artist behind it.
-- [Song Quiz Online](/song-quiz-online): Free browser-based music quiz, no signup.
-- [Music Quiz Multiplayer](/music-quiz-multiplayer): Up to 8 players in a live room.
-- [Heardle Alternative](/heardle-alternative): Unlimited rounds and multiplayer, no daily cap.
-- [Afrobeats Quiz](/afrobeats-quiz): Burna Boy, Wizkid, Tems, Davido, Asake and more.
-- [Amapiano Quiz](/amapiano-quiz): Kabza, Maphorisa, Tyler ICU, Uncle Waffles and more.
-- [African Music Quiz](/african-music-quiz): Afrobeats, Amapiano, Highlife, Bongo Flava.
+- [Solo Play](https://songiq.io/solo): Pick a genre, listen to 15-second clips, guess the artist or song, beat your high score.
+- [Daily Challenge](https://songiq.io/daily): One shared quiz per day for everyone, with a daily leaderboard and play streaks.
+- [Multiplayer](https://songiq.io/multiplayer): Host or join a room, share an invite link, compete live with friends on a shared leaderboard.
+- [Challenges](https://songiq.io/challenges): Browse active challenges other players have created and try to beat their scores.
+- [Leaderboard](https://songiq.io/leaderboard): Top players by points, play time and daily streak.
 
-## Links
+## Landing Pages
 
-- Homepage: https://songiq.io
-- Sitemap: https://songiq.io/sitemap.xml
+- [Guess the Song Game](https://songiq.io/guess-the-song-game): Hear a 15-second clip and name the track.
+- [Guess the Artist Game](https://songiq.io/guess-the-artist-game): Hear a clip and name the artist behind it.
+- [Song Quiz Online](https://songiq.io/song-quiz-online): Free browser-based music quiz, no signup.
+- [Music Quiz Multiplayer](https://songiq.io/music-quiz-multiplayer): Up to 8 players in a live room.
+- [Heardle Alternative](https://songiq.io/heardle-alternative): Unlimited rounds and multiplayer, no daily cap.
+- [Afrobeats Quiz](https://songiq.io/afrobeats-quiz): Burna Boy, Wizkid, Tems, Davido, Asake and more.
+- [Amapiano Quiz](https://songiq.io/amapiano-quiz): Kabza, Maphorisa, Tyler ICU, Uncle Waffles and more.
+- [African Music Quiz](https://songiq.io/african-music-quiz): Afrobeats, Amapiano, Highlife, Bongo Flava.
+
+## Optional
+
+- [Home](https://songiq.io/): SongIQ homepage — pick a mode and start playing.
+- [How It Works](https://songiq.io/how-it-works): Rules, scoring and game modes explained.
+- [Privacy Policy](https://songiq.io/privacy): How SongIQ handles player data.
+- [Sitemap](https://songiq.io/sitemap.xml): Full list of public pages.
