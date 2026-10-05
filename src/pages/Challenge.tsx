@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { motion } from "framer-motion";
-import { Music2, Play, Swords, Clock, Hash, Crown, Copy, Share2 } from "lucide-react";
+import { Music2, Play, Swords, Clock, Hash, Crown, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { Starfield } from "@/components/Starfield";
 import { Header } from "@/components/Header";
@@ -148,6 +148,23 @@ export default function ChallengePage() {
     if (outcome === "failed") toast.error("Couldn't share your result");
   };
 
+  // Creator sharing their own challenge again: native share sheet on mobile,
+  // copy on desktop. shareResult() calls share() before awaiting anything,
+  // so iOS keeps the tap's user gesture.
+  const handleShareChallenge = async () => {
+    if (!challenge) return;
+    trackEvent("share_result", { mode: "challenge_creator", score: challenge.creator_score });
+    const text = [
+      `🎵 SongIQ — ${challenge.category_name}`,
+      `I scored ${challenge.creator_score} pts`,
+      "",
+      `Same songs — beat my score 👉 ${challengeUrl(challenge.code)}`,
+    ].join("\n");
+    const outcome = await shareResult(text);
+    if (outcome === "copied") toast.success("Challenge link copied — paste it anywhere!");
+    if (outcome === "failed") toast.error("Couldn't share the challenge");
+  };
+
   const handleAccept = async () => {
     if (!challenge) return;
     // The button's disabled state normally blocks this, but that's a UI
@@ -182,17 +199,9 @@ export default function ChallengePage() {
   // long leaderboard can never push them past the fold without a manual
   // screenshot being the only way to grab a result.
   const ctaControls = !challenge ? null : isCreator ? (
-    <Button
-      variant="gold"
-      size="lg"
-      className="w-full"
-      onClick={async () => {
-        await navigator.clipboard.writeText(challengeUrl(challenge.code));
-        toast.success("Challenge link copied!");
-      }}
-    >
-      <Copy className="w-5 h-5 mr-2" />
-      Copy Challenge Link
+    <Button variant="gold" size="lg" className="w-full" onClick={handleShareChallenge}>
+      <Share2 className="w-5 h-5 mr-2" />
+      Share Challenge
     </Button>
   ) : myAttempt ? (
     <>
