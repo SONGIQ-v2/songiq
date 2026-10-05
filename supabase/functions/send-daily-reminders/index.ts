@@ -174,12 +174,6 @@ function buildEmail(
 }
 
 Deno.serve(async (req) => {
-  // Only the scheduled job (or an admin by hand) may trigger a send -- it's
-  // called with the service role key, never from the browser.
-  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-  if (req.headers.get('Authorization') !== `Bearer ${serviceKey}`) {
-    return json({ error: 'Unauthorized' }, 401)
-  }
   // Test mode: { "testEmail": "you@example.com" } sends just that one
   // account's email -- ignoring the played/already-sent filters and
   // recording nothing -- so the template and sender can be checked before
@@ -190,6 +184,22 @@ Deno.serve(async (req) => {
   const body = await req.json().catch(() => ({}))
   const testEmail = typeof body?.testEmail === 'string' ? body.testEmail.trim().toLowerCase() : null
   const viaLovable = !!testEmail && body?.via === 'lovable'
+
+  // The real send-to-everyone run is the scheduled job only, called with the
+  // service role key. A signed-in (non-anonymous) user may additionally
+  // trigger test mode, but only to their own address -- the most anyone can
+  // do with it is email themselves one preview.
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  const authHeader = req.headers.get('Authorization') ?? ''
+  if (authHeader !== `Bearer ${serviceKey}`) {
+    if (!testEmail) return json({ error: 'Unauthorized' }, 401)
+    const anon = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!)
+    const { data, error } = await anon.auth.getUser(authHeader.replace('Bearer ', ''))
+    if (error || !data.user || data.user.is_anonymous) return json({ error: 'Unauthorized' }, 401)
+    if (data.user.email?.toLowerCase() !== testEmail) {
+      return json({ error: 'Test emails can only be sent to your own address' }, 403)
+    }
+  }
 
   const resendKey = Deno.env.get('RESEND_API_KEY')
   if (!resendKey && !viaLovable) return json({ error: 'RESEND_API_KEY is not configured' }, 500)
