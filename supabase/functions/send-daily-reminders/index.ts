@@ -18,8 +18,14 @@ const SITE_URL = 'https://songiq.io'
 const RESEND_BATCH_MAX = 100 // Resend's per-request limit for /emails/batch
 const QUERY_CHUNK = 300 // keeps .in() filters well under URL-length limits
 
+// CORS so a signed-in user can fire their own test send from the browser.
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
 const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
+  new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 
 /** YYYY-MM-DD in Lagos time (UTC+1), the Daily Challenge's day boundary. */
 const lagosDate = (offsetDays = 0) =>
@@ -174,6 +180,8 @@ function buildEmail(
 }
 
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+
   // Test mode: { "testEmail": "you@example.com" } sends just that one
   // account's email -- ignoring the played/already-sent filters and
   // recording nothing -- so the template and sender can be checked before
