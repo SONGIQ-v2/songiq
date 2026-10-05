@@ -83,7 +83,7 @@ Deno.serve(async (req) => {
           if (geoRes.ok) geo = await geoRes.json()
         } catch { /* non-blocking */ }
       }
-      return geo
+      return geo ?? null
     }
 
     // This function runs on every signed-in page load (see gameStore.ts), so
