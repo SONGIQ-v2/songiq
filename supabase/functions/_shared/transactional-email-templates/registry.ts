@@ -1,6 +1,7 @@
 import type { ComponentType } from 'npm:react@18.3.1'
 import { template as feedbackNotification } from './feedback-notification.tsx'
 import { template as newSignupNotification } from './new-signup-notification.tsx'
+import { template as unsubscribeNotification } from './unsubscribe-notification.tsx'
 
 export interface TemplateEntry {
   component: ComponentType<any>
@@ -13,4 +14,5 @@ export interface TemplateEntry {
 export const TEMPLATES: Record<string, TemplateEntry> = {
   'feedback-notification': feedbackNotification,
   'new-signup-notification': newSignupNotification,
+  'unsubscribe-notification': unsubscribeNotification,
 }

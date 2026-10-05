@@ -13,3 +13,4 @@ Detailed technical documentation for the SongIQ music quiz platform.
 | [Music Catalogue & Track Fetching](./music-catalogue.md) | Apple Music integration, playlist curation, and option generation |
 | [State Management](./state-management.md) | Zustand store, auth flow, and client state |
 | [Solo Game Mode](./solo-game-mode.md) | Single-player quiz loop and countdown system |
+| [Potential Considerations](./potential-considerations.md) | Researched ideas not built yet (e.g. Deezer previews) |

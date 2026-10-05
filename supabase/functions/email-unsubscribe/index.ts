@@ -6,6 +6,7 @@
 // unsubscribes the player it was issued for.
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { verifyUnsubscribeToken } from '../_shared/unsubscribe-token.ts'
+import { sendAndLog } from '../_shared/email-send-log.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -38,12 +39,42 @@ Deno.serve(async (req) => {
   }
 
   const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
-  const { error } = await admin
+  // ignoreDuplicates + select returns the row only when it was newly
+  // inserted, so a repeat click doesn't send the admin a second alert.
+  const { data: inserted, error } = await admin
     .from('email_unsubscribes')
     .upsert({ player_id: u }, { onConflict: 'player_id', ignoreDuplicates: true })
+    .select('player_id')
   if (error) {
     console.error('[email-unsubscribe] failed:', error.message)
     return json({ error: 'Could not unsubscribe right now' }, 500)
   }
+  if (inserted?.length) await notifyAdmin(admin, u)
   return json({ unsubscribed: true })
 })
+
+// Emails the admin (same Lovable template setup as the new-signup alert).
+// Never affects the unsubscribe itself -- that's already saved.
+async function notifyAdmin(admin: ReturnType<typeof createClient>, playerId: string) {
+  try {
+    const [{ data: userData }, { data: points }, { count }] = await Promise.all([
+      admin.auth.admin.getUserById(playerId),
+      admin.from('player_points').select('player_name').eq('player_id', playerId).maybeSingle(),
+      admin.from('email_unsubscribes').select('player_id', { count: 'exact', head: true }),
+    ])
+    const user = userData?.user
+    const meta = user?.user_metadata ?? {}
+    await sendAndLog('unsubscribe-notification', '', {
+      idempotencyKey: `unsubscribe-${playerId}`,
+      templateData: {
+        name: String(meta.full_name || meta.name || ''),
+        nickname: points?.player_name ?? '',
+        email: user?.email ?? '',
+        unsubscribedAt: new Date().toISOString(),
+        totalUnsubscribed: count ?? '',
+      },
+    })
+  } catch (e) {
+    console.error('[email-unsubscribe] admin alert failed:', (e as Error).message)
+  }
+}

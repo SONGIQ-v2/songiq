@@ -1,6 +1,6 @@
 # SongIQ
 
-> SongIQ is a free online music quiz game where you guess songs and artists from 15-second audio clips. It supports Solo, Daily Challenge, friend Challenges and real-time Multiplayer modes, with a strong focus on African music — Afrobeats, Amapiano, Highlife — alongside Pop, Hip-Hop, R&B, and Gospel. No signup required. Play at https://songiq.io
+> SongIQ is a free online music quiz game where you guess songs and artists from 15-second audio clips. It supports Solo, Daily Challenge, friend Challenges and real-time Multiplayer modes, and covers music across genres and eras — Pop, Hip-Hop & Rap, R&B, UK Drill & Grime, Gospel, 90s and 2000s throwbacks, global charts and artist playlists — including one of the deepest catalogues of African music (Afrobeats, Amapiano, Highlife). No signup required. Play at https://songiq.io
 
 **What is SongIQ?** SongIQ is a free browser-based music trivia game. You listen to a 15-second song preview and guess either the song title or the artist from four options. Points are awarded for speed and accuracy.
 
@@ -10,11 +10,11 @@
 
 **What devices does SongIQ work on?** Any modern browser on desktop, tablet, or mobile. No app install required.
 
-**What genres does SongIQ cover?** Afrobeats, Amapiano, Highlife, Pop, Hip-Hop, R&B, Gospel, and more — with deep curation of African music.
+**What genres does SongIQ cover?** All the major ones: Pop, Hip-Hop & Rap, R&B, UK Drill & Grime, Gospel, 90s and 2000s throwbacks, Global Top 100, and African genres like Afrobeats, Amapiano and Highlife. There are also artist playlists, from Taylor Swift, Rihanna, Ed Sheeran and Beyoncé to Burna Boy, Wizkid and Davido.
 
-**Is SongIQ a Heardle alternative?** Yes. SongIQ plays the same "guess the song from audio" format but adds multiplayer rooms, African music coverage, and unlimited rounds (Heardle is one song per day, English-language focused).
+**Is SongIQ a Heardle alternative?** Yes. SongIQ plays the same "guess the song from audio" format but adds multiplayer rooms, many more genres (including African music), and unlimited rounds (Heardle is one song per day).
 
-**Who is SongIQ for?** Music fans, friend groups, party hosts, classrooms, and Afrobeats/Amapiano listeners who want a quick competitive music game.
+**Who is SongIQ for?** Music fans of any genre, friend groups, party hosts and classrooms who want a quick competitive music game.
 
 How a round works:
 
