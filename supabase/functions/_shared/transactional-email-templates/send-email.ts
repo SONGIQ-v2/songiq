@@ -50,6 +50,8 @@ export async function sendTemplateEmail(
     )
   }
 
+  const templateData = options.templateData ?? {}
+
   // Template-level `to` takes precedence — notification templates always
   // send to their fixed address.
   const templateTo =
@@ -59,7 +61,6 @@ export async function sendTemplateEmail(
     throw new Error('Recipient is required (the template defines no fixed recipient)')
   }
 
-  const templateData = options.templateData ?? {}
   const element = React.createElement(template.component, templateData)
   const html = await renderAsync(element)
   const text = await renderAsync(element, { plainText: true })
