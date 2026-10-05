@@ -4,7 +4,7 @@
 //  - The /unsubscribe page on songiq.io, which sends { u, t } as JSON.
 // No sign-in required -- the signed token is the proof, and it only ever
 // unsubscribes the player it was issued for.
-import { createClient } from 'npm:@supabase/supabase-js@2'
+import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2'
 import { verifyUnsubscribeToken } from '../_shared/unsubscribe-token.ts'
 import { sendAndLog } from '../_shared/email-send-log.ts'
 
@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
 
 // Emails the admin (same Lovable template setup as the new-signup alert).
 // Never affects the unsubscribe itself -- that's already saved.
-async function notifyAdmin(admin: ReturnType<typeof createClient>, playerId: string) {
+async function notifyAdmin(admin: SupabaseClient<any>, playerId: string) {
   try {
     const [{ data: userData }, { data: points }, { count }] = await Promise.all([
       admin.auth.admin.getUserById(playerId),
