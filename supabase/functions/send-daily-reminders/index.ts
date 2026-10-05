@@ -193,13 +193,20 @@ Deno.serve(async (req) => {
   const testEmail = typeof body?.testEmail === 'string' ? body.testEmail.trim().toLowerCase() : null
   const viaLovable = !!testEmail && body?.via === 'lovable'
 
-  // The real send-to-everyone run is the scheduled job only, called with the
-  // service role key. A signed-in (non-anonymous) user may additionally
-  // trigger test mode, but only to their own address -- the most anyone can
-  // do with it is email themselves one preview.
+  // The real send-to-everyone run is the scheduled job only. It proves itself
+  // with the x-cron-secret header (REMINDERS_CRON_SECRET, also stored in the
+  // vault for pg_cron) -- the service role key isn't available on Lovable
+  // Cloud -- or, for a manual run, the service role key itself. A signed-in
+  // (non-anonymous) user may additionally trigger test mode, but only to
+  // their own address -- the most anyone can do with it is email themselves
+  // one preview.
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  const cronSecret = Deno.env.get('REMINDERS_CRON_SECRET')
   const authHeader = req.headers.get('Authorization') ?? ''
-  if (authHeader !== `Bearer ${serviceKey}`) {
+  const isScheduler =
+    authHeader === `Bearer ${serviceKey}` ||
+    (!!cronSecret && cronSecret.length >= 32 && req.headers.get('x-cron-secret') === cronSecret)
+  if (!isScheduler) {
     if (!testEmail) return json({ error: 'Unauthorized' }, 401)
     const anon = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!)
     const { data, error } = await anon.auth.getUser(authHeader.replace('Bearer ', ''))
