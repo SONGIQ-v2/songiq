@@ -225,6 +225,24 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_reminder_sends: {
+        Row: {
+          challenge_date: string
+          player_id: string
+          sent_at: string
+        }
+        Insert: {
+          challenge_date: string
+          player_id: string
+          sent_at?: string
+        }
+        Update: {
+          challenge_date?: string
+          player_id?: string
+          sent_at?: string
+        }
+        Relationships: []
+      }
       daily_stats: {
         Row: {
           best_streak: number
@@ -339,6 +357,21 @@ export type Database = {
           id?: string
           token?: string
           used_at?: string | null
+        }
+        Relationships: []
+      }
+      email_unsubscribes: {
+        Row: {
+          created_at: string
+          player_id: string
+        }
+        Insert: {
+          created_at?: string
+          player_id: string
+        }
+        Update: {
+          created_at?: string
+          player_id?: string
         }
         Relationships: []
       }
