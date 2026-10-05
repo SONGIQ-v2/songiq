@@ -20,6 +20,7 @@ import HowItWorks from "./pages/HowItWorks";
 import Admin from "./pages/Admin";
 import PlayerProfile from "./pages/PlayerProfile";
 import Privacy from "./pages/Privacy";
+import Unsubscribe from "./pages/Unsubscribe";
 import GuessTheSongGame from "./pages/landing/GuessTheSongGame";
 import GuessTheArtistGame from "./pages/landing/GuessTheArtistGame";
 import SongQuizOnline from "./pages/landing/SongQuizOnline";
@@ -57,6 +58,7 @@ const App = () => (
           <Route path="/anonymous" element={<Admin />} />
           <Route path="/anonymous/player/:playerId" element={<PlayerProfile />} />
           <Route path="/privacy" element={<Privacy />} />
+          <Route path="/unsubscribe" element={<Unsubscribe />} />
           <Route path="/guess-the-song-game" element={<GuessTheSongGame />} />
           <Route path="/guess-the-artist-game" element={<GuessTheArtistGame />} />
           <Route path="/song-quiz-online" element={<SongQuizOnline />} />

@@ -15,3 +15,13 @@ verify_jwt = true
 [functions.admin-daily-challenge]
 verify_jwt = true
 
+# Reached from email clients' one-click unsubscribe and the public
+# /unsubscribe page -- no Supabase JWT; the signed link token is the proof.
+[functions.email-unsubscribe]
+verify_jwt = false
+
+# Called by the pg_cron job with the service role key; the function checks
+# that key itself (so it also works with non-JWT secret keys).
+[functions.send-daily-reminders]
+verify_jwt = false
+
