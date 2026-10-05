@@ -1,4 +1,4 @@
-import { createEmailWebhookHandler } from 'npm:@lovable.dev/email-js@0.1.0'
+import { createEmailWebhookHandler } from 'npm:@lovable.dev/email-js@0.2.0'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 
 const supabase = createClient(

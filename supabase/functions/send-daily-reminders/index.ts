@@ -11,7 +11,7 @@
 // reminders@mail.songiq.io -- must be on a domain verified in Resend; NOT
 // notify.songiq.io, which is delegated to Lovable's email service).
 import { createClient } from 'npm:@supabase/supabase-js@2'
-import { sendLovableEmail } from 'npm:@lovable.dev/email-js@0.1.0'
+import { sendLovableEmail } from 'npm:@lovable.dev/email-js@0.2.0'
 import { unsubscribeToken } from '../_shared/unsubscribe-token.ts'
 
 const SITE_URL = 'https://songiq.io'
