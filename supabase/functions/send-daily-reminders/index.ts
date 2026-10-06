@@ -2,7 +2,8 @@
 // via Resend. Run once a day in the evening (Lagos) by a pg_cron job -- see
 // the scheduling SQL handed over alongside this function.
 //
-// Who gets one: every non-anonymous account with an email, minus anyone who
+// Who gets one: every non-anonymous account with an email and a live Daily
+// streak (played yesterday, so at least a 1-day streak), minus anyone who
 // already played today, unsubscribed (email_unsubscribes), is suppressed
 // for bounces/complaints (suppressed_emails), or was already emailed about
 // today's Daily (daily_reminder_sends -- the job is safe to re-run).
@@ -261,6 +262,7 @@ Deno.serve(async (req) => {
     const unsubscribed = new Set<string>()
     const alreadySent = new Set<string>()
     const streakById = new Map<string, number>()
+    const activeStreak = new Set<string>()
     const nicknameById = new Map<string, string>()
     for (const ids of chunk(accounts.map((a) => a.id), QUERY_CHUNK)) {
       const [attempts, unsubs, sends, stats, names] = await Promise.all([
@@ -282,8 +284,14 @@ Deno.serve(async (req) => {
       for (const r of unsubs.data ?? []) unsubscribed.add(r.player_id)
       for (const r of sends.data ?? []) alreadySent.add(r.player_id)
       for (const r of stats.data ?? []) {
-        // Still alive only if they played yesterday; >= 2 so "1-day streak" isn't a thing.
-        if (r.last_played === yesterday && r.current_streak >= 2) streakById.set(r.player_id, r.current_streak)
+        // A streak is still alive only if they played yesterday. Only these
+        // players get the email at all (no streak = no reminder, so it's
+        // never spam to lapsed players); the "streak at risk" headline is
+        // kept for >= 2 so the email never says "1-Day Streak".
+        if (r.last_played === yesterday && r.current_streak >= 1) {
+          activeStreak.add(r.player_id)
+          if (r.current_streak >= 2) streakById.set(r.player_id, r.current_streak)
+        }
       }
     }
 
@@ -349,7 +357,7 @@ Deno.serve(async (req) => {
     }
 
     const recipients: Recipient[] = accounts
-      .filter((a) => !played.has(a.id) && !unsubscribed.has(a.id) && !alreadySent.has(a.id) && !suppressed.has(a.email.toLowerCase()))
+      .filter((a) => activeStreak.has(a.id) && !played.has(a.id) && !unsubscribed.has(a.id) && !alreadySent.has(a.id) && !suppressed.has(a.email.toLowerCase()))
       .map(toRecipient)
 
     let sent = 0
@@ -402,6 +410,7 @@ Deno.serve(async (req) => {
     const summary = {
       date: today,
       accounts: accounts.length,
+      withActiveStreak: activeStreak.size,
       alreadyPlayed: played.size,
       unsubscribed: unsubscribed.size,
       suppressed: suppressed.size,
