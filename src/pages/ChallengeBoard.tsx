@@ -28,6 +28,7 @@ interface BoardAttempt {
   avg_response_ms: number | null;
   created_at: string | null;
   isCreator: boolean;
+  unfinished?: boolean; // not finished (yet): score so far, labelled "incomplete"
 }
 
 function formatSpeed(ms: number | null): string {
@@ -97,6 +98,7 @@ export default function ChallengeBoard() {
           avg_response_ms: a.avg_response_ms,
           created_at: a.created_at,
           isCreator: false,
+          unfinished: !!a.in_progress,
         })),
       ].sort((a, b) => b.score - a.score)
     : [];
@@ -260,6 +262,9 @@ export default function ChallengeBoard() {
                         <TableCell className="py-3 text-right font-bold text-gold text-[1.1rem]">{a.score}</TableCell>
                         <TableCell className="py-3 text-center text-muted-foreground whitespace-nowrap">
                           {a.correct_count != null ? `${a.correct_count}/${challenge.plan.length}` : "—"}
+                          {a.unfinished && (
+                            <span className="block text-[10px] uppercase tracking-wide">incomplete</span>
+                          )}
                         </TableCell>
                         <TableCell className="py-3 text-center text-muted-foreground whitespace-nowrap">
                           {formatSpeed(a.avg_response_ms)}

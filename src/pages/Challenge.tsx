@@ -13,6 +13,7 @@ import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
 import { useGameStore } from "@/lib/gameStore";
 import { trackEvent } from "@/lib/analytics";
+import { isPlayActive } from "@/lib/roundProgress";
 import { shareResult, buildChallengeResultShareText } from "@/lib/shareCard";
 import { fetchVerifiedPlayerIds } from "@/lib/verifiedPlayers";
 import {
@@ -72,6 +73,9 @@ export default function ChallengePage() {
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const [attempts, setAttempts] = useState<ChallengeAttempt[]>([]);
   const [myAttempt, setMyAttempt] = useState<ChallengeAttempt | null>(null);
+  // Started, closed, still resumable (until midnight of the day it was
+  // started): treated as not-yet-played, with Continue from the next song.
+  const [resumeAt, setResumeAt] = useState<number | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "not_found" | "error">("loading");
   const [loadAttempt, setLoadAttempt] = useState(0);
   const [name, setName] = useState("");
@@ -99,7 +103,9 @@ export default function ChallengePage() {
         pid ? fetchMyChallengeAttempt(c.code, pid) : Promise.resolve(null),
       ]);
       setAttempts(board);
-      setMyAttempt(mine);
+      const active = isPlayActive(mine);
+      setMyAttempt(active ? null : mine);
+      setResumeAt(active ? (mine?.rounds_completed ?? 0) + 1 : null);
       setName(getKnownPlayerName());
       setStatus("ready");
       fetchVerifiedPlayerIds([
@@ -234,7 +240,7 @@ export default function ChallengePage() {
         disabled={!name.trim()}
       >
         <Play className="w-5 h-5 mr-2" />
-        Accept Challenge →
+        {resumeAt ? `Continue — Song ${resumeAt} of ${challenge.plan.length}` : "Accept Challenge →"}
       </Button>
     </>
   );

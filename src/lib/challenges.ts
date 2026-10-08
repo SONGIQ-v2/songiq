@@ -4,6 +4,12 @@
 import { supabase } from "@/integrations/supabase/client";
 import { generateRoomCode } from "@/lib/spotify";
 import { logError } from "@/lib/clientLogger";
+import {
+  classifyRpcError,
+  type PendingRound,
+  type RoundResult,
+  type SendOutcome,
+} from "@/lib/roundProgress";
 
 export interface ChallengeRound {
   track_id: string;
@@ -92,11 +98,57 @@ export interface ChallengeAttempt {
   correct_count: number;
   avg_response_ms: number | null;
   created_at: string;
+  // Per-round saving (see roundProgress.ts). Old rows: in_progress false,
+  // rounds_completed null, round_results [].
+  in_progress?: boolean;
+  rounds_completed?: number | null;
+  round_results?: RoundResult[];
+  updated_at?: string | null;
+}
+
+const LEGACY_ATTEMPT_COLUMNS = "player_id, player_name, score, correct_count, avg_response_ms, created_at";
+const ATTEMPT_COLUMNS = `${LEGACY_ATTEMPT_COLUMNS}, in_progress, rounds_completed, round_results, updated_at`;
+
+// Frontend shipped before the per-round migration: the new columns don't
+// exist yet (Postgres 42703) -- fall back to the old query.
+const isMissingColumn = (error: { code?: string } | null) => error?.code === "42703";
+
+/** Pending-round queue key for this player's play of a challenge (roundProgress.ts). */
+export function challengeProgressKey(code: string, playerId: string): string {
+  return `challenge:${code.toUpperCase()}:${playerId}`;
+}
+
+/** Save one answered round of a challenge (creates the attempt on round 1). */
+export async function recordChallengeRound(
+  code: string,
+  playerName: string,
+  round: PendingRound
+): Promise<SendOutcome> {
+  const { error } = await (supabase as any).rpc("record_challenge_round", {
+    p_code: code.toUpperCase(),
+    p_round: round.round,
+    p_correct: round.correct,
+    p_points: round.points,
+    p_answer_ms: round.ms,
+    p_player_name: playerName,
+  });
+  const outcome = classifyRpcError(error);
+  if (error && outcome === "done") {
+    logError("challenge.round_rejected", "Challenge round was refused", { code, round: round.round, error: error.message });
+  }
+  return outcome;
+}
+
+/** In-app Leave: the current partial score becomes final. */
+export async function finishChallengeAttempt(code: string): Promise<SendOutcome> {
+  const { error } = await (supabase as any).rpc("finish_challenge_attempt", { p_code: code.toUpperCase() });
+  return classifyRpcError(error);
 }
 
 /**
- * Record a player's (single) attempt. "duplicate" means this player already
- * has one (first attempt counts, unique constraint) -- not a failure.
+ * Legacy end-of-game save, used only if the per-round RPC isn't deployed yet.
+ * "duplicate" means this player already has one (first attempt counts,
+ * unique constraint) -- not a failure.
  */
 export async function submitChallengeAttempt(
   code: string,
@@ -128,23 +180,32 @@ export async function fetchMyChallengeAttempt(
   code: string,
   playerId: string
 ): Promise<ChallengeAttempt | null> {
-  const { data } = await (supabase as any)
-    .from("challenge_attempts")
-    .select("player_id, player_name, score, correct_count, avg_response_ms, created_at")
-    .eq("challenge_code", code.toUpperCase())
-    .eq("player_id", playerId)
-    .maybeSingle();
+  const query = (legacy: boolean) =>
+    (supabase as any)
+      .from("challenge_attempts")
+      .select(legacy ? LEGACY_ATTEMPT_COLUMNS : ATTEMPT_COLUMNS)
+      .eq("challenge_code", code.toUpperCase())
+      .eq("player_id", playerId)
+      .maybeSingle();
+  let { data, error } = await query(false);
+  if (isMissingColumn(error)) ({ data } = await query(true));
   return (data as ChallengeAttempt) ?? null;
 }
 
-/** Leaderboard entries for a challenge, best score first. */
+/**
+ * Leaderboard entries for a challenge, best score first. Unfinished plays
+ * are included with their score so far (in_progress = true).
+ */
 export async function fetchChallengeAttempts(code: string): Promise<ChallengeAttempt[]> {
-  const { data, error } = await (supabase as any)
-    .from("challenge_attempts")
-    .select("player_id, player_name, score, correct_count, avg_response_ms, created_at")
-    .eq("challenge_code", code.toUpperCase())
-    .order("score", { ascending: false })
-    .limit(50);
+  const query = (legacy: boolean) => {
+    let q = (supabase as any)
+      .from("challenge_attempts")
+      .select(legacy ? LEGACY_ATTEMPT_COLUMNS : ATTEMPT_COLUMNS)
+      .eq("challenge_code", code.toUpperCase());
+    return q.order("score", { ascending: false }).limit(50);
+  };
+  let { data, error } = await query(false);
+  if (isMissingColumn(error)) ({ data, error } = await query(true));
   if (error || !data) return [];
   return data as ChallengeAttempt[];
 }

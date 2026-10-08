@@ -49,6 +49,9 @@ import {
   submitChallengeAttempt,
   fetchChallengeAttempts,
   fetchMyChallengeAttempt,
+  recordChallengeRound,
+  finishChallengeAttempt,
+  challengeProgressKey,
   type Challenge,
   type ChallengeRound,
   type ChallengeAttempt,
@@ -63,7 +66,19 @@ import {
   fetchStreakProtectionStatus,
   isStreakActive,
   buildDailyShareText,
+  recordDailyRound,
+  finishDailyAttempt,
+  dailyProgressKey,
 } from "@/lib/daily";
+import {
+  enqueueRound,
+  flushRounds,
+  clearPendingRounds,
+  isPlayActive,
+  type RoundSender,
+  type RoundResult,
+  type SendOutcome,
+} from "@/lib/roundProgress";
 import { submitEventAttempt } from "@/lib/events";
 
 const DEFAULT_ROUND_TIME = 15000; // 15 seconds per round
@@ -229,6 +244,15 @@ export default function Game() {
   // double-submit)
   const gameStartedAtRef = useRef<number | null>(null);
   const sessionRecordedRef = useRef(false);
+  // Daily / challenge replays save every answered round as it happens
+  // (roundProgress.ts), so closing the tab mid-game can't be used to restart
+  // with answers already seen. Set on mount once the player id is known.
+  const progressRef = useRef<{ key: string; send: RoundSender; finish: () => Promise<SendOutcome> } | null>(null);
+  // An unfinished play reopened before midnight (Lagos) picks up from here.
+  const resumeRef = useRef<{ fromRound: number; score: number; results: boolean[]; times: number[] } | null>(null);
+  // The round actually on screen -- the timeout closure set up in
+  // startRound() would otherwise read a stale currentRound.
+  const liveRoundRef = useRef(1);
 
   // Cleanup function to stop all audio and timers
   const cleanupGame = useCallback(() => {
@@ -303,18 +327,42 @@ export default function Game() {
       // mobile tab reload after the OS share sheet backgrounds the page —
       // history.state survives that) must not replay an already-completed
       // single-attempt game. Check for an existing attempt first.
+      // (daily is checked first: a Daily run also carries a synthetic
+      // `challenge` for the plan, which has no challenge_attempts row.)
       const pid = challenge || daily ? playerId ?? (await initializeAuth()) : null;
-      if (challenge && pid) {
-        const attempt = await fetchMyChallengeAttempt(challenge.code, pid);
-        if (attempt) {
-          navigate(`/c/${challenge.code}`, { replace: true });
+      resumeRef.current = null;
+      if ((challenge || daily) && pid) {
+        const name = () => useGameStore.getState().playerName || getSavedUsername() || "A music fan";
+        const progress = daily
+          ? {
+              key: dailyProgressKey(daily.date, pid),
+              send: ((r) => recordDailyRound(daily.date, name(), r)) as RoundSender,
+              finish: () => finishDailyAttempt(daily.date),
+            }
+          : {
+              key: challengeProgressKey(challenge!.code, pid),
+              send: ((r) => recordChallengeRound(challenge!.code, name(), r)) as RoundSender,
+              finish: () => finishChallengeAttempt(challenge!.code),
+            };
+        progressRef.current = progress;
+        // Rounds answered before the tab closed (e.g. offline) go first, so
+        // the attempt below reflects everything already revealed.
+        await flushRounds(progress.key, progress.send);
+        const attempt = daily
+          ? await fetchMyDailyAttempt(daily.date, pid)
+          : await fetchMyChallengeAttempt(challenge!.code, pid);
+        if (attempt && !isPlayActive(attempt)) {
+          navigate(daily ? "/daily" : `/c/${challenge!.code}`, { replace: true });
           return;
         }
-      } else if (daily && pid) {
-        const attempt = await fetchMyDailyAttempt(daily.date, pid);
         if (attempt) {
-          navigate("/daily", { replace: true });
-          return;
+          const results: RoundResult[] = attempt.round_results ?? [];
+          resumeRef.current = {
+            fromRound: (attempt.rounds_completed ?? results.length) + 1,
+            score: attempt.score,
+            results: results.map((r) => !!r.c),
+            times: results.filter((r) => r.ms != null).map((r) => r.ms as number),
+          };
         }
       }
       resetSoloGame();
@@ -336,12 +384,18 @@ export default function Game() {
         trackTimeMillis: 0,
         primaryGenreName: "",
       }));
-      setRoundResults([]);
-      roundTimesRef.current = [];
+      const resume = resumeRef.current;
+      setRoundResults(resume?.results ?? []);
+      roundTimesRef.current = resume?.times ?? [];
+      if (resume) {
+        addSoloPoints(resume.score);
+        setCurrentRound(resume.fromRound);
+      }
+      const firstIndex = (resume?.fromRound ?? 1) - 1;
       setTracks(planTracks);
       setPlaylistName(challenge.category_name);
-      warmAudioUrl(planTracks[1]?.previewUrl);
-      await ensureFirstClip(planTracks[0]);
+      warmAudioUrl(planTracks[firstIndex + 1]?.previewUrl);
+      await ensureFirstClip(planTracks[firstIndex]);
       setGameState("ready");
       return;
     }
@@ -398,7 +452,8 @@ export default function Game() {
 
   const startRound = (availableTracks: AppleMusicTrack[], round: number) => {
     // Stamp the game's wall-clock start for playtime recording
-    if (round === 1) gameStartedAtRef.current = Date.now();
+    if (round === 1 || gameStartedAtRef.current === null) gameStartedAtRef.current = Date.now();
+    liveRoundRef.current = round;
     // Use the pre-shuffled track for this round (no re-shuffling to avoid repeats)
     const track = availableTracks[round - 1];
     
@@ -468,8 +523,16 @@ export default function Game() {
     }, 100);
   };
 
+  // Saves this answered round right away (Daily / challenge replays only).
+  const saveRound = (correct: boolean, points: number, ms: number | null) => {
+    const progress = progressRef.current;
+    if (!progress) return;
+    enqueueRound(progress.key, { round: liveRoundRef.current, correct, points, ms }, progress.send);
+  };
+
   const handleTimeout = () => {
     if (timerRef.current) clearInterval(timerRef.current);
+    saveRound(false, 0, null);
     setIsCorrect(false);
     setRoundResults((prev) => [...prev, false]);
     setGameState("answered");
@@ -494,6 +557,7 @@ export default function Game() {
     const answerTime = Date.now() - roundStartTime;
     const points = calculatePoints(correct, answerTime, ROUND_TIME);
     roundTimesRef.current.push(answerTime);
+    saveRound(correct, points, answerTime);
 
     setSelectedAnswer(answer);
     setIsCorrect(correct);
@@ -645,6 +709,27 @@ export default function Game() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameState]);
 
+  // Every round was already saved as it was answered -- finishing just makes
+  // sure nothing is still queued (and, on Leave, marks the partial score
+  // final). Falls back to the old one-shot insert when the per-round RPC
+  // isn't deployed yet, or when no session existed to save rounds under.
+  const saveProgressOrLegacy = async (
+    leftEarly: boolean,
+    legacy: () => Promise<"saved" | "duplicate" | "failed">
+  ): Promise<"saved" | "duplicate" | "failed"> => {
+    const progress = progressRef.current;
+    if (!progress) return legacy();
+    const flushed = await flushRounds(progress.key, progress.send);
+    if (flushed === "unavailable") {
+      const result = await legacy();
+      if (result !== "failed") clearPendingRounds(progress.key);
+      return result;
+    }
+    if (flushed === "failed") return "failed";
+    if (leftEarly && (await progress.finish()) === "retry") return "failed";
+    return "saved";
+  };
+
   // Records this player's (single) challenge attempt. A failed save used to
   // be silently dropped -- no session (guest sign-in never landed) skipped
   // the insert outright, and a rejected insert was ignored -- so the player
@@ -654,13 +739,15 @@ export default function Game() {
     if (!challenge) return false;
     const pid = playerId ?? (await initializeAuth());
     const result = pid
-      ? await submitChallengeAttempt(
-          challenge.code,
-          pid,
-          playerName || getSavedUsername() || "A music fan",
-          soloScore,
-          roundResults.filter(Boolean).length,
-          computeAvgResponseMs()
+      ? await saveProgressOrLegacy(source === "left_early", () =>
+          submitChallengeAttempt(
+            challenge.code,
+            pid,
+            playerName || getSavedUsername() || "A music fan",
+            soloScore,
+            roundResults.filter(Boolean).length,
+            computeAvgResponseMs()
+          )
         )
       : "failed";
     if (result === "failed") {
@@ -712,7 +799,8 @@ export default function Game() {
   // extend. onSaved runs once the row is confirmed, on the first try or a
   // later Retry.
   const recordDailyAttempt = async (
-    onSaved: (pid: string, savesBefore: number) => Promise<void> | void
+    onSaved: (pid: string, savesBefore: number) => Promise<void> | void,
+    leftEarly = false
   ): Promise<void> => {
     if (!daily) return;
     const pid = playerId ?? (await initializeAuth());
@@ -722,13 +810,15 @@ export default function Game() {
     // "why didn't my streak reset like it always does").
     const savesBefore = pid ? (await fetchStreakProtectionStatus())?.saves_available ?? 0 : 0;
     const result = pid
-      ? await submitDailyAttempt(
-          daily.date,
-          pid,
-          playerName || getSavedUsername() || "A music fan",
-          soloScore,
-          roundResults.filter(Boolean).length,
-          computeAvgResponseMs()
+      ? await saveProgressOrLegacy(leftEarly, () =>
+          submitDailyAttempt(
+            daily.date,
+            pid,
+            playerName || getSavedUsername() || "A music fan",
+            soloScore,
+            roundResults.filter(Boolean).length,
+            computeAvgResponseMs()
+          )
         )
       : "failed";
     if (!pid || result === "failed") {
@@ -740,7 +830,7 @@ export default function Game() {
             recordDailyAttempt(async (p, s) => {
               toast.success("Score saved!");
               await onSaved(p, s);
-            });
+            }, leftEarly);
           },
         },
       });
@@ -1080,16 +1170,18 @@ export default function Game() {
             {playlistName || playlist?.name || "Music Quiz"}
           </h1>
           <p className="text-muted-foreground mb-6">
-            {TOTAL_ROUNDS} songs · {ROUND_TIME / 1000}s each
+            {currentRound > 1
+              ? `Picking up at song ${currentRound} of ${TOTAL_ROUNDS} · ${soloScore} pts so far`
+              : `${TOTAL_ROUNDS} songs · ${ROUND_TIME / 1000}s each`}
           </p>
           <Button
             variant="gold"
             size="lg"
             className="w-full"
-            onClick={() => startRound(tracks, 1)}
+            onClick={() => startRound(tracks, currentRound)}
           >
             <Play className="w-5 h-5 mr-2" />
-            Tap to Play
+            {currentRound > 1 ? "Tap to Continue" : "Tap to Play"}
           </Button>
           <Button
             variant="ghost"
@@ -1616,7 +1708,9 @@ export default function Game() {
                   {challenge && !daily ? "Leave Challenge?" : daily ? "Leave Daily Challenge?" : event ? "Leave Event Challenge?" : "Leave Game?"}
                 </AlertDialogTitle>
                 <AlertDialogDescription>
-                  {challenge && !daily
+                  {(challenge || daily) && roundResults.length === 0
+                    ? "You haven't answered any songs yet, so nothing is recorded — you can come back and play later."
+                    : challenge && !daily
                     ? `This ends the challenge — your current score (${soloScore} pts) will be recorded as your final score. You won't be able to play this challenge again.`
                     : daily
                     ? `This ends today's challenge — your current score (${soloScore} pts) will be recorded as your final score. You won't be able to play today's challenge again.`
@@ -1629,8 +1723,13 @@ export default function Game() {
                 <AlertDialogCancel>Keep Playing</AlertDialogCancel>
                 <AlertDialogAction
                   onClick={async () => {
+                    // Nothing answered yet = nothing to record; they can
+                    // come back and start fresh.
+                    const answeredAny = roundResults.length > 0;
                     if (challenge && !daily) {
-                      await recordChallengeAttempt("left_early");
+                      if (answeredAny) await recordChallengeAttempt("left_early");
+                    } else if (daily && !answeredAny) {
+                      // nothing to record
                     } else if (daily) {
                       await recordDailyAttempt(async (_pid, savesBefore) => {
                         const statusAfter = await fetchStreakProtectionStatus();
@@ -1644,7 +1743,7 @@ export default function Game() {
                           correct_count: roundResults.filter(Boolean).length,
                           source: "left_early",
                         });
-                      });
+                      }, true);
                     } else if (event) {
                       await recordEventAttempt("left_early");
                     }

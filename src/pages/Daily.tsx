@@ -19,6 +19,7 @@ import { getKnownPlayerName, saveUsername, type Challenge } from "@/lib/challeng
 import { fetchVerifiedPlayerIds } from "@/lib/verifiedPlayers";
 import { shareResult } from "@/lib/shareCard";
 import { trackEvent } from "@/lib/analytics";
+import { isPlayActive } from "@/lib/roundProgress";
 import { useSignInHint } from "@/hooks/useSignInHint";
 import {
   fetchTodayChallenge,
@@ -95,6 +96,11 @@ export default function Daily() {
   const [name, setName] = useState("");
   const [verifiedIds, setVerifiedIds] = useState<Set<string>>(new Set());
   const [dailyCountdown, setDailyCountdown] = useState("");
+  // Started today's Daily and closed it before finishing -- resumable until
+  // midnight, so offer Continue instead of "played".
+  const unfinished = isPlayActive(myAttempt);
+  const played = !!myAttempt && !unfinished;
+  const resumeAt = (myAttempt?.rounds_completed ?? 0) + 1;
 
   useEffect(() => {
     (async () => {
@@ -191,6 +197,7 @@ export default function Daily() {
       daily_number: daily.number,
       daily_date: daily.challenge_date,
       category_name: daily.category_name,
+      resumed: unfinished,
     });
     navigate("/solo/game", {
       state: { challenge, daily: { date: daily.challenge_date, number: daily.number } },
@@ -264,16 +271,20 @@ export default function Daily() {
             </span>
 
             <h1 className="text-[2rem] md:text-[2.57rem] leading-tight font-bold text-foreground mb-2">
-              {myAttempt ? "You played today's challenge!" : "You haven't played today's challenge yet!"}
+              {played
+                ? "You played today's challenge!"
+                : unfinished
+                ? "You have an unfinished Daily!"
+                : "You haven't played today's challenge yet!"}
             </h1>
             <p className="text-muted-foreground mb-6">
               <span className="block text-[20px] text-primary font-semibold mb-2">{daily.category_name}</span>
               {daily.plan.length} Songs · {daily.time_per_round}s Each · One attempt counts towards the leaderboard.
             </p>
 
-            {myAttempt ? null : (
+            {played ? null : (
               <div className="max-w-sm mx-auto">
-                {streakStatus?.status === "repair" && (
+                {!unfinished && streakStatus?.status === "repair" && (
                   <div className="bg-destructive/10 border border-destructive/30 rounded-xl px-4 py-3 mb-4 text-left flex items-start gap-2.5">
                     <ShieldAlert className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
                     <p className="text-xs text-muted-foreground">
@@ -299,7 +310,7 @@ export default function Daily() {
                 )}
                 <Button variant="gold" size="lg" className="w-full" onClick={handlePlay} disabled={!name.trim()}>
                   <Play className="w-5 h-5 mr-2 fill-current" />
-                  Play Today's Challenge
+                  {unfinished ? `Continue — Song ${resumeAt} of ${daily.plan.length}` : "Play Today's Challenge"}
                 </Button>
               </div>
             )}
@@ -320,7 +331,7 @@ export default function Daily() {
 
           {/* Stat row — individual panels; switches once you've played today */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-12 max-w-[800px] mx-auto">
-            {myAttempt ? (
+            {played && myAttempt ? (
               <>
                 <StatTile label="Your Score" value={myAttempt.score} valueClassName="text-gold" />
                 <StatTile label="Current Rank" value={myRank != null ? `#${myRank}` : "—"} />
@@ -420,6 +431,9 @@ export default function Daily() {
                         <TableCell className="py-3 text-right font-bold text-gold text-[1.1rem]">{a.score}</TableCell>
                         <TableCell className="py-3 text-center text-muted-foreground whitespace-nowrap">
                           {a.correct_count}/{daily.plan.length}
+                          {a.in_progress && (
+                            <span className="block text-[10px] uppercase tracking-wide">incomplete</span>
+                          )}
                         </TableCell>
                         <TableCell className="py-3 text-center text-muted-foreground whitespace-nowrap">
                           {formatSpeed(a.avg_response_ms)}
@@ -516,14 +530,19 @@ export default function Daily() {
             <div className="min-w-0">
               <p className="text-xs font-bold uppercase tracking-wider text-foreground">
                 {myAttempt ? (
-                  <>Your status: <span className="text-gold">#{myRank} of {totalPlayers}</span></>
+                  <>
+                    Your status: <span className="text-gold">#{myRank} of {totalPlayers}</span>
+                    {unfinished && <span className="text-muted-foreground"> (incomplete)</span>}
+                  </>
                 ) : (
                   <>Your status: <span className="text-muted-foreground">You are currently not on the board</span></>
                 )}
               </p>
               <p className="text-xs text-muted-foreground flex items-center gap-1.5 flex-wrap">
-                {myAttempt
+                {played && myAttempt
                   ? `${myAttempt.correct_count}/${daily.plan.length} songs completed`
+                  : unfinished
+                  ? `${resumeAt - 1}/${daily.plan.length} songs answered — continue to finish`
                   : `Complete today's challenge to enter the leaderboard — 0/${daily.plan.length} songs`}
                 {myStreakAtRisk && (
                   <span className="text-destructive font-semibold flex items-center gap-1">
@@ -537,10 +556,10 @@ export default function Daily() {
                 <Share2 className="w-4 h-4 mr-1.5" />
                 Challenge a Friend
               </Button>
-              {!myAttempt && (
+              {!played && (
                 <Button variant="gold" size="sm" onClick={handlePlay} disabled={!name.trim() && !hasKnownName}>
                   <Play className="w-4 h-4 mr-1.5 fill-current" />
-                  Play Now
+                  {unfinished ? "Continue" : "Play Now"}
                 </Button>
               )}
             </div>

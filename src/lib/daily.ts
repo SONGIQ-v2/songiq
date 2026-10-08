@@ -4,6 +4,12 @@
 import { supabase } from "@/integrations/supabase/client";
 import { logError } from "@/lib/clientLogger";
 import type { ChallengeRound } from "@/lib/challenges";
+import {
+  classifyRpcError,
+  type PendingRound,
+  type RoundResult,
+  type SendOutcome,
+} from "@/lib/roundProgress";
 
 export interface DailyChallenge {
   challenge_date: string; // YYYY-MM-DD
@@ -20,7 +26,21 @@ export interface DailyAttempt {
   correct_count: number;
   avg_response_ms: number | null;
   created_at: string;
+  // Per-round saving (see roundProgress.ts). Old rows: in_progress false,
+  // rounds_completed null, round_results [].
+  in_progress?: boolean;
+  rounds_completed?: number | null;
+  round_results?: RoundResult[];
+  updated_at?: string | null;
 }
+
+const LEGACY_ATTEMPT_COLUMNS = "player_id, player_name, score, correct_count, avg_response_ms, created_at";
+const ATTEMPT_COLUMNS = `${LEGACY_ATTEMPT_COLUMNS}, in_progress, rounds_completed, round_results, updated_at`;
+
+// If the frontend ships before the per-round migration is applied, the new
+// columns don't exist yet (Postgres 42703) -- fall back to the old query
+// rather than show an empty board or let a finished player replay.
+const isMissingColumn = (error: { code?: string } | null) => error?.code === "42703";
 
 export interface DailyStats {
   player_id: string;
@@ -53,16 +73,22 @@ export async function fetchTodayChallenge(): Promise<DailyChallenge | null> {
   return { ...data, plan } as DailyChallenge;
 }
 
-/** Today's leaderboard (top 50) plus the total attempt count. */
+/**
+ * Today's leaderboard (top 50) plus the total attempt count. Unfinished
+ * plays are included with their score so far (in_progress = true).
+ */
 export async function fetchDailyAttempts(
   date: string
 ): Promise<{ attempts: DailyAttempt[]; total: number }> {
-  const { data, count, error } = await (supabase as any)
-    .from("daily_attempts")
-    .select("player_id, player_name, score, correct_count, avg_response_ms, created_at", { count: "exact" })
-    .eq("challenge_date", date)
-    .order("score", { ascending: false })
-    .limit(50);
+  const query = (legacy: boolean) => {
+    let q = (supabase as any)
+      .from("daily_attempts")
+      .select(legacy ? LEGACY_ATTEMPT_COLUMNS : ATTEMPT_COLUMNS, { count: "exact" })
+      .eq("challenge_date", date);
+    return q.order("score", { ascending: false }).limit(50);
+  };
+  let { data, count, error } = await query(false);
+  if (isMissingColumn(error)) ({ data, count, error } = await query(true));
   if (error || !data) return { attempts: [], total: 0 };
   return { attempts: data as DailyAttempt[], total: count ?? data.length };
 }
@@ -72,16 +98,54 @@ export async function fetchMyDailyAttempt(
   date: string,
   playerId: string
 ): Promise<DailyAttempt | null> {
-  const { data } = await (supabase as any)
-    .from("daily_attempts")
-    .select("player_id, player_name, score, correct_count, avg_response_ms, created_at")
-    .eq("challenge_date", date)
-    .eq("player_id", playerId)
-    .maybeSingle();
+  const query = (legacy: boolean) =>
+    (supabase as any)
+      .from("daily_attempts")
+      .select(legacy ? LEGACY_ATTEMPT_COLUMNS : ATTEMPT_COLUMNS)
+      .eq("challenge_date", date)
+      .eq("player_id", playerId)
+      .maybeSingle();
+  let { data, error } = await query(false);
+  if (isMissingColumn(error)) ({ data } = await query(true));
   return (data as DailyAttempt) ?? null;
 }
 
-/** Record the player's (single) attempt; duplicates are rejected by the DB. */
+/** Pending-round queue key for this player's Daily play (roundProgress.ts). */
+export function dailyProgressKey(date: string, playerId: string): string {
+  return `daily:${date}:${playerId}`;
+}
+
+/** Save one answered round of today's Daily (creates the attempt on round 1). */
+export async function recordDailyRound(
+  date: string,
+  playerName: string,
+  round: PendingRound
+): Promise<SendOutcome> {
+  const { error } = await (supabase as any).rpc("record_daily_round", {
+    p_date: date,
+    p_round: round.round,
+    p_correct: round.correct,
+    p_points: round.points,
+    p_answer_ms: round.ms,
+    p_player_name: playerName,
+  });
+  const outcome = classifyRpcError(error);
+  if (error && outcome === "done") {
+    logError("daily.round_rejected", "Daily round was refused", { date, round: round.round, error: error.message });
+  }
+  return outcome;
+}
+
+/** In-app Leave: the current partial score becomes final. */
+export async function finishDailyAttempt(date: string): Promise<SendOutcome> {
+  const { error } = await (supabase as any).rpc("finish_daily_attempt", { p_date: date });
+  return classifyRpcError(error);
+}
+
+/**
+ * Legacy end-of-game save, used only if the per-round RPC isn't deployed yet.
+ * Duplicates are rejected by the DB.
+ */
 export async function submitDailyAttempt(
   date: string,
   playerId: string,
