@@ -80,7 +80,7 @@ export const PLAYLISTS: Playlist[] = [
       "magixx",
       "zinoleesky",
       "lojay",
-      "bella shmurda",
+      "__artist:1455517405", // Bella Shmurda -- 4 empty same-name iTunes profiles
       "pheelz",
       "blaqbonez",
       "wande coal",
@@ -96,11 +96,13 @@ export const PLAYLISTS: Playlist[] = [
       "fave",
       "young jonn",
       "bayanni",
-      "fola",
+      "__artist:1571944412", // FOLA -- plain "fola" also matches the jazz track "Fola" (Bokani Dyer Trio)
       "2baba",
       "__artist:26089928", // Asa -- plain "asa" is a 3-letter word that collides heavily with unrelated artists (Djavan, Âme, Caspian, etc.)
       "dbanj",
       "__artist:280325068", // Spyro -- plain "spyro" pulls the American jazz-fusion band Spyro Gyra
+      "__artist:1689533724", // Ayo Maff
+      "__artist:1680875385", // Mavo -- plain "mavo" matches several unrelated rappers
     ],
   },
   {
@@ -294,6 +296,8 @@ export const PLAYLISTS: Playlist[] = [
       "kefee",
       "nosa",
       "ty bello",
+      "__artist:1544598377", // Abbey Ojomu
+      "__artist:417976912", // BBO -- plain "bbo" matches a rapper and other same-name profiles
     ],
   },
   {
@@ -1344,6 +1348,96 @@ export const PLAYLISTS: Playlist[] = [
     description: "Just Billie Eilish — every hit",
     image: "",
     searchTerms: ["__artist:1065981054"],
+  },
+  {
+    id: "artist-teledalase",
+    category: "africa",
+    isArtist: true,
+    name: "Teledalase",
+    description: "Teledalase, top to bottom",
+    image: "",
+    searchTerms: ["__artist:1622864810"],
+  },
+  {
+    id: "artist-seyi-vibez",
+    category: "africa",
+    isArtist: true,
+    name: "Seyi Vibez",
+    description: "Just Seyi Vibez — every hit",
+    image: "",
+    searchTerms: ["__artist:1466080951"],
+  },
+  {
+    id: "artist-ayo-maff",
+    category: "africa",
+    isArtist: true,
+    name: "Ayo Maff",
+    description: "Ayo Maff, wall to wall",
+    image: "",
+    searchTerms: ["__artist:1689533724"],
+  },
+  {
+    id: "artist-eva-alordiah",
+    category: "africa",
+    isArtist: true,
+    name: "Eva Alordiah",
+    description: "Eva Alordiah, top to bottom",
+    image: "",
+    searchTerms: ["__artist:517329823"],
+  },
+  {
+    id: "artist-fola",
+    category: "africa",
+    isArtist: true,
+    name: "FOLA",
+    description: "Just FOLA — every hit",
+    image: "",
+    searchTerms: ["__artist:1571944412"],
+  },
+  {
+    id: "artist-bella-shmurda",
+    category: "africa",
+    isArtist: true,
+    name: "Bella Shmurda",
+    description: "Bella Shmurda, wall to wall",
+    image: "",
+    searchTerms: ["__artist:1455517405"],
+  },
+  {
+    id: "artist-mavo",
+    category: "africa",
+    isArtist: true,
+    name: "Mavo",
+    description: "Just Mavo — every hit",
+    image: "",
+    searchTerms: ["__artist:1680875385"],
+  },
+  {
+    id: "artist-minister-guc",
+    category: "gospel",
+    isArtist: true,
+    name: "Minister GUC",
+    description: "Minister GUC, top to bottom",
+    image: "",
+    searchTerms: ["__artist:765797994"],
+  },
+  {
+    id: "artist-bbo",
+    category: "gospel",
+    isArtist: true,
+    name: "BBO",
+    description: "BBO, wall to wall",
+    image: "",
+    searchTerms: ["__artist:417976912"],
+  },
+  {
+    id: "artist-abbey-ojomu",
+    category: "gospel",
+    isArtist: true,
+    name: "Abbey Ojomu",
+    description: "Abbey Ojomu — his songs and the worship he leads",
+    image: "",
+    searchTerms: ["__artist:1544598377", "__features"],
   },
 ];
 // Get a playlist by ID

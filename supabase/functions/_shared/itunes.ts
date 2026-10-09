@@ -210,7 +210,7 @@ export async function lookupArtistSongs(artistId: string, limit: number): Promis
 // terms mixed into a broader genre playlist (e.g. Nigerian Gospel) — there,
 // a plain "(feat. X)" credit on another artist's song is legitimate genre
 // content, not junk to filter out.
-function keepAuthoredTracks(pool: iTunesTrack[], artistName: string): iTunesTrack[] {
+function keepAuthoredTracks(pool: iTunesTrack[], artistName: string, includeFeatures = false): iTunesTrack[] {
   // The artist must be first-billed — solo, or "Artist Featuring X" / "Artist,
   // X & Y" — to count as the author. Second-billed joint credits (e.g.
   // "Calvin Harris & Rihanna") are someone else's song, even though the
@@ -229,15 +229,28 @@ function keepAuthoredTracks(pool: iTunesTrack[], artistName: string): iTunesTrac
     /\((?:[^)]*\b(?:remix|mix|mixed|edit|dub|dubb|rmx|vip)\b[^)]*)\)|\[(?:[^\]]*\b(?:remix|mix|mixed|edit|dub|dubb|rmx|vip)\b[^\]]*)\]/i.test(
       title
     );
+  // With features allowed (see FEATURES_TERM), long worship/live sessions
+  // get dropped instead: a 30s preview of a 40-minute "soaking" set is
+  // usually humming or prayer -- not something anyone can name.
+  const isTooLong = (t: iTunesTrack) => includeFeatures && (t.trackTimeMillis ?? 0) > MAX_FEATURE_TRACK_MS;
   return pool.filter(
     (t) =>
-      isAuthoredBy(t.artistName) &&
+      (includeFeatures || isAuthoredBy(t.artistName)) &&
+      !isTooLong(t) &&
       !isMashupTitle(t.trackName) &&
       !isAltMixTitle(t.trackName) &&
       !isDjMixCollection(t.collectionName || "") &&
       !EXCLUDED_COLLECTION_PATTERN.test(t.collectionName || "")
   );
 }
+
+// An artist spotlight whose terms also include this marker keeps songs the
+// artist is only featured on, not just ones they lead -- for artists who
+// mostly appear on other people's releases (e.g. worship leaders credited
+// on group recordings), whose own catalog alone is too thin for a playlist.
+// Not a real search term: removed before fetching.
+export const FEATURES_TERM = "__features";
+const MAX_FEATURE_TRACK_MS = 12 * 60 * 1000;
 
 // Playlists whose first "search term" carries this prefix are chart-driven:
 // the pool comes from Apple's official Most Played feed for a storefront
@@ -328,6 +341,8 @@ export async function fetchPlaylistPool(
 ): Promise<{ pool: iTunesTrack[]; image: string }> {
   const { yearRange, terms: termsWithoutYearRange } = extractYearRange(searchTerms);
   searchTerms = termsWithoutYearRange;
+  const includeFeatures = searchTerms.includes(FEATURES_TERM);
+  searchTerms = searchTerms.filter((t) => t !== FEATURES_TERM);
 
   // Chart-driven playlist? Route to the Most Played feed.
   if (searchTerms[0]?.startsWith(CHART_TERM_PREFIX)) {
@@ -345,7 +360,9 @@ export async function fetchPlaylistPool(
       .filter((r) => r.wrapperType === "track" && r.previewUrl)
       .slice(0, 200);
     const artistRecord = results.find((r) => r.wrapperType === "artist") as { artistName?: string } | undefined;
-    const pool = artistRecord?.artistName ? keepAuthoredTracks(rawPool, artistRecord.artistName) : rawPool;
+    const pool = artistRecord?.artistName
+      ? keepAuthoredTracks(rawPool, artistRecord.artistName, includeFeatures)
+      : rawPool;
     const image = pool[0]?.artworkUrl100?.replace("100x100", "600x600") ?? "";
     console.log(`[iTunes] Artist spotlight: ${pool.length} playable tracks`);
     return { pool, image };
