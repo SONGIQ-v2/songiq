@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { Starfield } from "@/components/Starfield";
 import { Header } from "@/components/Header";
 import { SiteFooter } from "@/components/SiteFooter";
+import { ActiveChallengesSection, BattlefieldSection, DailyChallengeSection } from "@/components/HomeSections";
 import { Button } from "@/components/ui/button";
 import { Music, Users, Headphones, Zap, Trophy, Play } from "lucide-react";
 
@@ -124,6 +125,14 @@ export const SeoLanding = ({
               );
             })}
           </motion.section>
+
+          {/* Live sections from the homepage (HomeSections.tsx): today's Daily,
+              playlists to jump into, and real players' challenges -- so a
+              visitor landing from search sees the game in action before the
+              long-form copy. */}
+          <DailyChallengeSection className="mb-16" />
+          <BattlefieldSection className="mb-16" />
+          <ActiveChallengesSection className="mb-16" />
 
           {/* Body content */}
           <section className="prose prose-invert max-w-none mb-16 space-y-8">

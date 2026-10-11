@@ -12,6 +12,7 @@ import { Leaderboard } from "@/components/Leaderboard";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { Podium } from "@/components/Podium";
 import { SaveProgressPrompt } from "@/components/SaveProgressPrompt";
+import { SongRecap, type SongRecapItem } from "@/components/SongRecap";
 import { Button } from "@/components/ui/button";
 import { VolumeControl } from "@/components/VolumeControl";
 import { ReactionBar, FloatingReactions } from "@/components/EmojiReactions";
@@ -90,6 +91,7 @@ export default function MultiplayerGame() {
 
   // Per-round correctness for the share card, fetched once the game ends
   const [myResults, setMyResults] = useState<boolean[]>([]);
+  const [recapItems, setRecapItems] = useState<SongRecapItem[]>([]);
   const challengeCodeRef = useRef<string | null>(null);
   // Points earned this game + running total, for the results screen chip
   const [pointsResult, setPointsResult] = useState<{ earned: number; total: number } | null>(null);
@@ -533,16 +535,43 @@ export default function MultiplayerGame() {
       resetActivityTimer(); // Reset on answer
     }
   };
-  // Fetch this player's per-round results for the share card once the game ends
+  // Fetch this player's per-round results (share card + song recap) once
+  // the game ends. Rounds come from the public view, not the base table --
+  // authenticated no longer has column access to track_name/artist_name
+  // directly, by design (the view unmasks them once ended_at is set, which
+  // it always is by the results screen).
   useEffect(() => {
     if (gameStatus !== "results" || !room?.id || !playerId) return;
     (async () => {
-      const { data } = await (supabase as any)
-        .from("player_answers")
-        .select("is_correct, game_rounds(round_number)")
-        .eq("room_id", room.id)
-        .eq("player_id", playerId);
-      if (data) {
+      const [{ data }, { data: rounds }] = await Promise.all([
+        (supabase as any)
+          .from("player_answers")
+          .select("is_correct, game_rounds(round_number)")
+          .eq("room_id", room.id)
+          .eq("player_id", playerId),
+        (supabase as any)
+          .from("game_rounds_public")
+          .select("*")
+          .eq("room_id", room.id)
+          .order("round_number", { ascending: true }),
+      ]);
+      const correctByRound = new Map<number, boolean>();
+      for (const r of data ?? []) {
+        if (r.game_rounds?.round_number != null) correctByRound.set(r.game_rounds.round_number, !!r.is_correct);
+      }
+      if (rounds && rounds.length > 0) {
+        // Keyed by round, so a round this player never answered counts as
+        // a miss instead of shifting every later result one place left.
+        setMyResults(rounds.map((r: any) => correctByRound.get(r.round_number) ?? false));
+        setRecapItems(
+          rounds.map((r: any) => ({
+            title: r.track_name ?? "",
+            artist: r.artist_name ?? "",
+            artworkUrl: r.artwork_url ? String(r.artwork_url).replace("600x600", "100x100") : undefined,
+            correct: correctByRound.get(r.round_number) ?? null,
+          }))
+        );
+      } else if (data) {
         const ordered = [...data].sort(
           (a, b) => (a.game_rounds?.round_number ?? 0) - (b.game_rounds?.round_number ?? 0)
         );
@@ -572,17 +601,7 @@ export default function MultiplayerGame() {
 
       // Snapshot the rounds as a challenge link (before Play Again deletes
       // them), so sharing can hand out a replay of the exact same songs.
-      // Via the public view, not the base table -- authenticated no longer
-      // has column access to track_name/artist_name directly, by design
-      // (the view unmasks them once ended_at is set, which it always is by
-      // the results screen).
       if (!challengeCodeRef.current) {
-        const { data: rounds } = await (supabase as any)
-          .from("game_rounds_public")
-          .select("*")
-          .eq("room_id", room.id)
-          .order("round_number", { ascending: true });
-
         if (rounds && rounds.length > 0) {
           const plan = rounds.map((r: any) => ({
             track_id: String(r.track_id),
@@ -823,6 +842,8 @@ export default function MultiplayerGame() {
                 </p>
               )}
             </div>
+
+            <SongRecap items={recapItems} />
 
             {pointsResult && (
               <motion.button

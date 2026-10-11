@@ -85,7 +85,9 @@ export const MAX_TERMS = 25;
 // Playlists never used for the Daily Challenge -- shared by cleanup-stale-rooms
 // (the automatic generator) and admin-daily-challenge (the manual override),
 // so both agree on what's eligible without a second hand-kept list to drift.
-export const DAILY_EXCLUDED = new Set(["East Africa Vibes", "Ghana Sounds", "CacheProbe"]);
+// "Global Top 100" is the retired name of Trending US -- its old cache row
+// would otherwise stay eligible and title a Daily with the old name.
+export const DAILY_EXCLUDED = new Set(["East Africa Vibes", "Ghana Sounds", "CacheProbe", "Global Top 100"]);
 
 export interface PlanRound {
   track_id: string;

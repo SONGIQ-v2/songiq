@@ -38,6 +38,11 @@ import { useGameStore } from "@/lib/gameStore";
 import { getKnownPlayerName } from "@/lib/challenges";
 import { supabase } from "@/integrations/supabase/client";
 import { PLAYLISTS, PLAYLIST_CATEGORIES, getPlaylistById, type PlaylistCategory } from "@/lib/playlists";
+import { detectRegion, orderPlaylistsForRegion } from "@/lib/region";
+
+// Same region-first order as Solo Play (device time zone) -- the host is
+// the one picking, so it follows whoever is looking at the picker.
+const ORDERED_PLAYLISTS = orderPlaylistsForRegion(PLAYLISTS, detectRegion());
 import { getMotionVariants, CARD_SPRING } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -163,7 +168,7 @@ export default function RoomLobby() {
   // Fetch playlist images from API
   useEffect(() => {
     const fetchImages = async () => {
-      for (const playlist of PLAYLISTS) {
+      for (const playlist of ORDERED_PLAYLISTS) {
         try {
           const result = await getPlaylistTracks(playlist.searchTerms, playlist.name, 5, playlist.isArtist);
           if (result?.playlistImage) {
@@ -527,8 +532,8 @@ export default function RoomLobby() {
                     </div>
                     {(() => {
                       const categoryPlaylists = activeCategory === "all"
-                        ? PLAYLISTS
-                        : PLAYLISTS.filter((p) => p.category === activeCategory);
+                        ? ORDERED_PLAYLISTS
+                        : ORDERED_PLAYLISTS.filter((p) => p.category === activeCategory);
                       const hasArtistsInCategory = categoryPlaylists.some((p) => p.isArtist);
                       const artistFiltered = artistsOnly
                         ? categoryPlaylists.filter((p) => p.isArtist)

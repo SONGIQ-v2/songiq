@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { ConnectionBadge } from "@/components/ConnectionBadge";
 import { DailyReminderButton } from "@/components/DailyReminderButton";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
+import { SongRecap, type SongRecapItem } from "@/components/SongRecap";
 import { SaveProgressPrompt } from "@/components/SaveProgressPrompt";
 import { VolumeControl } from "@/components/VolumeControl";
 import { useConnectionQuality } from "@/hooks/useConnectionQuality";
@@ -1319,6 +1320,22 @@ export default function Game() {
 
     const hasName = !!(playerName || getSavedUsername()).trim();
 
+    // Every song played, in order, with whether this player got it. A
+    // replay (Daily/challenge, incl. a resumed one) has the whole plan up
+    // front; a solo/event game recorded each round into planRef as it went.
+    const recapPlan = challenge ? challenge.plan : planRef.current;
+    const recapItems: SongRecapItem[] = roundResults.flatMap((correct, i) => {
+      const r = recapPlan[i];
+      if (!r) return [];
+      return [{
+        title: r.track_name,
+        artist: r.artist_name,
+        // Plans store 600px covers; a 48px row only needs the small one.
+        artworkUrl: r.artwork_url ? r.artwork_url.replace("600x600", "100x100") : undefined,
+        correct,
+      }];
+    });
+
     // Saving the name starts link creation right away, while they're still
     // looking at their score -- by the time they reach for Share it's ready.
     const handleNameSubmit = () => {
@@ -1428,6 +1445,8 @@ export default function Game() {
               </p>
             )}
           </div>
+
+          <SongRecap items={recapItems} />
 
           {pointsResult && (
             <motion.button

@@ -9,6 +9,7 @@ import { DoubleTapHint } from "@/components/DoubleTapHint";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PLAYLISTS, PLAYLIST_CATEGORIES, getPlaylistById, type PlaylistCategory } from "@/lib/playlists";
+import { detectRegion, orderPlaylistsForRegion } from "@/lib/region";
 import { cn } from "@/lib/utils";
 import { useGameStore } from "@/lib/gameStore";
 import { useAppleMusic } from "@/hooks/useAppleMusic";
@@ -16,9 +17,14 @@ import { getMotionVariants } from "@/lib/motion";
 import { trackEvent } from "@/lib/analytics";
 import { ArrowLeft, Play, Loader2, Search } from "lucide-react";
 
+// Catalogue order for this visitor's region (device time zone): their
+// region's playlists lead the "All" list, and each category keeps that
+// relative order too. Computed once -- the time zone doesn't change mid-visit.
+const ORDERED_PLAYLISTS = orderPlaylistsForRegion(PLAYLISTS, detectRegion());
+
 const SoloPlay = () => {
   const navigate = useNavigate();
-  const [selectedPlaylistId, setSelectedPlaylistId] = useState<string>(PLAYLISTS[0]?.id || "");
+  const [selectedPlaylistId, setSelectedPlaylistId] = useState<string>(ORDERED_PLAYLISTS[0]?.id || "");
   const [playlistImages, setPlaylistImages] = useState<Record<string, string>>({});
   const [loadingImages, setLoadingImages] = useState(true);
   const [activeCategory, setActiveCategory] = useState<"all" | PlaylistCategory>("all");
@@ -31,8 +37,8 @@ const SoloPlay = () => {
   const { container, pop, fade } = getMotionVariants(!!shouldReduceMotion);
 
   const categoryPlaylists = activeCategory === "all"
-    ? PLAYLISTS
-    : PLAYLISTS.filter((p) => p.category === activeCategory);
+    ? ORDERED_PLAYLISTS
+    : ORDERED_PLAYLISTS.filter((p) => p.category === activeCategory);
   const hasArtistsInCategory = categoryPlaylists.some((p) => p.isArtist);
   const filteredPlaylists = artistsOnly
     ? categoryPlaylists.filter((p) => p.isArtist)
@@ -49,7 +55,7 @@ const SoloPlay = () => {
       const images: Record<string, string> = {};
 
       // Fetch first playlist's image to show quickly
-      const firstPlaylist = PLAYLISTS[0];
+      const firstPlaylist = ORDERED_PLAYLISTS[0];
       if (firstPlaylist) {
         const result = await getPlaylistTracks(
           firstPlaylist.searchTerms,
@@ -64,7 +70,7 @@ const SoloPlay = () => {
       }
 
       // Fetch remaining playlist images in background
-      for (const playlist of PLAYLISTS.slice(1)) {
+      for (const playlist of ORDERED_PLAYLISTS.slice(1)) {
         const result = await getPlaylistTracks(
           playlist.searchTerms,
           playlist.name,
