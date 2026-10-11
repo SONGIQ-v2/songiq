@@ -21,9 +21,13 @@ export type Database = {
           correct_count: number
           created_at: string
           id: string
+          in_progress: boolean
           player_id: string
           player_name: string
+          round_results: Json
+          rounds_completed: number | null
           score: number
+          updated_at: string | null
         }
         Insert: {
           avg_response_ms?: number | null
@@ -31,9 +35,13 @@ export type Database = {
           correct_count?: number
           created_at?: string
           id?: string
+          in_progress?: boolean
           player_id: string
           player_name?: string
+          round_results?: Json
+          rounds_completed?: number | null
           score?: number
+          updated_at?: string | null
         }
         Update: {
           avg_response_ms?: number | null
@@ -41,9 +49,13 @@ export type Database = {
           correct_count?: number
           created_at?: string
           id?: string
+          in_progress?: boolean
           player_id?: string
           player_name?: string
+          round_results?: Json
+          rounds_completed?: number | null
           score?: number
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -161,9 +173,13 @@ export type Database = {
           correct_count: number
           created_at: string
           id: string
+          in_progress: boolean
           player_id: string
           player_name: string
+          round_results: Json
+          rounds_completed: number | null
           score: number
+          updated_at: string | null
         }
         Insert: {
           avg_response_ms?: number | null
@@ -171,9 +187,13 @@ export type Database = {
           correct_count?: number
           created_at?: string
           id?: string
+          in_progress?: boolean
           player_id: string
           player_name?: string
+          round_results?: Json
+          rounds_completed?: number | null
           score?: number
+          updated_at?: string | null
         }
         Update: {
           avg_response_ms?: number | null
@@ -181,9 +201,13 @@ export type Database = {
           correct_count?: number
           created_at?: string
           id?: string
+          in_progress?: boolean
           player_id?: string
           player_name?: string
+          round_results?: Json
+          rounds_completed?: number | null
           score?: number
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -1246,7 +1270,14 @@ export type Database = {
       }
       advance_all_playing_rounds: { Args: never; Returns: undefined }
       advance_game_round: { Args: { _room_id: string }; Returns: Json }
+      attempt_avg_response_ms: { Args: { p_results: Json }; Returns: number }
+      attempt_round_entry: {
+        Args: { p_answer_ms: number; p_correct: boolean; p_points: number }
+        Returns: Json
+      }
       count_unique_players: { Args: { p_cutoff?: string }; Returns: number }
+      finish_challenge_attempt: { Args: { p_code: string }; Returns: undefined }
+      finish_daily_attempt: { Args: { p_date: string }; Returns: undefined }
       get_challenge_by_code: { Args: { p_code: string }; Returns: Json }
       get_multiplayer_profile_stats: {
         Args: { p_player_id: string }
@@ -1319,6 +1350,28 @@ export type Database = {
       recompute_daily_stats: {
         Args: { p_player_id: string }
         Returns: undefined
+      }
+      record_challenge_round: {
+        Args: {
+          p_answer_ms: number
+          p_code: string
+          p_correct: boolean
+          p_player_name: string
+          p_points: number
+          p_round: number
+        }
+        Returns: Json
+      }
+      record_daily_round: {
+        Args: {
+          p_answer_ms: number
+          p_correct: boolean
+          p_date: string
+          p_player_name: string
+          p_points: number
+          p_round: number
+        }
+        Returns: Json
       }
       record_game_session: {
         Args: {
