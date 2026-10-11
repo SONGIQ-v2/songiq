@@ -63,7 +63,6 @@ function skip(reason: string): Response {
   });
 }
 
-
 async function sha256Hex(value: string): Promise<string> {
   const data = new TextEncoder().encode(value.trim().toLowerCase());
   const hashBuffer = await crypto.subtle.digest("SHA-256", data);
