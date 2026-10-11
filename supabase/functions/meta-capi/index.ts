@@ -27,10 +27,41 @@ const ALLOWED_EVENTS = new Set([
   "room_link_copy", "share_result",
   "push_subscribe",
   "sign_in_success",
-  "pwa_installed",
+  "pwa_installed", "pwa_install_prompt",
+  "daily_invite_share",
+  "event_challenge_start", "event_challenge_complete",
 ]);
 
-const ALLOWED_ORIGINS = ["https://songiq.io", "https://songiq.xyz"];
+// Only SongIQ's own deployments get their events relayed to Meta. Compare
+// parsed hostnames, never raw URL prefixes — a prefix check would let
+// https://songiq.io.evil.com through. Draft/preview hosts and localhost are
+// deliberately absent: that traffic isn't real player activity and must not
+// reach the ad account.
+const ALLOWED_HOSTS = new Set([
+  "songiq.io", "www.songiq.io",
+  "songiq.xyz", "www.songiq.xyz",
+  "songiq.lovable.app",
+]);
+
+function isAllowedSourceUrl(value: unknown): boolean {
+  if (typeof value !== "string") return false;
+  try {
+    return ALLOWED_HOSTS.has(new URL(value).hostname.toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
+// Telemetry is best-effort: a rejected event comes back as a normal 200,
+// never a 500. trackEvent() fires this from every tracked action, and a
+// failing call surfaces as a crash in the player's browser.
+function skip(reason: string): Response {
+  console.log(`[meta-capi] skipped event: ${reason}`);
+  return new Response(JSON.stringify({ skipped: reason }), {
+    status: 200,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
 
 async function sha256Hex(value: string): Promise<string> {
   const data = new TextEncoder().encode(value.trim().toLowerCase());
@@ -51,14 +82,15 @@ serve(async (req) => {
 
     const { event_name, event_id, custom_data, event_source_url, fbp, fbc, player_id } = await req.json();
     if (!event_name || !event_id) {
-      throw new Error("event_name and event_id are required");
+      return skip("missing_event_name_or_id");
     }
     if (!ALLOWED_EVENTS.has(event_name)) {
-      throw new Error(`event_name "${event_name}" is not allowed`);
+      return skip(`unknown_event_name:${event_name}`);
     }
-    if (typeof event_source_url !== "string" || !ALLOWED_ORIGINS.some((o) => event_source_url.startsWith(o))) {
-      throw new Error("event_source_url is missing or not an allowed origin");
+    if (!isAllowedSourceUrl(event_source_url)) {
+      return skip("event_source_url_not_allowed");
     }
+
 
     // Real, per-request values — more reliable than anything the client could self-report.
     const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
