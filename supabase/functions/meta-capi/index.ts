@@ -78,7 +78,7 @@ serve(async (req) => {
 
   try {
     const accessToken = Deno.env.get("META_CAPI_ACCESS_TOKEN");
-    if (!accessToken) throw new Error("META_CAPI_ACCESS_TOKEN is not configured");
+    if (!accessToken) return skip("meta_access_token_missing");
 
     const { event_name, event_id, custom_data, event_source_url, fbp, fbc, player_id } = await req.json();
     if (!event_name || !event_id) {
@@ -91,8 +91,7 @@ serve(async (req) => {
       return skip("event_source_url_not_allowed");
     }
 
-
-    // Real, per-request values — more reliable than anything the client could self-report.
+// Real, per-request values — more reliable than anything the client could self-report.
     const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
     const userAgent = req.headers.get("user-agent") ?? undefined;
 
@@ -130,20 +129,23 @@ serve(async (req) => {
       }
     );
 
-    const result = await metaRes.json();
+    const result = await metaRes.json().catch(() => ({}));
     if (!metaRes.ok) {
       console.error("[meta-capi] Meta API error:", JSON.stringify(result));
     }
 
-    return new Response(JSON.stringify(result), {
-      status: metaRes.ok ? 200 : 502,
+    // 200 either way — this is best-effort telemetry, and a relay failure must
+    // never reach the player's browser as an error.
+    return new Response(JSON.stringify({ ...result, relayed: metaRes.ok }), {
+      status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     console.error('[meta-capi] Error:', message);
-    return new Response(JSON.stringify({ error: message }), {
-      status: 500,
+    // Still 200 — see the note above: telemetry must never break gameplay.
+    return new Response(JSON.stringify({ skipped: `relay_failed:${message}` }), {
+      status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
