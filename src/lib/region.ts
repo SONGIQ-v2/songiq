@@ -94,7 +94,9 @@ export const LEAD_PLAYLISTS_BY_REGION: Partial<Record<VisitorRegion, string[]>> 
  * isn't near the top for a visitor from Lagos. Callers compute this once
  * per page load, so the order holds steady while someone browses.
  */
-export function orderPlaylistsForRegion<T extends { id: string }>(playlists: T[], region: VisitorRegion): T[] {
+export function orderPlaylistsForRegion<
+  T extends { id: string; category?: string; isArtist?: boolean; international?: boolean }
+>(playlists: T[], region: VisitorRegion): T[] {
   const leadIds = LEAD_PLAYLISTS_BY_REGION[region] ?? DEFAULT_LEAD;
   const lead = leadIds
     .map((id) => playlists.find((p) => p.id === id))
@@ -106,5 +108,33 @@ export function orderPlaylistsForRegion<T extends { id: string }>(playlists: T[]
     .map((p) => ({ p, k: Math.random() }))
     .sort((a, b) => a.k - b.k)
     .map(({ p }) => p);
-  return [...lead, ...shuffled, ...foreignCharts];
+  return [...lead, ...sceneFirst(shuffled, region), ...foreignCharts];
+}
+
+const WESTERN: ReadonlySet<VisitorRegion> = new Set(["us", "canada", "uk", "germany", "sweden", "australia"]);
+const AFRICAN: ReadonlySet<VisitorRegion> = new Set(["nigeria", "ghana", "south-africa", "east-africa", "africa"]);
+
+/**
+ * Gospel mixes US / international and African playlists. Within the gospel
+ * playlists' own slots (so the "All" list's shuffle is untouched):
+ * - US / UK etc.: international gospel first (genre playlists, then
+ *   artists), then African gospel.
+ * - African visitors: both scenes together -- Nigerian Gospel first, then the
+ *   other gospel genre playlists, then every gospel artist mixed.
+ * Shuffle order is kept within each group; everyone else keeps the shuffle.
+ */
+function sceneFirst<T extends { id: string; category?: string; isArtist?: boolean; international?: boolean }>(
+  list: T[],
+  region: VisitorRegion
+): T[] {
+  const western = WESTERN.has(region);
+  if (!western && !AFRICAN.has(region)) return list;
+  const slots = list.map((p, i) => (p.category === "gospel" ? i : -1)).filter((i) => i >= 0);
+  const rank = western
+    ? (p: T) => (p.international ? 0 : 2) + (p.isArtist ? 1 : 0)
+    : (p: T) => (p.id === "nigerian-gospel" ? 0 : p.isArtist ? 2 : 1);
+  const gospel = slots.map((i) => list[i]).sort((a, b) => rank(a) - rank(b)); // stable: keeps shuffle within groups
+  const out = [...list];
+  slots.forEach((slot, k) => (out[slot] = gospel[k]));
+  return out;
 }

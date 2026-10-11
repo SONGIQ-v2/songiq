@@ -22,6 +22,12 @@ export interface Playlist {
   category: PlaylistCategory;
   /** A single artist's own catalog, not a genre mix — flagged so the UI can visually set it apart. */
   isArtist?: boolean;
+  /**
+   * US / international (non-African) content in a category that mixes both
+   * scenes -- currently gospel. Lets region ordering lead with the scene a
+   * visitor knows (see orderPlaylistsForRegion in src/lib/region.ts).
+   */
+  international?: boolean;
 }
 // African music playlists with curated search terms
 export const PLAYLISTS: Playlist[] = [
@@ -212,6 +218,7 @@ export const PLAYLISTS: Playlist[] = [
   {
     id: "international-gospel",
     category: "gospel",
+    international: true,
     name: "International Gospel",
     description: "Worship & praise from around the world",
     image: "",
@@ -261,6 +268,7 @@ export const PLAYLISTS: Playlist[] = [
   {
     id: "og-gospel",
     category: "gospel",
+    international: true,
     name: "OG Gospel",
     description: "Classic praise & worship and gospel legends",
     image: "",
@@ -1069,6 +1077,7 @@ export const PLAYLISTS: Playlist[] = [
   {
     id: "artist-don-moen",
     category: "gospel",
+    international: true,
     isArtist: true,
     name: "Don Moen",
     description: "Don Moen, top to bottom",
@@ -1078,6 +1087,7 @@ export const PLAYLISTS: Playlist[] = [
   {
     id: "artist-marvin-sapp",
     category: "gospel",
+    international: true,
     isArtist: true,
     name: "Marvin Sapp",
     description: "Marvin Sapp, wall to wall",
@@ -1087,6 +1097,7 @@ export const PLAYLISTS: Playlist[] = [
   {
     id: "artist-william-mcdowell",
     category: "gospel",
+    international: true,
     isArtist: true,
     name: "William McDowell",
     description: "William McDowell, top to bottom",
@@ -1096,6 +1107,7 @@ export const PLAYLISTS: Playlist[] = [
   {
     id: "artist-todd-dulaney",
     category: "gospel",
+    international: true,
     isArtist: true,
     name: "Todd Dulaney",
     description: "Just Todd Dulaney — every hit",
@@ -1105,6 +1117,7 @@ export const PLAYLISTS: Playlist[] = [
   {
     id: "artist-travis-greene",
     category: "gospel",
+    international: true,
     isArtist: true,
     name: "Travis Greene",
     description: "Travis Greene, wall to wall",
@@ -1114,6 +1127,7 @@ export const PLAYLISTS: Playlist[] = [
   {
     id: "artist-tye-tribbett",
     category: "gospel",
+    international: true,
     isArtist: true,
     name: "Tye Tribbett",
     description: "Tye Tribbett, top to bottom",
@@ -1123,6 +1137,7 @@ export const PLAYLISTS: Playlist[] = [
   {
     id: "artist-kirk-franklin",
     category: "gospel",
+    international: true,
     isArtist: true,
     name: "Kirk Franklin",
     description: "Just Kirk Franklin — every hit",
@@ -1132,6 +1147,7 @@ export const PLAYLISTS: Playlist[] = [
   {
     id: "artist-donnie-mcclurkin",
     category: "gospel",
+    international: true,
     isArtist: true,
     name: "Donnie McClurkin",
     description: "Donnie McClurkin, top to bottom",
@@ -1141,6 +1157,7 @@ export const PLAYLISTS: Playlist[] = [
   {
     id: "artist-tasha-cobbs",
     category: "gospel",
+    international: true,
     isArtist: true,
     name: "Tasha Cobbs Leonard",
     description: "Tasha Cobbs Leonard, wall to wall",

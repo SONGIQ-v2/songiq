@@ -19,6 +19,7 @@ import { ReactionBar, FloatingReactions } from "@/components/EmojiReactions";
 import { useVolume } from "@/hooks/useVolume";
 import { logError, logWarn, logInfo } from "@/lib/clientLogger";
 import { warmAudioUrl, preloadAudio, playWithWatchdog } from "@/lib/audioPreload";
+import { serverNow } from "@/lib/serverClock";
 import { isIOS } from "@/lib/ios";
 import { CARD_SPRING } from "@/lib/motion";
 import { getRoundCeremony, type RoundCeremony } from "@/lib/roundCeremony";
@@ -386,7 +387,7 @@ export default function MultiplayerGame() {
         // got cut off at 2.5s for no reason. Floored at 1.5s for the case
         // this fires after started_at already passed (a reload mid-round),
         // capped at 8s as a sane ceiling if something's off with the clock.
-        const msUntilStart = new Date(currentRound.started_at).getTime() - Date.now();
+        const msUntilStart = new Date(currentRound.started_at).getTime() - serverNow();
         const timeoutMs = Math.min(8000, Math.max(1500, msUntilStart));
         const { audio, ready } = preloadAudio(currentRound.preview_url, {
           timeoutMs,

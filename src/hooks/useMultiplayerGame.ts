@@ -8,6 +8,7 @@ import { logError, logWarn, logInfo } from "@/lib/clientLogger";
 import { fetchVerifiedPlayerIds } from "@/lib/verifiedPlayers";
 import { prefetchAudio } from "@/lib/audioPreload";
 import { vibrateRoundStart, vibrateCorrect, vibrateIncorrect } from "@/lib/haptics";
+import { serverNow, syncServerClock } from "@/lib/serverClock";
 
 export interface MultiplayerPlayer {
   id: string;
@@ -102,6 +103,17 @@ export function useMultiplayerGame(roomCode: string) {
   // Compute ROUND_TIME from room settings (time_per_round is in seconds)
   const ROUND_TIME = room ? room.time_per_round * 1000 : DEFAULT_ROUND_TIME;
   const isHost = room && playerId ? room.host_id === playerId : storeIsHost;
+
+  // Round timing runs on the database clock (serverNow), not the device's
+  // own -- a phone clock running ahead used to show the options early and
+  // score every answer as instant. Measure the offset on entering a room
+  // and refresh it periodically in case the device clock drifts or jumps.
+  useEffect(() => {
+    if (!roomCode) return;
+    syncServerClock();
+    const id = setInterval(() => syncServerClock(), 60_000);
+    return () => clearInterval(id);
+  }, [roomCode]);
 
   // Stable across score updates (only changes when who's in the room does),
   // so this doesn't re-fetch on every round.
@@ -622,7 +634,7 @@ export function useMultiplayerGame(roomCode: string) {
   // Derives the game phase, round timer and countdowns from the round's
   // server timestamps every 100ms. All clients follow the same timeline, so
   // audio starts simultaneously, missed events self-heal, and background-tab
-  // timer drift disappears (each tick recomputes from Date.now()).
+  // timer drift disappears (each tick recomputes from serverNow()).
   useEffect(() => {
     if (!room || room.status !== "playing") return;
 
@@ -630,7 +642,7 @@ export function useMultiplayerGame(roomCode: string) {
       const round = roundRef.current;
       if (!round) return; // waiting for the first round to arrive
 
-      const now = Date.now();
+      const now = serverNow();
       const start = new Date(round.started_at).getTime();
       const naturalEnd = start + ROUND_TIME;
       const endedAtMs = round.ended_at ? new Date(round.ended_at).getTime() : null;
@@ -711,7 +723,7 @@ export function useMultiplayerGame(roomCode: string) {
   useEffect(() => {
     if (gameStatus !== "between_rounds" || !currentRound || !room || !playerId) return;
     const start = new Date(currentRound.started_at).getTime();
-    if (Date.now() < start) return; // counting down to a round that hasn't started
+    if (serverNow() < start) return; // counting down to a round that hasn't started
     if (timeUpHandledRef.current === currentRound.id) return;
     timeUpHandledRef.current = currentRound.id;
     if (hasAnswered) return;
@@ -850,7 +862,7 @@ export function useMultiplayerGame(roomCode: string) {
   useEffect(() => {
     if (gameStatus !== "between_rounds" || !room || !currentRound || !playerId) return;
     const start = new Date(currentRound.started_at).getTime();
-    if (Date.now() < start) return; // already counting down to the next round
+    if (serverNow() < start) return; // already counting down to the next round
     if (advanceRequestedForRef.current === currentRound.id) return;
 
     const isFinal = currentRound.round_number >= (room.total_rounds || 10);

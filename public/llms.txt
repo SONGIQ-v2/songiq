@@ -1,6 +1,6 @@
 # SongIQ
 
-> SongIQ is a free online music quiz game where you guess songs and artists from 15-second audio clips. It supports Solo, Daily Challenge, friend Challenges and real-time Multiplayer modes, and covers music across genres and eras — Pop, Hip-Hop & Rap, R&B, UK Drill & Grime, Gospel, 90s and 2000s throwbacks, global charts and artist playlists — including one of the deepest catalogues of African music (Afrobeats, Amapiano, Highlife). No signup required. Play at https://songiq.io
+> SongIQ is a free online music quiz game where you guess songs and artists from 15-second audio clips. It supports Solo, Daily Challenge, friend Challenges and real-time Multiplayer modes, and covers music across genres and eras — Pop, Hip-Hop & Rap, R&B, UK Drill & Grime, Gospel, 90s and 2000s throwbacks, live country charts and artist playlists — including one of the deepest catalogues of African music (Afrobeats, Amapiano, Highlife). No signup required. Play at https://songiq.io
 
 **What is SongIQ?** SongIQ is a free browser-based music trivia game. You listen to a 15-second song preview and guess either the song title or the artist from four options. Points are awarded for speed and accuracy.
 
@@ -22,7 +22,7 @@ How a round works:
 2. You see four answer options in a 2×2 grid.
 3. You guess either the song title or the artist — chosen randomly each round.
 4. Faster correct answers score more points.
-5. A 5-second "Up Next" loader transitions to the next track.
+5. After a short reveal of the correct answer, a 3-second countdown leads into the next track.
 
 Technical details:
 
