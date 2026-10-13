@@ -45,7 +45,7 @@ Technical details:
 - [Guess the Song Game](https://songiq.io/guess-the-song-game): Hear a 15-second clip and name the track.
 - [Guess the Artist Game](https://songiq.io/guess-the-artist-game): Hear a clip and name the artist behind it.
 - [Song Quiz Online](https://songiq.io/song-quiz-online): Free browser-based music quiz, no signup.
-- [Music Quiz Multiplayer](https://songiq.io/music-quiz-multiplayer): Up to 8 players in a live room.
+- [Music Quiz Multiplayer](https://songiq.io/music-quiz-multiplayer): Up to 25 players in a live room.
 - [Heardle Alternative](https://songiq.io/heardle-alternative): Unlimited rounds and multiplayer, no daily cap.
 - [Afrobeats Quiz](https://songiq.io/afrobeats-quiz): Burna Boy, Wizkid, Tems, Davido, Asake and more.
 - [Amapiano Quiz](https://songiq.io/amapiano-quiz): Kabza, Maphorisa, Tyler ICU, Uncle Waffles and more.

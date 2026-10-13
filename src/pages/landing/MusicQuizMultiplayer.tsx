@@ -6,9 +6,9 @@ const MusicQuizMultiplayer = () => (
     metaTitle="Music Quiz Multiplayer — Play with Friends Live | SongIQ"
     metaDescription="Music quiz multiplayer for friends and family. Create a room, share the link, race live to guess songs and artists. Free, web-based, no signup."
     h1="Music Quiz Multiplayer — Settle the Group Chat"
-    intro="Up to 8 players, live scoring, real songs. Create a room in 10 seconds and find out who actually knows music."
+    intro="Up to 25 players, live scoring, real songs. Create a room in 10 seconds and find out who actually knows music."
     features={[
-      { icon: "users", title: "Up to 8 Players", description: "Cross-device — phones, laptops, tablets together" },
+      { icon: "users", title: "Up to 25 Players", description: "Cross-device — phones, laptops, tablets together" },
       { icon: "zap", title: "Real-Time Sync", description: "Live leaderboard updates after every round" },
       { icon: "trophy", title: "Host Controls", description: "Pick the genre, rounds and time per round" },
     ]}
@@ -32,7 +32,7 @@ const MusicQuizMultiplayer = () => (
       },
     ]}
     faq={[
-      { q: "How many people can play together?", a: "Up to 8 players per room. Anyone with the link can join." },
+      { q: "How many people can play together?", a: "Up to 25 players per room. Anyone with the link can join." },
       { q: "Do all players need to be in the same place?", a: "No — multiplayer is fully online. Players can be anywhere as long as they have a browser." },
       { q: "Who controls the game?", a: "The host. They pick the genre, round count and time limit, and they start each round." },
       { q: "Is multiplayer free?", a: "Yes, completely. No subscriptions, no upgrade prompts." },

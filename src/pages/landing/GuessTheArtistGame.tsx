@@ -33,7 +33,7 @@ const GuessTheArtistGame = () => (
       { q: "How is this different from Guess the Song?", a: "Same clip, different question. Guess the Song asks for the track name; Guess the Artist asks who performed it. SongIQ mixes both per round." },
       { q: "Do I need a Spotify or Apple Music account?", a: "No. SongIQ plays clean 15-second previews directly — no third-party login needed." },
       { q: "Can hosts pick the genre?", a: "Yes. In multiplayer the host chooses the playlist, round count, and time limit before starting." },
-      { q: "How many people can join a room?", a: "Up to 8 players per multiplayer room. Spectators can watch live too." },
+      { q: "How many people can join a room?", a: "Up to 25 players per multiplayer room. Spectators can watch live too." },
     ]}
   />
 );

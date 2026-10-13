@@ -33,7 +33,7 @@ const AfrobeatsQuiz = () => (
       { q: "Which Afrobeats artists are in the quiz?", a: "200+ artists including Burna Boy, Wizkid, Davido, Tems, Asake, Rema, Ayra Starr, Olamide, Tiwa Savage, Fireboy DML and many more." },
       { q: "Does it cover Amapiano and Highlife too?", a: "Yes — SongIQ has dedicated playlists for Amapiano and Highlife in addition to mainline Afrobeats." },
       { q: "Are the clips real?", a: "Yes. Every round plays a 15-second clip of the actual track, not a cover or instrumental." },
-      { q: "Can I play this Afrobeats quiz with friends?", a: "Yes — create a multiplayer room, share the link, up to 8 players can join from anywhere." },
+      { q: "Can I play this Afrobeats quiz with friends?", a: "Yes — create a multiplayer room, share the link, up to 25 players can join from anywhere." },
     ]}
   />
 );
