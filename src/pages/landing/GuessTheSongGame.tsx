@@ -26,7 +26,7 @@ const GuessTheSongGame = () => (
       {
         heading: "Solo or multiplayer — your call",
         paragraph:
-          "Play solo to chase your personal best, or jump into multiplayer to humble your group chat. Multiplayer rooms support up to 8 players, sync in real time, and let the host pick the genre and round count.",
+          "Play solo to chase your personal best, or jump into multiplayer to humble your group chat. Multiplayer rooms support up to 25 players, sync in real time, and let the host pick the genre and round count.",
       },
     ]}
     faq={[

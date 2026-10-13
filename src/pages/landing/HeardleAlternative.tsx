@@ -21,7 +21,7 @@ const HeardleAlternative = () => (
       {
         heading: "How SongIQ compares",
         paragraph:
-          "Daily limit: Heardle has one, SongIQ has none. Multiplayer: Heardle relies on share-your-score, SongIQ has real synced rooms for up to 8 players. Genre depth: Heardle is mostly Western pop; SongIQ leads with Afrobeats, Amapiano, Highlife and Bongo Flava alongside Hip-Hop, R&B and Pop. Pricing: both free.",
+          "Daily limit: Heardle has one, SongIQ has none. Multiplayer: Heardle relies on share-your-score, SongIQ has real synced rooms for up to 25 players. Genre depth: Heardle is mostly Western pop; SongIQ leads with Afrobeats, Amapiano, Highlife and Bongo Flava alongside Hip-Hop, R&B and Pop. Pricing: both free.",
       },
       {
         heading: "Same satisfying loop, more of it",
@@ -31,7 +31,7 @@ const HeardleAlternative = () => (
     ]}
     faq={[
       { q: "Is SongIQ really unlimited?", a: "Yes. Play as many rounds as you want, switch genres mid-session, replay your favorites — no daily cap." },
-      { q: "Does SongIQ have multiplayer like Heardle does not?", a: "Yes — fully synced, live, browser-based rooms for up to 8 players. Just share a link." },
+      { q: "Does SongIQ have multiplayer like Heardle does not?", a: "Yes — fully synced, live, browser-based rooms for up to 25 players. Just share a link." },
       { q: "Which Heardle features does SongIQ keep?", a: "The core 'hear a clip, name the song' loop, fast rounds, and clean mobile gameplay." },
       { q: "Is it free?", a: "100% free. No ads in gameplay, no signup required." },
     ]}

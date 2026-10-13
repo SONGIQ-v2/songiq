@@ -33,7 +33,7 @@ const AmapianoQuiz = () => (
       { q: "Which Amapiano artists are included?", a: "Kabza De Small, DJ Maphorisa, Tyler ICU, Uncle Waffles, Focalistic, Mellow & Sleazy, Daliwonga, Young Stunna and many more." },
       { q: "Is this only Amapiano?", a: "The Amapiano playlist focuses on the genre, but SongIQ also has Afrobeats, Highlife, Hip-Hop and more if you want to mix it up." },
       { q: "Do clips include the log drum?", a: "Yes — clips are 15 seconds from the actual track, so you hear the groove, not just a vocal snippet." },
-      { q: "Can I play in multiplayer?", a: "Yes. Up to 8 players, real-time scoring, browser-based — no apps." },
+      { q: "Can I play in multiplayer?", a: "Yes. Up to 25 players, real-time scoring, browser-based — no apps." },
     ]}
   />
 );
