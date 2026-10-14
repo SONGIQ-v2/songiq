@@ -39,6 +39,7 @@ import { logError, logWarn, logInfo } from "@/lib/clientLogger";
 import { vibrateRoundStart, vibrateCorrect, vibrateIncorrect } from "@/lib/haptics";
 import { warmAudioUrl, preloadAudio, playWithWatchdog, prefetchAudio } from "@/lib/audioPreload";
 import { buildShareText, buildStreakRepairShareText, shareResult, isIOSDevice } from "@/lib/shareCard";
+import { showShareConfirm } from "@/components/ShareConfirmDialog";
 import { StreakSaveModal, type StreakSaveEvent } from "@/components/StreakSaveModal";
 import { shareResultImage } from "@/lib/shareImage";
 import { trackEvent } from "@/lib/analytics";
@@ -1263,15 +1264,11 @@ export default function Game() {
         );
         if (imageOutcome === "shared" || imageOutcome === "canceled") return;
         if (imageOutcome === "downloaded" || imageOutcome === "downloaded_copy_failed") {
-          toast.success(
-            imageOutcome === "downloaded"
-              ? "Image saved — result text copied too!"
-              : "Image saved!"
-          );
+          showShareConfirm({ imageSaved: true, textCopied: imageOutcome === "downloaded", text });
           return;
         }
         const outcome = await shareResult(text);
-        if (outcome === "copied") toast.success("Result copied — paste it anywhere!");
+        if (outcome === "copied") showShareConfirm({ imageSaved: false, textCopied: true, text });
         if (outcome === "failed") toast.error("Couldn't share your result");
         return;
       }
@@ -1301,17 +1298,13 @@ export default function Game() {
       const imageOutcome = await shareResultImage(cardOpts, text);
       if (imageOutcome === "shared" || imageOutcome === "canceled") return;
       if (imageOutcome === "downloaded" || imageOutcome === "downloaded_copy_failed") {
-        toast.success(
-          imageOutcome === "downloaded"
-            ? "Image saved — result text copied too!"
-            : "Image saved!"
-        );
+        showShareConfirm({ imageSaved: true, textCopied: imageOutcome === "downloaded", text });
         return;
       }
 
       // Image path failed — fall back to text-only share
       const outcome = await shareResult(text);
-      if (outcome === "copied") toast.success("Result copied — paste it anywhere!");
+      if (outcome === "copied") showShareConfirm({ imageSaved: false, textCopied: true, text });
       if (outcome === "failed") toast.error("Couldn't share your result");
       } finally {
         setIsSharing(false);

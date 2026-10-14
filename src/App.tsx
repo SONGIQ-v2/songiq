@@ -31,6 +31,7 @@ import AmapianoQuiz from "./pages/landing/AmapianoQuiz";
 import AfricanMusicQuiz from "./pages/landing/AfricanMusicQuiz";
 import { FeedbackWidget } from "./components/FeedbackWidget";
 import { SignInModal } from "./components/SignInModal";
+import { ShareConfirmDialog } from "./components/ShareConfirmDialog";
 
 const queryClient = new QueryClient();
 
@@ -40,6 +41,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <SignInModal />
+      <ShareConfirmDialog />
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />

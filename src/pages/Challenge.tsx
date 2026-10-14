@@ -15,6 +15,7 @@ import { useGameStore } from "@/lib/gameStore";
 import { trackEvent } from "@/lib/analytics";
 import { isPlayActive } from "@/lib/roundProgress";
 import { shareResult, buildChallengeResultShareText } from "@/lib/shareCard";
+import { showShareConfirm } from "@/components/ShareConfirmDialog";
 import { fetchVerifiedPlayerIds } from "@/lib/verifiedPlayers";
 import {
   fetchChallenge,
@@ -150,7 +151,7 @@ export default function ChallengePage() {
       challengeUrl: challengeUrl(challenge.code),
     });
     const outcome = await shareResult(text);
-    if (outcome === "copied") toast.success("Result copied — paste it anywhere!");
+    if (outcome === "copied") showShareConfirm({ imageSaved: false, textCopied: true, text });
     if (outcome === "failed") toast.error("Couldn't share your result");
   };
 
@@ -167,7 +168,7 @@ export default function ChallengePage() {
       `Same songs — beat my score 👉 ${challengeUrl(challenge.code)}`,
     ].join("\n");
     const outcome = await shareResult(text);
-    if (outcome === "copied") toast.success("Challenge link copied — paste it anywhere!");
+    if (outcome === "copied") showShareConfirm({ imageSaved: false, textCopied: true, text });
     if (outcome === "failed") toast.error("Couldn't share the challenge");
   };
 

@@ -44,6 +44,7 @@ import { useGameStore } from "@/lib/gameStore";
 import { supabase } from "@/integrations/supabase/client";
 import { PLAYLISTS } from "@/lib/playlists";
 import { buildShareText, shareResult } from "@/lib/shareCard";
+import { showShareConfirm } from "@/components/ShareConfirmDialog";
 import { shareResultImage } from "@/lib/shareImage";
 import { createChallenge, challengeUrl } from "@/lib/challenges";
 import { trackEvent } from "@/lib/analytics";
@@ -702,17 +703,13 @@ export default function MultiplayerGame() {
       const imageOutcome = await shareResultImage(cardOpts, text);
       if (imageOutcome === "shared" || imageOutcome === "canceled") return;
       if (imageOutcome === "downloaded" || imageOutcome === "downloaded_copy_failed") {
-        toast.success(
-          imageOutcome === "downloaded"
-            ? "Image saved — result text copied too!"
-            : "Image saved!"
-        );
+        showShareConfirm({ imageSaved: true, textCopied: imageOutcome === "downloaded", text });
         return;
       }
 
       // Image path failed — fall back to text-only share
       const outcome = await shareResult(text);
-      if (outcome === "copied") toast.success("Result copied — paste it anywhere!");
+      if (outcome === "copied") showShareConfirm({ imageSaved: false, textCopied: true, text });
       if (outcome === "failed") toast.error("Couldn't share your result");
     };
 
