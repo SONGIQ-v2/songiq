@@ -4,6 +4,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { logError } from "@/lib/clientLogger";
 import type { ChallengeRound } from "@/lib/challenges";
+import { unscramblePlan } from "@/lib/planScramble";
 import {
   classifyRpcError,
   type PendingRound,
@@ -59,8 +60,19 @@ export interface DailyLeaderboardStats extends DailyStats {
 
 export const DAILY_URL = "https://songiq.io/daily";
 
-/** The most recent generated challenge (normally today's). */
+/**
+ * The most recent generated challenge (normally today's). The server sends
+ * the plan with its answers scrambled (src/lib/planScramble.ts); the old
+ * direct read is only a fallback for before that migration is applied.
+ */
 export async function fetchTodayChallenge(): Promise<DailyChallenge | null> {
+  const rpc = await (supabase as any).rpc("get_daily_challenge");
+  if (!rpc.error && rpc.data) {
+    const raw = typeof rpc.data.plan === "string" ? JSON.parse(rpc.data.plan) : rpc.data.plan;
+    if (!Array.isArray(raw) || raw.length === 0) return null;
+    return { ...rpc.data, plan: unscramblePlan(raw, String(rpc.data.challenge_date)) } as DailyChallenge;
+  }
+  if (rpc.error && classifyRpcError(rpc.error) !== "unavailable") return null;
   const { data, error } = await (supabase as any)
     .from("daily_challenges")
     .select("challenge_date, number, category_name, time_per_round, plan")

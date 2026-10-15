@@ -4,6 +4,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { generateRoomCode } from "@/lib/spotify";
 import { logError } from "@/lib/clientLogger";
+import { unscramblePlan } from "@/lib/planScramble";
 import {
   classifyRpcError,
   type PendingRound,
@@ -274,8 +275,9 @@ export async function fetchChallenge(code: string): Promise<Challenge | null> {
   if (error) throw error;
   if (!data) return null;
 
-  const plan = typeof data.plan === "string" ? JSON.parse(data.plan) : data.plan;
-  if (!Array.isArray(plan) || plan.length === 0) return null;
+  const raw = typeof data.plan === "string" ? JSON.parse(data.plan) : data.plan;
+  if (!Array.isArray(raw) || raw.length === 0) return null;
 
-  return { ...data, plan } as Challenge;
+  // Answers arrive scrambled (salt = the code) for everyone but the creator.
+  return { ...data, plan: unscramblePlan(raw, String(data.code)) } as Challenge;
 }
