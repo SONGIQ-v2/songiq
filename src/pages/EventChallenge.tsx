@@ -231,7 +231,7 @@ export default function EventChallenge({ slug }: { slug: string }) {
                 </h1>
                 <p className="text-slate-400 text-sm sm:text-base max-w-2xl mx-auto font-normal leading-relaxed">
                   Compete in the official Beach & Beyond x SongIQ Challenge. Play 10 songs as many times as you like
-                  until you top the leaderboard — only your last play counts. Ends {formatEndDateTime(event.ends_at)}.
+                  until you top the leaderboard. Only your last play counts. Ends {formatEndDateTime(event.ends_at)}.
                 </p>
               </div>
 
@@ -310,7 +310,7 @@ export default function EventChallenge({ slug }: { slug: string }) {
                 >
                   {hasEnded ? (
                     <p className="text-center text-sm font-semibold text-slate-400">
-                      This tournament has ended — thanks for playing!
+                      This tournament has ended. Thanks for playing!
                     </p>
                   ) : isAnonymous ? (
                     <div className="flex flex-col items-center gap-3">
@@ -379,7 +379,7 @@ export default function EventChallenge({ slug }: { slug: string }) {
 
             {top3.length === 0 ? (
               <div className="rounded-2xl border border-slate-800 bg-[#11141a] p-10 text-center text-slate-400 text-sm mb-8">
-                No one has played yet — be first!
+                No one has played yet. Be the first!
               </div>
             ) : (
               <div className="flex flex-wrap justify-center gap-5 mb-8 items-end">
@@ -592,7 +592,7 @@ export default function EventChallenge({ slug }: { slug: string }) {
                   </div>
                   <h3 className="font-display font-bold text-lg text-white mb-2">Speed = higher score</h3>
                   <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
-                    Every correct answer is worth 100 points, plus up to 100 more the faster you lock it in — up to
+                    Every correct answer is worth 100 points, plus up to 100 more the faster you lock it in, for up to
                     200 points a round.
                   </p>
                 </div>
@@ -602,7 +602,7 @@ export default function EventChallenge({ slug }: { slug: string }) {
                   </div>
                   <h3 className="font-display font-bold text-lg text-white mb-2">Unlimited replays</h3>
                   <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
-                    Never the same 10 songs twice — every attempt shuffles a fresh set. Play as many times as you
+                    Never the same 10 songs twice: every attempt shuffles a fresh set. Play as many times as you
                     like; only your most recent run is recorded on the standings.
                   </p>
                 </div>

@@ -40,7 +40,7 @@ function Leaderboard({ entries, verifiedIds }: { entries: BoardEntry[]; verified
   return (
     <div className="bg-background/50 rounded-xl p-4 mb-6 text-left">
       <p className="text-muted-foreground mb-3 text-center text-sm">
-        Leaderboard — First Attempt Counts
+        Leaderboard · First Attempt Counts
       </p>
       <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
         {entries.map((e, i) => (
@@ -162,10 +162,10 @@ export default function ChallengePage() {
     if (!challenge) return;
     trackEvent("share_result", { mode: "challenge_creator", score: challenge.creator_score });
     const text = [
-      `🎵 SongIQ — ${challenge.category_name}`,
+      `🎵 SongIQ: ${challenge.category_name}`,
       `I scored ${challenge.creator_score} pts`,
       "",
-      `Same songs — beat my score 👉 ${challengeUrl(challenge.code)}`,
+      `Same songs. Beat my score 👉 ${challengeUrl(challenge.code)}`,
     ].join("\n");
     const outcome = await shareResult(text);
     if (outcome === "copied") showShareConfirm({ imageSaved: false, textCopied: true, text });
@@ -188,7 +188,7 @@ export default function ChallengePage() {
     // landed, retry it now -- and if it still fails, stop here rather than
     // let them play the whole thing and then not appear on the board.
     if (!(playerId ?? (await initializeAuth()))) {
-      toast.error("Couldn't connect to SongIQ — check your connection and try again");
+      toast.error("Couldn't connect to SongIQ. Check your connection and try again");
       return;
     }
     saveUsername(trimmed);
@@ -241,7 +241,7 @@ export default function ChallengePage() {
         disabled={!name.trim()}
       >
         <Play className="w-5 h-5 mr-2" />
-        {resumeAt ? `Continue — Song ${resumeAt} of ${challenge.plan.length}` : "Accept Challenge →"}
+        {resumeAt ? `Continue: Song ${resumeAt} of ${challenge.plan.length}` : "Accept Challenge →"}
       </Button>
     </>
   );
@@ -249,8 +249,8 @@ export default function ChallengePage() {
   return (
     <div className="min-h-screen bg-background relative overflow-hidden flex items-center justify-center p-4 pt-[calc(var(--header-height)+20px)] md:pt-[calc(var(--header-height)+100px)]">
       <Helmet>
-        <title>Music Challenge — Beat My Score | SongIQ</title>
-        <meta name="description" content="A friend challenged you to a music quiz on SongIQ. Same songs, same options — can you beat their score?" />
+        <title>Music Challenge: Beat My Score | SongIQ</title>
+        <meta name="description" content="A friend challenged you to a music quiz on SongIQ. Same songs, same options. Can you beat their score?" />
         <meta name="robots" content="noindex, follow" />
       </Helmet>
       <Starfield />
@@ -285,7 +285,7 @@ export default function ChallengePage() {
         <div className="text-center z-10 max-w-md">
           <p className="text-2xl font-bold text-foreground mb-2">Couldn't load this challenge</p>
           <p className="text-muted-foreground mb-6">
-            Check your connection and try again — the link itself is fine.
+            Check your connection and try again. The link itself is fine.
           </p>
           <Button variant="gold" size="lg" onClick={() => setLoadAttempt((n) => n + 1)}>
             Retry
@@ -372,10 +372,10 @@ export default function ChallengePage() {
 
             <p className="text-foreground/80 font-semibold mb-4">
               {isCreator
-                ? "This is your challenge — share the link and watch the leaderboard fill up."
+                ? "This is your challenge. Share the link and watch the leaderboard fill up."
                 : myAttempt
-                ? `First attempt counts — your ${myAttempt.score} points are locked in.`
-                : "Same songs. Same options. One attempt — make it count."}
+                ? `First attempt counts, so your ${myAttempt.score} points are locked in.`
+                : "Same songs. Same options. One attempt, so make it count."}
             </p>
 
             {/* Desktop only -- mobile gets the same controls in the fixed

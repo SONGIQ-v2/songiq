@@ -720,7 +720,7 @@ export default function MultiplayerGame() {
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Link to="/" target="_blank" rel="noopener noreferrer" className="flex items-center">
-                <img src={songiqLogo} alt="SongIQ — Music Trivia Game" className="h-8 md:h-10 w-auto" />
+                <img src={songiqLogo} alt="SongIQ: Music Trivia Game" className="h-8 md:h-10 w-auto" />
               </Link>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
@@ -1340,7 +1340,7 @@ export default function MultiplayerGame() {
                   className="mb-6 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-destructive/15 border border-destructive/40 text-xs font-semibold text-destructive"
                 >
                   <WifiOff className="w-3.5 h-3.5 shrink-0" />
-                  Slow connection — audio may be delayed
+                  Slow connection, audio may be delayed
                 </motion.div>
               )}
             </AnimatePresence>

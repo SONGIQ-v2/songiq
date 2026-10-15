@@ -1,12 +1,12 @@
 # SongIQ
 
-> SongIQ is a free online music quiz game where you guess songs and artists from 15-second audio clips. It supports Solo, Daily Challenge, friend Challenges and real-time Multiplayer modes, and covers music across genres and eras — Pop, Hip-Hop & Rap, R&B, UK Drill & Grime, Gospel, 90s and 2000s throwbacks, live country charts and artist playlists — including one of the deepest catalogues of African music (Afrobeats, Amapiano, Highlife). No signup required. Play at https://songiq.io
+> SongIQ is a free online music quiz game where you guess songs and artists from 15-second audio clips. It supports Solo, Daily Challenge, friend Challenges and real-time Multiplayer modes, and covers music across genres and eras (Pop, Hip-Hop & Rap, R&B, UK Drill & Grime, Gospel, 90s and 2000s throwbacks, live country charts and artist playlists), including one of the deepest catalogues of African music (Afrobeats, Amapiano, Highlife). No signup required. Play at https://songiq.io
 
 **What is SongIQ?** SongIQ is a free browser-based music trivia game. You listen to a 15-second song preview and guess either the song title or the artist from four options. Points are awarded for speed and accuracy.
 
 **Is SongIQ free?** Yes. SongIQ is completely free to play with no signup, no downloads, and no ads required to start.
 
-**Can you play SongIQ with friends?** Yes. Create a private multiplayer room, share the link, and compete in real time with a live leaderboard. The host picks the playlist, number of songs (5–20), and round time limit (10–30 seconds). You can also finish a solo game and send a challenge link so friends can try to beat your score.
+**Can you play SongIQ with friends?** Yes. Create a private multiplayer room for up to 25 players, share the link, and compete in real time with a live leaderboard. The host picks the playlist, number of songs (5–20), and round time limit (10–30 seconds). You can also finish a solo game and send a challenge link so friends can try to beat your score.
 
 **What devices does SongIQ work on?** Any modern browser on desktop, tablet, or mobile. No app install required.
 
@@ -14,15 +14,22 @@
 
 **Is SongIQ a Heardle alternative?** Yes. SongIQ plays the same "guess the song from audio" format but adds multiplayer rooms, many more genres (including African music), and unlimited rounds (Heardle is one song per day).
 
+**How does scoring work?** A correct answer earns 100 points plus a speed bonus of up to 100 that drains over the round, so the maximum is 200 points per song (for example: answering in 2 seconds scores 186, in 7 seconds 153, in 14 seconds 106). A wrong answer or no answer scores 0.
+
+**What is the Daily Challenge?** One shared 10-song quiz per day, and everyone gets the same songs. Only the first attempt counts, it resets at midnight Lagos time (WAT, UTC+1), and answers are saved as you go, so closing it by accident lets you continue before midnight. Playing on consecutive days builds a streak.
+
+**How do Points and the leaderboard work?** Every finished game earns lifetime Points: your score ÷ 100 (up to 20 for a 10-song game), plus 5 for each opponent you beat in multiplayer, plus 10/6/4 for the Daily Challenge top 3. The global leaderboard ranks players by minutes played or by Points, with weekly, monthly and all-time views. Every 15-day streak earns a Streak Save that covers one missed day.
+
 **Who is SongIQ for?** Music fans of any genre, friend groups, party hosts and classrooms who want a quick competitive music game.
 
 How a round works:
 
 1. A 15-second audio preview plays automatically.
 2. You see four answer options in a 2×2 grid.
-3. You guess either the song title or the artist — chosen randomly each round.
+3. You guess either the song title or the artist, chosen randomly each round.
 4. Faster correct answers score more points.
 5. After a short reveal of the correct answer, a 3-second countdown leads into the next track.
+6. After the last song (10 in Solo and the Daily), a results screen shows your score, accuracy and a breakdown of every song: title, artist and whether you got it.
 
 Technical details:
 
@@ -53,7 +60,7 @@ Technical details:
 
 ## Optional
 
-- [Home](https://songiq.io/): SongIQ homepage — pick a mode and start playing.
-- [How It Works](https://songiq.io/how-it-works): Rules, scoring and game modes explained.
+- [Home](https://songiq.io/): SongIQ homepage. Pick a mode and start playing.
+- [How It Works](https://songiq.io/how-it-works): Rules, exact scoring, game modes, Points and streaks explained, with a playable practice round and FAQ.
 - [Privacy Policy](https://songiq.io/privacy): How SongIQ handles player data.
 - [Sitemap](https://songiq.io/sitemap.xml): Full list of public pages.

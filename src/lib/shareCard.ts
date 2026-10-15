@@ -20,7 +20,7 @@ export function buildShareText({ categoryName, score, results, rank, playerCount
   const correct = results.filter(Boolean).length;
 
   const lines = [
-    `🎵 SongIQ — ${categoryName}`,
+    `🎵 SongIQ: ${categoryName}`,
     `${grid} ${correct}/${results.length} · ${score} pts`,
   ];
 
@@ -32,7 +32,7 @@ export function buildShareText({ categoryName, score, results, rank, playerCount
   lines.push(
     "",
     challengeUrl
-      ? `Same songs — beat my score 👉 ${challengeUrl}`
+      ? `Same songs. Beat my score 👉 ${challengeUrl}`
       : `Think you know music? Beat me 👉 ${SHARE_URL}`
   );
   return lines.join("\n");
@@ -52,11 +52,11 @@ export function buildChallengeResultShareText(opts: {
   challengeUrl?: string;
 }): string {
   const lines = [
-    `🎵 SongIQ — ${opts.categoryName}`,
+    `🎵 SongIQ: ${opts.categoryName}`,
     `${opts.correctCount}/${opts.totalRounds} correct · ${opts.score} pts`,
     "",
     opts.challengeUrl
-      ? `Same songs — beat my score 👉 ${opts.challengeUrl}`
+      ? `Same songs. Beat my score 👉 ${opts.challengeUrl}`
       : `Think you know music? Beat me 👉 ${SHARE_URL}`,
   ];
   return lines.join("\n");

@@ -64,7 +64,7 @@ export function ShareConfirmDialog() {
             {state?.textCopied
               ? "Open WhatsApp, Instagram or any app and paste the message to challenge your friends."
               : "Open WhatsApp, Instagram or any app to share it with your friends."}
-            {state?.imageSaved && " The image is in your Downloads — attach it for extra flex."}
+            {state?.imageSaved && " The image is in your Downloads, so attach it for extra flex."}
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-2 mt-2">

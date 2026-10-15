@@ -3,12 +3,12 @@ import { SeoLanding } from "@/components/SeoLanding";
 const HeardleAlternative = () => (
   <SeoLanding
     path="/heardle-alternative"
-    metaTitle="Heardle Alternative — Unlimited Music Quiz | SongIQ"
+    metaTitle="Heardle Alternative: Unlimited Music Quiz | SongIQ"
     metaDescription="Looking for a Heardle alternative? SongIQ gives you unlimited rounds, multiplayer with friends, and playlists from Afrobeats to Pop. Free, no signup."
     h1="The Heardle Alternative Worth Switching To"
     intro="Unlimited daily play. Real multiplayer. Genres beyond mainstream pop. If Heardle ran out of songs, start here."
     features={[
-      { icon: "zap", title: "Unlimited Rounds", description: "No once-a-day cap — play as much as you want" },
+      { icon: "zap", title: "Unlimited Rounds", description: "No once-a-day cap. Play as much as you want" },
       { icon: "users", title: "True Multiplayer", description: "Live rooms with friends, not just leaderboards" },
       { icon: "music", title: "Beyond Pop", description: "Afrobeats, Amapiano, Highlife, R&B, Hip-Hop & more" },
     ]}
@@ -30,8 +30,8 @@ const HeardleAlternative = () => (
       },
     ]}
     faq={[
-      { q: "Is SongIQ really unlimited?", a: "Yes. Play as many rounds as you want, switch genres mid-session, replay your favorites — no daily cap." },
-      { q: "Does SongIQ have multiplayer like Heardle does not?", a: "Yes — fully synced, live, browser-based rooms for up to 25 players. Just share a link." },
+      { q: "Is SongIQ really unlimited?", a: "Yes. Play as many rounds as you want, switch genres mid-session, replay your favorites, with no daily cap." },
+      { q: "Does SongIQ have multiplayer like Heardle does not?", a: "Yes. Fully synced, live, browser-based rooms for up to 25 players. Just share a link." },
       { q: "Which Heardle features does SongIQ keep?", a: "The core 'hear a clip, name the song' loop, fast rounds, and clean mobile gameplay." },
       { q: "Is it free?", a: "100% free. No ads in gameplay, no signup required." },
     ]}

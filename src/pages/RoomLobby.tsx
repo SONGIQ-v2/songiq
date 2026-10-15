@@ -347,11 +347,11 @@ export default function RoomLobby() {
   return (
     <div className="min-h-screen relative overflow-hidden">
       <Helmet>
-        <title>{`Join Room ${code ?? ""} — Multiplayer Music Quiz | SongIQ`}</title>
+        <title>{`Join Room ${code ?? ""} · Multiplayer Music Quiz | SongIQ`}</title>
         <meta name="description" content="Join a private SongIQ multiplayer music quiz room. Pick a nickname and play live with friends across Afrobeats, Pop and more." />
         <meta name="robots" content="noindex, follow" />
         <link rel="canonical" href={`https://songiq.io/room/${code ?? ""}`} />
-        <meta property="og:title" content={`Join Room ${code ?? ""} — Multiplayer Music Quiz | SongIQ`} />
+        <meta property="og:title" content={`Join Room ${code ?? ""} · Multiplayer Music Quiz | SongIQ`} />
         <meta property="og:description" content="A friend invited you to a live multiplayer music quiz on SongIQ. Tap to join." />
         <meta property="og:url" content={`https://songiq.io/room/${code ?? ""}`} />
       </Helmet>
@@ -405,7 +405,7 @@ export default function RoomLobby() {
         <div className="max-w-[1400px] mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link to="/" target="_blank" rel="noopener noreferrer" className="flex items-center">
-              <img src={songiqLogo} alt="SongIQ — Music Trivia Game" className="h-8 md:h-10 w-auto" />
+              <img src={songiqLogo} alt="SongIQ: Music Trivia Game" className="h-8 md:h-10 w-auto" />
             </Link>
             <AlertDialog>
               <AlertDialogTrigger asChild>

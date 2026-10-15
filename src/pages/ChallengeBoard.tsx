@@ -113,7 +113,7 @@ export default function ChallengeBoard() {
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
       <Helmet>
-        <title>Full Leaderboard — Music Challenge | SongIQ</title>
+        <title>Full Leaderboard: Music Challenge | SongIQ</title>
         <meta name="robots" content="noindex, follow" />
       </Helmet>
       <Starfield />
@@ -150,7 +150,7 @@ export default function ChallengeBoard() {
         <div className="min-h-screen flex items-center justify-center p-4">
           <div className="text-center z-10 max-w-md">
             <p className="text-2xl font-bold text-foreground mb-2">Couldn't load this challenge</p>
-            <p className="text-muted-foreground mb-6">Check your connection and try again — the link itself is fine.</p>
+            <p className="text-muted-foreground mb-6">Check your connection and try again. The link itself is fine.</p>
             <Button variant="gold" size="lg" onClick={() => setLoadAttempt((n) => n + 1)}>
               Retry
             </Button>
@@ -173,7 +173,7 @@ export default function ChallengeBoard() {
             </h1>
             <p className="text-muted-foreground">
               <span className="block text-[20px] text-primary font-semibold mb-2">{challenge.category_name}</span>
-              Same songs, same options — first attempt counts for everyone.
+              Same songs, same options, and the first attempt counts for everyone.
             </p>
           </div>
 
@@ -226,7 +226,7 @@ export default function ChallengeBoard() {
           <div className="raised-panel p-3 text-left">
             <div className="max-h-[618px] overflow-y-auto overflow-x-auto">
               {board.length === 0 ? (
-                <p className="text-muted-foreground text-sm text-center py-4">No one has played yet — be first!</p>
+                <p className="text-muted-foreground text-sm text-center py-4">No one has played yet. Be the first!</p>
               ) : (
                 <Table className="min-w-[640px]">
                   <TableHeader>

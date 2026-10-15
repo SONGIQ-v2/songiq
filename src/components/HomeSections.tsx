@@ -309,7 +309,7 @@ export function BattlefieldSection({ className = "mb-[100px]" }: { className?: s
       <motion.h2 variants={fade} className="font-display text-4xl text-center mb-2">
         Pick Your Battlefield
       </motion.h2>
-      <p className="text-muted-foreground text-sm text-center mb-8">Jump straight into a genre — new picks every visit</p>
+      <p className="text-muted-foreground text-sm text-center mb-8">Jump straight into a genre, with new picks every visit</p>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {battlefield[0] && (
           <PlaylistCard
@@ -384,7 +384,7 @@ export function ActiveChallengesSection({ className = "mb-[100px]" }: { classNam
       <motion.h2 variants={fade} className="font-display text-4xl text-center mb-2">
         Active Challenges
       </motion.h2>
-      <p className="text-muted-foreground text-sm text-center mb-8">Real players, real scores — pick one and beat it</p>
+      <p className="text-muted-foreground text-sm text-center mb-8">Real players, real scores. Pick one and beat it</p>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {activeChallenges.map((c) => (
           <ChallengeCard

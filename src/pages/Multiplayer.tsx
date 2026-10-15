@@ -198,10 +198,10 @@ const Multiplayer = () => {
   return (
     <div className="min-h-screen relative overflow-hidden">
       <Helmet>
-        <title>Multiplayer Music Quiz — Play with Friends Live | SongIQ</title>
-        <meta name="description" content="Create or join a SongIQ multiplayer room. Up to 25 players, live scoring, share a link — race friends to guess the song first." />
+        <title>Multiplayer Music Quiz: Play with Friends Live | SongIQ</title>
+        <meta name="description" content="Create or join a SongIQ multiplayer room. Up to 25 players, live scoring and a shareable link. Race friends to guess the song first." />
         <link rel="canonical" href="https://songiq.io/multiplayer" />
-        <meta property="og:title" content="SongIQ Multiplayer — Music Quiz with Friends" />
+        <meta property="og:title" content="SongIQ Multiplayer: Music Quiz with Friends" />
         <meta property="og:description" content="Up to 25 players, live scoring. Create a room, share the link, settle the group chat." />
         <meta property="og:url" content="https://songiq.io/multiplayer" />
       </Helmet>

@@ -85,7 +85,7 @@ export function ChallengeCard({ challenge, verified, isOwn, myScore, variants }:
             <span>
               <span className="font-bold text-gold">{top_score}</span>{" "}
               <span className="text-muted-foreground">
-                {leaderIsCreator ? "set by the creator" : `— ${top_name} is leading`}
+                {leaderIsCreator ? "set by the creator" : `· ${top_name} is leading`}
               </span>
             </span>
           </p>

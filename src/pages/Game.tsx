@@ -1134,7 +1134,7 @@ export default function Game() {
                 <>
                   <p className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-destructive/15 border border-destructive/40 text-sm text-destructive">
                     <WifiOff className="w-3.5 h-3.5 shrink-0" />
-                    Slow connection — still loading
+                    Slow connection, still loading
                   </p>
                   <Button
                     variant="ghost"
@@ -1237,14 +1237,14 @@ export default function Game() {
           createdChallengeRef.current = code;
 
           if (!code) {
-            toast.error("Couldn't create your challenge link — check your connection and try again");
+            toast.error("Couldn't create your challenge link. Check your connection and try again");
             return;
           }
           if (isIOSDevice()) {
             // Waiting on that insert spent this tap's user gesture, and
             // iOS won't open the share sheet without a fresh one -- the
             // link is confirmed saved now, so the next tap shares instantly.
-            toast.success("Your challenge link is ready — tap Share again to send it");
+            toast.success("Your challenge link is ready. Tap Share again to send it");
             return;
           }
         }
@@ -1259,7 +1259,7 @@ export default function Game() {
           streak: dailyResult?.streak,
         });
         const imageOutcome = await shareResultImage(
-          { categoryName: `Daily #${daily.number} — ${playlistName}`, score: soloScore, results: roundResults },
+          { categoryName: `Daily #${daily.number}: ${playlistName}`, score: soloScore, results: roundResults },
           text
         );
         if (imageOutcome === "shared" || imageOutcome === "canceled") return;
@@ -1686,12 +1686,12 @@ export default function Game() {
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
       <Helmet>
-        <title>Solo Music Quiz — Play Now | SongIQ</title>
+        <title>Solo Music Quiz: Play Now | SongIQ</title>
         <meta name="description" content="Solo music quiz round in progress on SongIQ. Listen to 15-second clips and guess the song or artist." />
         <meta name="robots" content="noindex, follow" />
         <link rel="canonical" href="https://songiq.io/solo/game" />
-        <meta property="og:title" content="Solo Music Quiz — Play Now | SongIQ" />
-        <meta property="og:description" content="Live solo round on SongIQ — guess the song or artist in 15 seconds." />
+        <meta property="og:title" content="Solo Music Quiz: Play Now | SongIQ" />
+        <meta property="og:description" content="Live solo round on SongIQ. Guess the song or artist in 15 seconds." />
         <meta property="og:url" content="https://songiq.io/solo/game" />
       </Helmet>
       <Starfield />
@@ -1721,13 +1721,13 @@ export default function Game() {
                 </AlertDialogTitle>
                 <AlertDialogDescription>
                   {(challenge || daily) && roundResults.length === 0
-                    ? "You haven't answered any songs yet, so nothing is recorded — you can come back and play later."
+                    ? "You haven't answered any songs yet, so nothing is recorded and you can come back and play later."
                     : challenge && !daily
-                    ? `This ends the challenge — your current score (${soloScore} pts) will be recorded as your final score. You won't be able to play this challenge again.`
+                    ? `This ends the challenge. Your current score (${soloScore} pts) will be recorded as your final score. You won't be able to play this challenge again.`
                     : daily
-                    ? `This ends today's challenge — your current score (${soloScore} pts) will be recorded as your final score. You won't be able to play today's challenge again.`
+                    ? `This ends today's challenge. Your current score (${soloScore} pts) will be recorded as your final score. You won't be able to play today's challenge again.`
                     : event
-                    ? `This ends your run — your current score (${soloScore} pts) will be recorded. You can always play again.`
+                    ? `This ends your run. Your current score (${soloScore} pts) will be recorded. You can always play again.`
                     : "Are you sure you want to quit? Your current progress will be lost."}
                 </AlertDialogDescription>
               </AlertDialogHeader>
@@ -1746,7 +1746,7 @@ export default function Game() {
                       await recordDailyAttempt(async (_pid, savesBefore) => {
                         const statusAfter = await fetchStreakProtectionStatus();
                         if (statusAfter && statusAfter.saves_available < savesBefore) {
-                          toast.success(`🛡️ Streak Save used — your ${statusAfter.current_streak}-day streak is protected!`);
+                          toast.success(`🛡️ Streak Save used! Your ${statusAfter.current_streak}-day streak is protected.`);
                         }
                         trackEvent("daily_challenge_complete", {
                           daily_number: daily.number,
@@ -1907,7 +1907,7 @@ export default function Game() {
               className="mb-6 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-destructive/15 border border-destructive/40 text-xs font-semibold text-destructive"
             >
               <WifiOff className="w-3.5 h-3.5 shrink-0" />
-              Slow connection — audio may be delayed
+              Slow connection, audio may be delayed
             </motion.div>
           )}
         </AnimatePresence>

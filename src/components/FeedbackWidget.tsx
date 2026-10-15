@@ -90,7 +90,7 @@ export const FeedbackWidget = () => {
           <DialogHeader>
             <DialogTitle>Share your feedback</DialogTitle>
             <DialogDescription>
-              Help us improve SongIQ — we read every message.
+              Help us improve SongIQ. We read every message.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 pt-2">

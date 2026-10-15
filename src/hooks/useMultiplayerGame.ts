@@ -623,7 +623,7 @@ export function useMultiplayerGame(roomCode: string) {
     if (prevHostId === null || prevHostId === room.host_id) return;
 
     if (room.host_id === playerId) {
-      toast.info("You're the host now — the previous host left or disconnected.");
+      toast.info("You're the host now. The previous host left or disconnected.");
     } else {
       const newHostName = playersMapRef.current.get(room.host_id)?.player_name ?? room.host_name;
       toast.info(`${newHostName} is now the host.`);
@@ -906,7 +906,7 @@ export function useMultiplayerGame(roomCode: string) {
       // Every attempt failed -- surface it rather than hanging silently;
       // the 3s poll will still pick up the finish if another room member's
       // retry (or the poll itself, next reconciliation) succeeds meanwhile.
-      toast.error("Having trouble finishing the game — still trying in the background.");
+      toast.error("Having trouble finishing the game. Still trying in the background.");
     }, delay);
 
     return () => clearTimeout(t);

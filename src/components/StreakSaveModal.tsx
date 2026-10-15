@@ -44,8 +44,8 @@ export function StreakSaveModal({
           </DialogTitle>
           <DialogDescription className="text-base pt-1">
             {isRestored
-              ? `Your friends came through — your ${streak}-day streak is safe.`
-              : `You missed a day, but a Streak Save quietly covered it — your ${streak}-day streak is protected.`}
+              ? `Your friends came through, and your ${streak}-day streak is safe.`
+              : `You missed a day, but a Streak Save quietly covered it, so your ${streak}-day streak is protected.`}
           </DialogDescription>
         </DialogHeader>
         <Button variant="gold" onClick={onClose} className="w-full mt-2">

@@ -165,7 +165,7 @@ export async function renderShareCard(opts: ShareCardOptions): Promise<Blob | nu
 
   ctx.fillStyle = COLORS.muted;
   ctx.font = body(32);
-  ctx.fillText("Guess the Song — Test Your Music IQ.", W / 2, H - 95);
+  ctx.fillText("Guess the Song. Test Your Music IQ.", W / 2, H - 95);
 
   return new Promise((resolve) => canvas.toBlob((b) => resolve(b), "image/png"));
 }

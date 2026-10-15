@@ -210,7 +210,7 @@ export function NewTabAccountMenu({ roomId }: { roomId?: string } = {}) {
                 <Shield className="w-3.5 h-3.5 text-primary shrink-0" />
                 Streak Saves: {savesAvailable}/2
                 {savesAvailable > 0 && nextSaveExpires && (
-                  <span> — next expires {new Date(nextSaveExpires).toLocaleDateString()}</span>
+                  <span>, next expires {new Date(nextSaveExpires).toLocaleDateString()}</span>
                 )}
               </DropdownMenuLabel>
             )}

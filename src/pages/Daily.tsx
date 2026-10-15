@@ -179,7 +179,7 @@ export default function Daily() {
     // it now -- and if it still fails, stop here rather than let them play
     // the whole thing and then lose the day.
     if (!(playerId ?? (await initializeAuth()))) {
-      toast.error("Couldn't connect to SongIQ — check your connection and try again");
+      toast.error("Couldn't connect to SongIQ. Check your connection and try again");
       return;
     }
     saveUsername(trimmed);
@@ -208,7 +208,7 @@ export default function Daily() {
     if (!daily) return;
     trackEvent("daily_invite_share", { daily_number: daily.number });
     const text = [
-      `🎵 SongIQ Daily #${daily.number} — ${daily.category_name}`,
+      `🎵 SongIQ Daily #${daily.number}: ${daily.category_name}`,
       `Same 10 songs for everyone, once a day. Think you can beat me? 👉 ${DAILY_URL}`,
     ].join("\n");
     await shareResult(text);
@@ -218,7 +218,7 @@ export default function Daily() {
     <div className="min-h-screen bg-background relative overflow-hidden">
       <Helmet>
         <title>Daily Music Challenge | SongIQ</title>
-        <meta name="description" content="One music quiz a day — the same 10 songs for everyone. Play today's SongIQ Daily Challenge, keep your streak alive and climb the leaderboard." />
+        <meta name="description" content="One music quiz a day, with the same 10 songs for everyone. Play today's SongIQ Daily Challenge, keep your streak alive and climb the leaderboard." />
         <link rel="canonical" href="https://songiq.io/daily" />
         <meta property="og:title" content="Daily Music Challenge | SongIQ" />
         <meta property="og:description" content="Same 10 songs for everyone, once a day. Can you top today's leaderboard?" />
@@ -248,7 +248,7 @@ export default function Daily() {
             <CalendarDays className="w-14 h-14 text-gold mx-auto mb-4" />
             <p className="text-2xl font-bold text-foreground mb-2">No challenge yet today</p>
             <p className="text-muted-foreground mb-6">
-              Today's challenge is being prepared — check back in a few minutes!
+              Today's challenge is being prepared. Check back in a few minutes!
             </p>
             <Button variant="gold" size="lg" onClick={() => navigate("/")}>
               Back to SongIQ
@@ -289,7 +289,7 @@ export default function Daily() {
                     <ShieldAlert className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
                     <p className="text-xs text-muted-foreground">
                       <span className="text-foreground font-semibold">Playing now resets your streak to 1</span> instead
-                      of restoring your {streakStatus.current_streak}-day streak —{" "}
+                      of restoring your {streakStatus.current_streak}-day streak:{" "}
                       {streakStatus.repair_day_number != null && streakStatus.repair_day_number >= 4
                         ? `${streakStatus.repair_progress_challenges ?? 0} of ${streakStatus.repair_target_challenges} challenges filled`
                         : `${streakStatus.repair_progress_friends ?? 0} of ${streakStatus.repair_target_friends} friends played`}{" "}
@@ -310,7 +310,7 @@ export default function Daily() {
                 )}
                 <Button variant="gold" size="lg" className="w-full" onClick={handlePlay} disabled={!name.trim()}>
                   <Play className="w-5 h-5 mr-2 fill-current" />
-                  {unfinished ? `Continue — Song ${resumeAt} of ${daily.plan.length}` : "Play Today's Challenge"}
+                  {unfinished ? `Continue: Song ${resumeAt} of ${daily.plan.length}` : "Play Today's Challenge"}
                 </Button>
               </div>
             )}
@@ -395,7 +395,7 @@ export default function Daily() {
             {tab === "today" ? (
               attempts.length === 0 ? (
                 <p className="text-muted-foreground text-sm text-center py-4">
-                  No one has played yet — be first!
+                  No one has played yet. Be the first!
                 </p>
               ) : (
                 <Table className="min-w-[640px]">
@@ -542,8 +542,8 @@ export default function Daily() {
                 {played && myAttempt
                   ? `${myAttempt.correct_count}/${daily.plan.length} songs completed`
                   : unfinished
-                  ? `${resumeAt - 1}/${daily.plan.length} songs answered — continue to finish`
-                  : `Complete today's challenge to enter the leaderboard — 0/${daily.plan.length} songs`}
+                  ? `${resumeAt - 1}/${daily.plan.length} songs answered. Continue to finish`
+                  : `Complete today's challenge to enter the leaderboard: 0/${daily.plan.length} songs`}
                 {myStreakAtRisk && (
                   <span className="text-destructive font-semibold flex items-center gap-1">
                     <Flame className="w-3 h-3" /> {myStreak}-Day Streak at Risk

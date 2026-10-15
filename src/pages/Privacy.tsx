@@ -18,7 +18,7 @@ const Privacy = () => (
       <title>Privacy Policy | SongIQ Music Quiz</title>
       <meta
         name="description"
-        content="How SongIQ collects, uses, and protects your data — including our limited use of Google API services."
+        content="How SongIQ collects, uses, and protects your data, including our limited use of Google API services."
       />
       <link rel="canonical" href="https://songiq.io/privacy" />
       <meta property="og:title" content="Privacy Policy | SongIQ" />

@@ -82,7 +82,7 @@ export default function BrowseChallenges() {
           className="max-w-[1200px] mx-auto text-center mb-6"
         >
           <h1 className="glow-heading mb-1">Active Challenges</h1>
-          <p className="text-muted-foreground text-sm">Real players, real scores — pick one and beat it</p>
+          <p className="text-muted-foreground text-sm">Real players, real scores. Pick one and beat it</p>
         </motion.div>
 
         <div className="max-w-[1200px] mx-auto">
@@ -104,7 +104,7 @@ export default function BrowseChallenges() {
               <Swords className="w-10 h-10 text-primary mx-auto mb-4" />
               <p className="text-2xl font-bold text-foreground mb-2">No challenges yet</p>
               <p className="text-muted-foreground mb-6">
-                Be the first — play a game, share your challenge link, and see your name at the top.
+                Be the first: play a game, share your challenge link, and see your name at the top.
               </p>
               <Button variant="gold" size="lg" onClick={() => navigate("/solo")}>
                 Play SongIQ

@@ -49,7 +49,7 @@ export const SiteFooter = () => (
         <h2 className="font-display text-sm uppercase tracking-wide mb-3 text-foreground">SongIQ</h2>
         <p className="text-sm text-muted-foreground mb-3">
           A free online music quiz for Afrobeats, Amapiano and global hits. Guess songs and artists
-          from real audio clips — solo or with friends.
+          from real audio clips, solo or with friends.
         </p>
         <Link to="/privacy" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
           Privacy Policy

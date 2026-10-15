@@ -106,7 +106,7 @@ export default function PlayerProfile() {
     <div className="min-h-screen bg-background relative overflow-hidden">
       <Helmet>
         <meta name="robots" content="noindex, nofollow" />
-        <title>Player Profile — SongIQ</title>
+        <title>Player Profile | SongIQ</title>
       </Helmet>
       <Starfield />
 
@@ -140,7 +140,7 @@ export default function PlayerProfile() {
           </div>
         ) : !playerId ? (
           <div className="raised-panel p-8 text-center text-muted-foreground text-sm">
-            No player ID given — visit /anonymous/player/&lt;playerId&gt;.
+            No player ID given. Visit /anonymous/player/&lt;playerId&gt;.
           </div>
         ) : loading ? (
           <div className="raised-panel p-8 text-center">

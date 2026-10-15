@@ -67,21 +67,21 @@ export function DailyReminderButton({
     const pid = playerId ?? (await initializeAuth());
     if (!pid) {
       setState("idle");
-      toast.error("Couldn't set the reminder — try again");
+      toast.error("Couldn't set the reminder. Please try again");
       return;
     }
     const result = await subscribeToDailyReminders(pid);
     if (result === "subscribed") {
       setState("done");
-      toast.success("Reminder set — see you tomorrow!");
+      toast.success("Reminder set. See you tomorrow!");
     } else {
       setState("idle");
       toast.error(
         result === "denied"
-          ? "Notifications were blocked — enable them in your browser settings"
+          ? "Notifications were blocked. Enable them in your browser settings"
           : result === "not_ready"
-          ? "Reminders are warming up — try again in a few minutes"
-          : "Couldn't set the reminder — try again later"
+          ? "Reminders are warming up. Try again in a few minutes"
+          : "Couldn't set the reminder. Try again later"
       );
     }
   };

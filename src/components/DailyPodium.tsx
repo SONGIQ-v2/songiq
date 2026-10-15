@@ -65,7 +65,7 @@ export function DailyPodium({
   if (attempts.length === 0) {
     return (
       <div className="raised-panel p-8 text-center text-muted-foreground text-sm">
-        No one has played yet — be first!
+        No one has played yet. Be the first!
       </div>
     );
   }

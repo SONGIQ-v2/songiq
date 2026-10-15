@@ -54,7 +54,7 @@ export default function Unsubscribe() {
             </p>
             {status === "error" && (
               <p className="text-destructive text-sm mb-4">
-                That didn't work — the link may be invalid. Please try again.
+                That didn't work. The link may be invalid. Please try again.
               </p>
             )}
             <Button variant="gold" className="w-full" onClick={handleUnsubscribe} disabled={status === "working"}>

@@ -279,7 +279,7 @@ export function buildDailyShareText(opts: {
   const grid = opts.results.map((r) => (r ? "🟩" : "🟥")).join("");
   const correct = opts.results.filter(Boolean).length;
   const lines = [
-    `🎵 SongIQ Daily #${opts.number} — ${opts.categoryName}`,
+    `🎵 SongIQ Daily #${opts.number}: ${opts.categoryName}`,
     `${grid} ${correct}/${opts.results.length} · ${opts.score} pts`,
   ];
   if (opts.streak && opts.streak > 1) lines.push(`🔥 ${opts.streak}-day streak`);

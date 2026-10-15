@@ -489,7 +489,7 @@ export default function Admin() {
   const handleConnectGoogle = () => {
     const clientId = import.meta.env.VITE_GA4_CLIENT_ID as string | undefined;
     if (!clientId) {
-      setReportError("VITE_GA4_CLIENT_ID isn't set — add it to the environment first.");
+      setReportError("VITE_GA4_CLIENT_ID isn't set. Add it to the environment first.");
       return;
     }
     const redirectUri = `${window.location.origin}/anonymous`;
@@ -507,7 +507,7 @@ export default function Admin() {
     <div className="min-h-screen bg-background relative overflow-hidden">
       <Helmet>
         <meta name="robots" content="noindex, nofollow" />
-        <title>Admin — SongIQ</title>
+        <title>Admin | SongIQ</title>
       </Helmet>
       <Starfield />
 
@@ -566,7 +566,7 @@ export default function Admin() {
                 <LinkIcon className="w-8 h-8 text-primary mx-auto mb-4" />
                 <p className="text-foreground font-semibold mb-2">Connect Google Analytics</p>
                 <p className="text-muted-foreground text-sm mb-6">
-                  One-time setup — sign in with the Google account that owns SongIQ's GA4 property.
+                  One-time setup: sign in with the Google account that owns SongIQ's GA4 property.
                 </p>
                 <Button variant="gold" onClick={handleConnectGoogle}>
                   Connect Google Analytics
@@ -855,7 +855,7 @@ export default function Admin() {
                                 >
                                   {(dailyInfo?.playlists ?? []).map((p) => (
                                     <option key={p.playlistName} value={p.playlistName}>
-                                      {p.playlistName} {p.isArtist ? "(artist)" : ""} — {p.trackCount} tracks
+                                      {p.playlistName} {p.isArtist ? "(artist)" : ""} · {p.trackCount} tracks
                                     </option>
                                   ))}
                                 </select>
@@ -1417,7 +1417,7 @@ export default function Admin() {
                             </div>
                             {unknown > 0 && (
                               <p className="text-xs text-muted-foreground mt-3">
-                                "Unknown" is accounts whose country hasn't been captured yet — it fills in as they next visit
+                                "Unknown" is accounts whose country hasn't been captured yet. It fills in as they next visit
                                 the site while signed in.
                               </p>
                             )}
@@ -1503,7 +1503,7 @@ export default function Admin() {
               <span className="text-red-400 font-semibold">
                 {" "}
                 {dailyInfo.attemptsToday} {dailyInfo.attemptsToday === 1 ? "player has" : "players have"} already
-                played today — their attempt{dailyInfo.attemptsToday === 1 ? "" : "s"} will be deleted.
+                played today, and their attempt{dailyInfo.attemptsToday === 1 ? "" : "s"} will be deleted.
               </span>
             )}
           </p>
@@ -1524,7 +1524,7 @@ export default function Admin() {
             <DialogTitle>Reset "{confirmResetSlug}"?</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            This permanently deletes every recorded attempt for this event — the leaderboard goes back to empty.
+            This permanently deletes every recorded attempt for this event, and the leaderboard goes back to empty.
             The event itself, its playlist, and its end date are unaffected. This can't be undone.
           </p>
           <DialogFooter>
