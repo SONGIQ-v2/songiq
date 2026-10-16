@@ -708,7 +708,14 @@ serve(async (req) => {
         trafficSources,
         { users: signedInUsers, totalSignedIn, newSignedInInRange, byCountry: signedInByCountry },
       ] = await Promise.all([
-        runGA4Report(accessToken, reportStart, reportEnd),
+        runGA4Report(accessToken, reportStart, reportEnd).catch((e) => {
+          // Last-resort guard, same as every sibling report below: if GA4 is
+          // still refusing us after the retries, the event table and daily
+          // chart come back empty rather than taking the whole dashboard --
+          // and the admin's screen -- down with a 500.
+          console.error("[admin-analytics] GA4 event report failed:", e);
+          return { eventCounts: [] as { event: string; count: number }[], dailyTotals: [] as { date: string; count: number }[] };
+        }),
         runTopPlaylists(accessToken, reportStart, reportEnd).catch((e) => {
           // Missing/unregistered custom dimension shouldn't break the rest
           // of the dashboard -- just comes back empty.
