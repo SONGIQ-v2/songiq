@@ -327,7 +327,7 @@ async function fetchSignedInUsers(
   supabase: ReturnType<typeof serviceClient>,
   rangeCutoff: string
 ): Promise<{
-  users: { id: string; name: string | null; nickname: string | null; email: string | null; country: string | null; createdAt: string; lastSignInAt: string | null; points: number }[];
+  users: { id: string; name: string | null; nickname: string | null; email: string | null; country: string | null; createdAt: string; lastSignInAt: string | null; lastSeenAt: string | null; points: number }[];
   totalSignedIn: number;
   newSignedInInRange: number;
   byCountry: { code: string | null; count: number }[];
@@ -370,20 +370,33 @@ async function fetchSignedInUsers(
     .sort((a, b) => b.count - a.count);
 
   if (signedIn.length === 0) return { users: [], totalSignedIn, newSignedInInRange, byCountry };
-  const { data: pointsRows } = await supabase
-    .from("player_points")
-    .select("player_id, player_name, points")
-    .in("player_id", signedIn.map((u) => u.id));
+  const ids = signedIn.map((u) => u.id);
+  const [{ data: pointsRows }, { data: seenRows, error: seenError }] = await Promise.all([
+    supabase.from("player_points").select("player_id, player_name, points").in("player_id", ids),
+    supabase.from("user_last_seen").select("user_id, last_seen").in("user_id", ids),
+  ]);
+  if (seenError) console.error("[admin-analytics] user_last_seen read failed:", seenError.message);
   const pointsById = new Map(
     (pointsRows ?? []).map((r: { player_id: string; player_name: string | null; points: number }) => [r.player_id, r])
   );
+  const seenById = new Map(
+    (seenRows ?? []).map((r: { user_id: string; last_seen: string }) => [r.user_id, r.last_seen])
+  );
 
   const users = signedIn
-    .map((u) => ({
-      ...u,
-      nickname: pointsById.get(u.id)?.player_name ?? null,
-      points: Number(pointsById.get(u.id)?.points ?? 0),
-    }))
+    .map((u) => {
+      // Accounts not seen since tracking started fall back to their last
+      // login, which is the most recent visit we know about for them.
+      const seen = seenById.get(u.id) ?? null;
+      const lastSeenAt =
+        seen && (!u.lastSignInAt || Date.parse(seen) > Date.parse(u.lastSignInAt)) ? seen : u.lastSignInAt;
+      return {
+        ...u,
+        lastSeenAt,
+        nickname: pointsById.get(u.id)?.player_name ?? null,
+        points: Number(pointsById.get(u.id)?.points ?? 0),
+      };
+    })
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) // most recently created first
     .slice(0, 200);
 

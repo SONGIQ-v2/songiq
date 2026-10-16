@@ -93,6 +93,8 @@ interface ReportData {
     country: string | null;
     createdAt: string;
     lastSignInAt: string | null;
+    /** Missing until the updated admin-analytics function is deployed. */
+    lastSeenAt?: string | null;
     points: number;
   }[];
   /** Across ALL signed-in accounts, not just the 200-row table. null code = not captured yet. */
@@ -1441,7 +1443,7 @@ export default function Admin() {
                                   <TableHead>ID</TableHead>
                                   <TableHead className="text-right">Points</TableHead>
                                   <TableHead className="text-right">Joined</TableHead>
-                                  <TableHead className="text-right">Last sign-in</TableHead>
+                                  <TableHead className="text-right">Last seen</TableHead>
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
@@ -1467,9 +1469,25 @@ export default function Admin() {
                                     <TableCell className="text-right text-muted-foreground text-xs">
                                       {new Date(u.createdAt).toLocaleDateString()}
                                     </TableCell>
-                                    <TableCell className="text-right text-muted-foreground text-xs">
-                                      {u.lastSignInAt ? new Date(u.lastSignInAt).toLocaleDateString() : "—"}
-                                    </TableCell>
+                                    {(() => {
+                                      const seen = u.lastSeenAt ?? u.lastSignInAt;
+                                      return (
+                                        <TableCell
+                                          className="text-right text-muted-foreground text-xs whitespace-nowrap"
+                                          title={u.lastSignInAt ? `Last login: ${new Date(u.lastSignInAt).toLocaleString()}` : undefined}
+                                        >
+                                          {seen
+                                            ? new Date(seen).toLocaleString(undefined, {
+                                                day: "numeric",
+                                                month: "short",
+                                                year: "numeric",
+                                                hour: "numeric",
+                                                minute: "2-digit",
+                                              })
+                                            : "—"}
+                                        </TableCell>
+                                      );
+                                    })()}
                                   </TableRow>
                                 ))}
                               </TableBody>

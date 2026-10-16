@@ -202,6 +202,9 @@ supabase.auth.onAuthStateChange((_event, session) => {
       resolveSignedInIdentity(session.user);
       reportSignInSuccess(session.user);
     }
+    // Page load (INITIAL_SESSION), sign-in and the hourly token refresh all
+    // land here, so an open tab keeps "last seen" current too.
+    if (!session.user.is_anonymous) touchLastSeen();
   } else {
     // No session -- in practice this only happens right after an explicit
     // sign-out (anonymous sessions otherwise persist/auto-recreate). Clear
@@ -214,6 +217,34 @@ supabase.auth.onAuthStateChange((_event, session) => {
     useGameStore.setState({ playerId: null, isInitialized: false, playerName: "" });
   }
 });
+
+// Records "last seen" for /admin's user table (auth's last_sign_in_at only
+// moves on a fresh login, and sessions persist for months). Throttled here
+// and again server-side to one write per 5 minutes; failures are ignored,
+// including before the touch_last_seen migration is applied.
+const LAST_SEEN_THROTTLE_MS = 5 * 60 * 1000;
+let lastSeenSentAt = 0;
+function touchLastSeen() {
+  if (Date.now() - lastSeenSentAt < LAST_SEEN_THROTTLE_MS) return;
+  lastSeenSentAt = Date.now();
+  void (supabase as any).rpc("touch_last_seen").then(
+    ({ error }: { error: { message: string } | null }) => {
+      if (error) console.debug("touch_last_seen skipped:", error.message);
+    },
+    () => {}
+  );
+}
+
+// Coming back to a tab left open (e.g. a phone unlocked the next day)
+// counts as being seen, even before the next token refresh.
+if (typeof document !== "undefined") {
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible") return;
+    void supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user && !session.user.is_anonymous) touchLastSeen();
+    });
+  });
+}
 
 // Fires "sign_in_success" to GTM, the Meta Pixel and Meta CAPI (all via
 // trackEvent) exactly once per completed sign-in. A stale marker (an
