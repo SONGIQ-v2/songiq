@@ -102,40 +102,121 @@ const customEventsFilter = {
   },
 };
 
-async function runGA4Report(accessToken: string, startDate: string, endDate: string) {
-  const call = (body: unknown) =>
-    fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${GA4_PROPERTY_ID}:runReport`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    }).then(async (r) => {
-      if (!r.ok) throw new Error(`GA4 report failed: ${await r.text()}`);
-      return r.json();
-    });
+// Every GA4 report goes through here. The Data API caps how many reports a
+// property can have in flight at once (its "concurrent requests" quota), and
+// one dashboard refresh needs a dozen of them. Firing all twelve at once blew
+// straight past that cap and came back as 429 RESOURCE_EXHAUSTED, which took
+// the whole admin page down. Reports now run through a queue -- at most
+// GA4_MAX_CONCURRENT at a time -- and a rate-limited or Google-side failure is
+// retried after a short backoff instead of being handed to the caller.
+const GA4_MAX_CONCURRENT = 2;
+const GA4_MAX_ATTEMPTS = 3;
 
+let ga4InFlight = 0;
+const ga4Waiters: (() => void)[] = [];
+
+// Takes a slot straight away if one is free, otherwise waits for the next slot
+// to be handed over. releaseGa4Slot() does that hand-off, so a slot is never
+// double-booked and a queued report can't skip ahead of an earlier one.
+function acquireGa4Slot(): Promise<void> {
+  if (ga4InFlight < GA4_MAX_CONCURRENT) {
+    ga4InFlight++;
+    return Promise.resolve();
+  }
+  return new Promise<void>((resolve) => ga4Waiters.push(resolve));
+}
+
+function releaseGa4Slot() {
+  ga4InFlight--;
+  const next = ga4Waiters.shift();
+  if (next) {
+    ga4InFlight++;
+    next();
+  }
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+interface GA4Row {
+  dimensionValues: { value: string }[];
+  metricValues: { value: string }[];
+}
+
+interface GA4ReportResponse {
+  rows?: GA4Row[];
+}
+
+// `label` only names the report in the error message ("visitor-count",
+// "top-pages", ...) -- it isn't sent to Google.
+async function runGA4Body(
+  accessToken: string,
+  body: unknown,
+  label: string
+): Promise<GA4ReportResponse> {
+  await acquireGa4Slot();
+  try {
+    let lastError = `GA4 ${label} report failed: no attempt made`;
+    for (let attempt = 1; attempt <= GA4_MAX_ATTEMPTS; attempt++) {
+      const res = await fetch(
+        `https://analyticsdata.googleapis.com/v1beta/properties/${GA4_PROPERTY_ID}:runReport`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        }
+      );
+
+      if (res.ok) return (await res.json()) as GA4ReportResponse;
+
+      const detail = await res.text();
+      lastError = `GA4 ${label} report failed (${res.status}): ${detail}`;
+      // 429 = too many reports in flight (our own concurrency, or a burst on
+      // Google's side); 5xx = transient on Google's side. Both are worth
+      // another go. Anything else -- an unregistered dimension, a token that
+      // went bad mid-refresh -- fails identically every time, so retrying it
+      // only delays the answer.
+      const retryable = res.status === 429 || res.status >= 500;
+      if (!retryable || attempt === GA4_MAX_ATTEMPTS) break;
+      await sleep(400 * attempt * attempt);
+    }
+    throw new Error(lastError);
+  } finally {
+    releaseGa4Slot();
+  }
+}
+
+async function runGA4Report(accessToken: string, startDate: string, endDate: string) {
   const [byEvent, byDay] = await Promise.all([
-    call({
-      dateRanges: [{ startDate, endDate }],
-      dimensions: [{ name: "eventName" }],
-      metrics: [{ name: "eventCount" }],
-      dimensionFilter: customEventsFilter,
-      orderBys: [{ metric: { metricName: "eventCount" }, desc: true }],
-      limit: 50,
-    }),
-    call({
-      dateRanges: [{ startDate, endDate }],
-      dimensions: [{ name: "date" }],
-      metrics: [{ name: "eventCount" }],
-      dimensionFilter: customEventsFilter,
-      orderBys: [{ dimension: { dimensionName: "date" } }],
-    }),
+    runGA4Body(
+      accessToken,
+      {
+        dateRanges: [{ startDate, endDate }],
+        dimensions: [{ name: "eventName" }],
+        metrics: [{ name: "eventCount" }],
+        dimensionFilter: customEventsFilter,
+        orderBys: [{ metric: { metricName: "eventCount" }, desc: true }],
+        limit: 50,
+      },
+      "events-by-name"
+    ),
+    runGA4Body(
+      accessToken,
+      {
+        dateRanges: [{ startDate, endDate }],
+        dimensions: [{ name: "date" }],
+        metrics: [{ name: "eventCount" }],
+        dimensionFilter: customEventsFilter,
+        orderBys: [{ dimension: { dimensionName: "date" } }],
+      },
+      "events-by-day"
+    ),
   ]);
 
-  const eventCounts = (byEvent.rows ?? []).map((r: { dimensionValues: { value: string }[]; metricValues: { value: string }[] }) => ({
+  const eventCounts = (byEvent.rows ?? []).map((r) => ({
     event: r.dimensionValues[0].value,
     count: Number(r.metricValues[0].value),
   }));
-  const dailyTotals = (byDay.rows ?? []).map((r: { dimensionValues: { value: string }[]; metricValues: { value: string }[] }) => ({
+  const dailyTotals = (byDay.rows ?? []).map((r) => ({
     date: r.dimensionValues[0].value, // YYYYMMDD
     count: Number(r.metricValues[0].value),
   }));
@@ -148,10 +229,9 @@ async function runGA4Report(accessToken: string, startDate: string, endDate: str
 // already be registered in GA4 Admin -> Custom Definitions, or this comes
 // back empty.
 async function runTopPlaylists(accessToken: string, startDate: string, endDate: string) {
-  const res = await fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${GA4_PROPERTY_ID}:runReport`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
+  const data = await runGA4Body(
+    accessToken,
+    {
       dateRanges: [{ startDate, endDate }],
       dimensions: [{ name: "customEvent:playlist_name" }],
       metrics: [{ name: "eventCount" }],
@@ -163,11 +243,10 @@ async function runTopPlaylists(accessToken: string, startDate: string, endDate: 
       },
       orderBys: [{ metric: { metricName: "eventCount" }, desc: true }],
       limit: 10,
-    }),
-  });
-  if (!res.ok) throw new Error(`GA4 top-playlists report failed: ${await res.text()}`);
-  const data = await res.json();
-  return (data.rows ?? []).map((r: { dimensionValues: { value: string }[]; metricValues: { value: string }[] }) => ({
+    },
+    "top-playlists"
+  );
+  return (data.rows ?? []).map((r) => ({
     playlist: r.dimensionValues[0].value || "(not set)",
     plays: Number(r.metricValues[0].value),
   }));
@@ -177,16 +256,14 @@ async function runTopPlaylists(accessToken: string, startDate: string, endDate: 
 // who triggered at least one event (page_view included), which is the
 // natural definition of "visitor"; no custom-event filter needed here.
 async function runVisitorCount(accessToken: string, startDate: string, endDate: string): Promise<number> {
-  const res = await fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${GA4_PROPERTY_ID}:runReport`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
+  const data = await runGA4Body(
+    accessToken,
+    {
       dateRanges: [{ startDate, endDate }],
       metrics: [{ name: "activeUsers" }],
-    }),
-  });
-  if (!res.ok) throw new Error(`GA4 visitor-count report failed: ${await res.text()}`);
-  const data = await res.json();
+    },
+    "visitor-count"
+  );
   return Number(data.rows?.[0]?.metricValues?.[0]?.value ?? 0);
 }
 
@@ -198,20 +275,18 @@ async function runTopPages(
   startDate: string,
   endDate: string
 ): Promise<{ path: string; views: number }[]> {
-  const res = await fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${GA4_PROPERTY_ID}:runReport`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
+  const data = await runGA4Body(
+    accessToken,
+    {
       dateRanges: [{ startDate, endDate }],
       dimensions: [{ name: "pagePath" }],
       metrics: [{ name: "screenPageViews" }],
       orderBys: [{ metric: { metricName: "screenPageViews" }, desc: true }],
       limit: 10,
-    }),
-  });
-  if (!res.ok) throw new Error(`GA4 top-pages report failed: ${await res.text()}`);
-  const data = await res.json();
-  return (data.rows ?? []).map((r: { dimensionValues: { value: string }[]; metricValues: { value: string }[] }) => ({
+    },
+    "top-pages"
+  );
+  return (data.rows ?? []).map((r) => ({
     path: r.dimensionValues[0].value || "/",
     views: Number(r.metricValues[0].value),
   }));
@@ -221,16 +296,14 @@ async function runTopPages(
 // for the selected date range -- same shape as runVisitorCount, just a
 // different metric, no dimension needed since we want one aggregate number.
 async function runBounceRate(accessToken: string, startDate: string, endDate: string): Promise<number> {
-  const res = await fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${GA4_PROPERTY_ID}:runReport`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
+  const data = await runGA4Body(
+    accessToken,
+    {
       dateRanges: [{ startDate, endDate }],
       metrics: [{ name: "bounceRate" }],
-    }),
-  });
-  if (!res.ok) throw new Error(`GA4 bounce-rate report failed: ${await res.text()}`);
-  const data = await res.json();
+    },
+    "bounce-rate"
+  );
   return Number(data.rows?.[0]?.metricValues?.[0]?.value ?? 0);
 }
 
@@ -241,20 +314,18 @@ async function runTopLocations(
   startDate: string,
   endDate: string
 ): Promise<{ name: string; visitors: number }[]> {
-  const res = await fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${GA4_PROPERTY_ID}:runReport`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
+  const data = await runGA4Body(
+    accessToken,
+    {
       dateRanges: [{ startDate, endDate }],
       dimensions: [{ name: dimension }],
       metrics: [{ name: "activeUsers" }],
       orderBys: [{ metric: { metricName: "activeUsers" }, desc: true }],
       limit: 10,
-    }),
-  });
-  if (!res.ok) throw new Error(`GA4 ${dimension} report failed: ${await res.text()}`);
-  const data = await res.json();
-  return (data.rows ?? []).map((r: { dimensionValues: { value: string }[]; metricValues: { value: string }[] }) => ({
+    },
+    `${dimension}-locations`
+  );
+  return (data.rows ?? []).map((r) => ({
     name: r.dimensionValues[0].value || "(not set)",
     visitors: Number(r.metricValues[0].value),
   }));
@@ -268,20 +339,18 @@ async function runTrafficSources(
   startDate: string,
   endDate: string
 ): Promise<{ source: string; sessions: number }[]> {
-  const res = await fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${GA4_PROPERTY_ID}:runReport`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
+  const data = await runGA4Body(
+    accessToken,
+    {
       dateRanges: [{ startDate, endDate }],
       dimensions: [{ name: "sessionDefaultChannelGroup" }],
       metrics: [{ name: "sessions" }],
       orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
       limit: 10,
-    }),
-  });
-  if (!res.ok) throw new Error(`GA4 traffic-sources report failed: ${await res.text()}`);
-  const data = await res.json();
-  return (data.rows ?? []).map((r: { dimensionValues: { value: string }[]; metricValues: { value: string }[] }) => ({
+    },
+    "traffic-sources"
+  );
+  return (data.rows ?? []).map((r) => ({
     source: r.dimensionValues[0].value || "(not set)",
     sessions: Number(r.metricValues[0].value),
   }));
@@ -295,19 +364,17 @@ async function runTrafficSources(
 // completions -- challenge_attempts only ever holds one row per player per
 // challenge, so a replay doesn't re-count there the way it does in GA4).
 async function runEventCountAllTime(accessToken: string, eventName: string): Promise<number> {
-  const res = await fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${GA4_PROPERTY_ID}:runReport`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
+  const data = await runGA4Body(
+    accessToken,
+    {
       dateRanges: [{ startDate: "2020-01-01", endDate: "today" }],
       metrics: [{ name: "eventCount" }],
       dimensionFilter: {
         filter: { fieldName: "eventName", stringFilter: { value: eventName } },
       },
-    }),
-  });
-  if (!res.ok) throw new Error(`GA4 all-time event-count report failed for "${eventName}": ${await res.text()}`);
-  const data = await res.json();
+    },
+    `all-time-count:${eventName}`
+  );
   return Number(data.rows?.[0]?.metricValues?.[0]?.value ?? 0);
 }
 
