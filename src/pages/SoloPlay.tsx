@@ -1,14 +1,13 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, useReducedMotion } from "framer-motion";
-import { Helmet } from "react-helmet-async";
 import { Starfield } from "@/components/Starfield";
 import { Header } from "@/components/Header";
 import { PlaylistCard } from "@/components/PlaylistCard";
 import { DoubleTapHint } from "@/components/DoubleTapHint";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PLAYLISTS, PLAYLIST_CATEGORIES, getPlaylistById, type PlaylistCategory } from "@/lib/playlists";
+import { PLAYLISTS, PLAYLIST_CATEGORIES, getPlaylistById, searchKey, type PlaylistCategory } from "@/lib/playlists";
 import { detectRegion, orderPlaylistsForRegion } from "@/lib/region";
 import { cn } from "@/lib/utils";
 import { useGameStore } from "@/lib/gameStore";
@@ -16,6 +15,7 @@ import { useAppleMusic } from "@/hooks/useAppleMusic";
 import { getMotionVariants } from "@/lib/motion";
 import { trackEvent } from "@/lib/analytics";
 import { ArrowLeft, Play, Loader2, Search } from "lucide-react";
+import { PageSeo } from "@/components/PageSeo";
 
 // Catalogue order for this visitor's region (device time zone): their
 // region's playlists lead the "All" list, and each category keeps that
@@ -43,9 +43,9 @@ const SoloPlay = () => {
   const filteredPlaylists = artistsOnly
     ? categoryPlaylists.filter((p) => p.isArtist)
     : categoryPlaylists;
-  const query = searchQuery.trim().toLowerCase();
+  const query = searchKey(searchQuery.trim());
   const visiblePlaylists = query
-    ? filteredPlaylists.filter((p) => p.name.toLowerCase().includes(query))
+    ? filteredPlaylists.filter((p) => searchKey(p.name).includes(query))
     : filteredPlaylists;
 
   // Fetch playlist images on mount
@@ -102,14 +102,7 @@ const SoloPlay = () => {
 
   return (
     <div className="min-h-screen relative overflow-hidden">
-      <Helmet>
-        <title>Solo Play: Pick a Playlist & Start the Quiz | SongIQ</title>
-        <meta name="description" content="Play SongIQ solo. Pick a genre (Afrobeats, Amapiano, Hip-Hop, Pop and more) and guess the song or artist in 15 seconds." />
-        <link rel="canonical" href="https://songiq.io/solo" />
-        <meta property="og:title" content="SongIQ Solo Play: Pick a Playlist & Start the Quiz" />
-        <meta property="og:description" content="Play SongIQ solo. Pick a genre and guess the song or artist in 15 seconds." />
-        <meta property="og:url" content="https://songiq.io/solo" />
-      </Helmet>
+      <PageSeo path="/solo" />
       <Starfield />
       <Header />
 

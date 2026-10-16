@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Helmet } from "react-helmet-async";
 import { motion } from "framer-motion";
 import { Music2, Swords } from "lucide-react";
 import { Starfield } from "@/components/Starfield";
@@ -15,6 +14,7 @@ import {
   PUBLIC_CHALLENGES_PAGE_SIZE,
   type PublicChallengeSummary,
 } from "@/lib/challenges";
+import { PageSeo } from "@/components/PageSeo";
 
 export default function BrowseChallenges() {
   const navigate = useNavigate();
@@ -65,13 +65,7 @@ export default function BrowseChallenges() {
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
-      <Helmet>
-        <title>Active Challenges | SongIQ</title>
-        <meta
-          name="description"
-          content="Browse live SongIQ challenges from real players. Pick one, beat their score, and see if you can top the leaderboard."
-        />
-      </Helmet>
+      <PageSeo path="/challenges" />
       <Starfield />
       <Header />
 

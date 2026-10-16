@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { getMotionVariants } from "@/lib/motion";
 import { cn } from "@/lib/utils";
+import { PageSeo } from "@/components/PageSeo";
 
 // Same rule as the game (calculatePoints in src/lib/spotify.ts and the
 // multiplayer grader): 100 for a correct answer plus a speed bonus that
@@ -122,13 +123,8 @@ export default function HowItWorks() {
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
+      <PageSeo path="/how-it-works" />
       <Helmet>
-        <title>How It Works | SongIQ</title>
-        <meta
-          name="description"
-          content="How SongIQ works: hear a 15-second clip, pick the song or artist, and score up to 200 points for speed. Solo, Daily Challenge, Multiplayer and Challenge links explained."
-        />
-        <link rel="canonical" href="https://songiq.io/how-it-works" />
         <script type="application/ld+json">{JSON.stringify(FAQ_JSON_LD)}</script>
       </Helmet>
       <Starfield />

@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { Helmet } from "react-helmet-async";
 import { motion, AnimatePresence } from "framer-motion";
 import { Clock, HelpCircle, Medal, X } from "lucide-react";
 import { Starfield } from "@/components/Starfield";
@@ -25,6 +24,7 @@ import {
   type LeaderboardRange,
   type LeaderboardSort,
 } from "@/lib/leaderboard";
+import { PageSeo } from "@/components/PageSeo";
 
 const RANGES: { key: LeaderboardRange; label: string }[] = [
   { key: "week", label: "Weekly" },
@@ -72,13 +72,7 @@ export default function Leaderboard() {
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
-      <Helmet>
-        <title>Global Leaderboard | SongIQ</title>
-        <meta
-          name="description"
-          content="SongIQ's global leaderboard: top players by time played and Points across every game mode."
-        />
-      </Helmet>
+      <PageSeo path="/leaderboard" />
       <Starfield />
       <Header />
 

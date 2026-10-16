@@ -1,6 +1,6 @@
-import { Helmet } from "react-helmet-async";
 import { Starfield } from "@/components/Starfield";
 import { Header } from "@/components/Header";
+import { PageSeo } from "@/components/PageSeo";
 
 const LAST_UPDATED = "August 5, 2026";
 const CONTACT_EMAIL = "daniel@devcrib.io";
@@ -14,18 +14,7 @@ const Section = ({ title, children }: { title: string; children: React.ReactNode
 
 const Privacy = () => (
   <div className="min-h-screen relative overflow-hidden">
-    <Helmet>
-      <title>Privacy Policy | SongIQ Music Quiz</title>
-      <meta
-        name="description"
-        content="How SongIQ collects, uses, and protects your data, including our limited use of Google API services."
-      />
-      <link rel="canonical" href="https://songiq.io/privacy" />
-      <meta property="og:title" content="Privacy Policy | SongIQ" />
-      <meta property="og:description" content="How SongIQ collects, uses, and protects your data." />
-      <meta property="og:type" content="website" />
-      <meta name="twitter:card" content="summary" />
-    </Helmet>
+    <PageSeo path="/privacy" />
 
     <Starfield />
     <Header />

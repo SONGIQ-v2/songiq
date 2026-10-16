@@ -4,6 +4,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { Starfield } from "@/components/Starfield";
 import { SiteFooter } from "@/components/SiteFooter";
 import { Header } from "@/components/Header";
+import { PageSeo } from "@/components/PageSeo";
 import { ActiveChallengesSection, BattlefieldSection, DailyChallengeSection } from "@/components/HomeSections";
 import { Button } from "@/components/ui/button";
 import { getMotionVariants } from "@/lib/motion";
@@ -31,6 +32,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen relative overflow-hidden">
+      <PageSeo path="/" />
       <Starfield />
       <Header />
 

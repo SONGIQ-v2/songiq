@@ -1,4 +1,6 @@
 import { Helmet } from "react-helmet-async";
+import { PageSeo } from "@/components/PageSeo";
+import type { SeoPath } from "@/lib/seoPages";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Starfield } from "@/components/Starfield";
@@ -61,16 +63,8 @@ export const SeoLanding = ({
 
   return (
     <div className="min-h-screen relative overflow-hidden">
+      <PageSeo path={path as SeoPath} />
       <Helmet>
-        <title>{metaTitle}</title>
-        <meta name="description" content={metaDescription} />
-        <link rel="canonical" href={url} />
-        <meta property="og:title" content={metaTitle} />
-        <meta property="og:description" content={metaDescription} />
-        <meta property="og:url" content={url} />
-        <meta property="og:type" content="website" />
-        <meta name="twitter:title" content={metaTitle} />
-        <meta name="twitter:description" content={metaDescription} />
         <script type="application/ld+json">{JSON.stringify(faqJsonLd)}</script>
       </Helmet>
 

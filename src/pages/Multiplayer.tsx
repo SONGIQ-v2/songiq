@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, useReducedMotion } from "framer-motion";
-import { Helmet } from "react-helmet-async";
 import { Starfield } from "@/components/Starfield";
 import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
@@ -14,6 +13,7 @@ import { getMotionVariants } from "@/lib/motion";
 import { ArrowLeft, Plus, LogIn, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { trackEvent } from "@/lib/analytics";
+import { PageSeo } from "@/components/PageSeo";
 
 const Multiplayer = () => {
   const navigate = useNavigate();
@@ -197,14 +197,7 @@ const Multiplayer = () => {
 
   return (
     <div className="min-h-screen relative overflow-hidden">
-      <Helmet>
-        <title>Multiplayer Music Quiz: Play with Friends Live | SongIQ</title>
-        <meta name="description" content="Create or join a SongIQ multiplayer room. Up to 25 players, live scoring and a shareable link. Race friends to guess the song first." />
-        <link rel="canonical" href="https://songiq.io/multiplayer" />
-        <meta property="og:title" content="SongIQ Multiplayer: Music Quiz with Friends" />
-        <meta property="og:description" content="Up to 25 players, live scoring. Create a room, share the link, settle the group chat." />
-        <meta property="og:url" content="https://songiq.io/multiplayer" />
-      </Helmet>
+      <PageSeo path="/multiplayer" />
       <Starfield />
       <Header />
 

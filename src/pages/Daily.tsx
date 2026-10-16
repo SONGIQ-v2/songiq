@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Helmet } from "react-helmet-async";
 import { motion } from "framer-motion";
 import { Music2, Play, CalendarDays, Flame, Share2, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
@@ -38,6 +37,7 @@ import {
   type DailyLeaderboardStats,
   type StreakProtectionStatus,
 } from "@/lib/daily";
+import { PageSeo } from "@/components/PageSeo";
 
 // Day boundary is Lagos midnight (UTC+1), i.e. 23:00 UTC -- same convention
 // used throughout the app (lagosToday = new Date(now + 1h) sliced to a date).
@@ -216,14 +216,7 @@ export default function Daily() {
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
-      <Helmet>
-        <title>Daily Music Challenge | SongIQ</title>
-        <meta name="description" content="One music quiz a day, with the same 10 songs for everyone. Play today's SongIQ Daily Challenge, keep your streak alive and climb the leaderboard." />
-        <link rel="canonical" href="https://songiq.io/daily" />
-        <meta property="og:title" content="Daily Music Challenge | SongIQ" />
-        <meta property="og:description" content="Same 10 songs for everyone, once a day. Can you top today's leaderboard?" />
-        <meta property="og:url" content="https://songiq.io/daily" />
-      </Helmet>
+      <PageSeo path="/daily" />
       <Starfield />
       <Header />
 
