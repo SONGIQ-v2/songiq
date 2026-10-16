@@ -37,7 +37,7 @@ import { NewTabAccountMenu } from "@/components/NewTabAccountMenu";
 import { useGameStore } from "@/lib/gameStore";
 import { getKnownPlayerName } from "@/lib/challenges";
 import { supabase } from "@/integrations/supabase/client";
-import { PLAYLISTS, PLAYLIST_CATEGORIES, getPlaylistById, type PlaylistCategory } from "@/lib/playlists";
+import { PLAYLISTS, PLAYLIST_CATEGORIES, getPlaylistById, searchKey, type PlaylistCategory } from "@/lib/playlists";
 import { detectRegion, orderPlaylistsForRegion } from "@/lib/region";
 
 // Same region-first order as Solo Play (device time zone) -- the host is
@@ -538,9 +538,9 @@ export default function RoomLobby() {
                       const artistFiltered = artistsOnly
                         ? categoryPlaylists.filter((p) => p.isArtist)
                         : categoryPlaylists;
-                      const query = playlistSearch.trim().toLowerCase();
+                      const query = searchKey(playlistSearch.trim());
                       const gridPlaylists = query
-                        ? artistFiltered.filter((p) => p.name.toLowerCase().includes(query))
+                        ? artistFiltered.filter((p) => searchKey(p.name).includes(query))
                         : artistFiltered;
                       return (
                         <>

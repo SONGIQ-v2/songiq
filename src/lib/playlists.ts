@@ -1515,7 +1515,24 @@ export const PLAYLISTS: Playlist[] = [
     image: "",
     searchTerms: ["__artist:1544598377", "__features"],
   },
+  {
+    id: "artist-celine-dion",
+    category: "pop",
+    isArtist: true,
+    name: "Céline Dion",
+    description: "Céline Dion, every hit in English and French",
+    image: "",
+    searchTerms: ["__artist:63729"], // Céline Dion -- "celine dion" also matches an unrelated "Edo Celine Dion" profile
+  },
 ];
+/**
+ * Lowercase and strip accents, so a search for "celine" or "beyonce" finds
+ * "Céline Dion" and "Beyoncé".
+ */
+export function searchKey(text: string): string {
+  return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
 // Get a playlist by ID
 export function getPlaylistById(id: string): Playlist | undefined {
   return PLAYLISTS.find((p) => p.id === id);
