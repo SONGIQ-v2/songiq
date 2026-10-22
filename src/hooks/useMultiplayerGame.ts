@@ -1124,6 +1124,40 @@ export function useMultiplayerGame(roomCode: string) {
     });
   }, []);
 
+  // Host only: clear the last game (answers, rounds, plan, scores) and put
+  // the room back in the lobby. Used by Play Again and by startGame on a
+  // room that already finished.
+  const resetRoomForNewGame = useCallback(async (roomId: string) => {
+    // Delete old answers first (references rounds)
+    await supabase
+      .from("player_answers")
+      .delete()
+      .eq("room_id", roomId);
+
+    // Delete old rounds and the stored round plan
+    await supabase
+      .from("game_rounds")
+      .delete()
+      .eq("room_id", roomId);
+
+    await (supabase as any)
+      .from("room_tracks")
+      .delete()
+      .eq("room_id", roomId);
+
+    // Reset all player scores and ready status
+    await supabase
+      .from("room_players")
+      .update({ score: 0, is_ready: false })
+      .eq("room_id", roomId);
+
+    // Reset room status last (broadcasts to other players)
+    await supabase
+      .from("game_rooms")
+      .update({ status: "waiting", current_round: 0, started_at: null, finished_at: null })
+      .eq("id", roomId);
+  }, []);
+
   // Start the game (host only): store the round plan server-side, flip the
   // room to playing, then let the server create round 1 (with a 5s pre-game
   // gap on the database clock).
@@ -1131,6 +1165,13 @@ export function useMultiplayerGame(roomCode: string) {
     if (!isHost || !room) return;
 
     try {
+      // A host back in the lobby of a finished room (e.g. via the browser's
+      // back button instead of Play Again) gets a fresh game, not a restart
+      // of the old one: the database refuses finished -> playing, since that
+      // used to re-finish the room instantly and pay every player again.
+      const { data: current } = await supabase.from("game_rooms").select("status").eq("id", room.id).maybeSingle();
+      if (current?.status === "finished") await resetRoomForNewGame(room.id);
+
       const loadedTracks = await loadTracks(category);
       if (loadedTracks.length < 10) {
         toast.error("Not enough tracks loaded");
@@ -1168,7 +1209,7 @@ export function useMultiplayerGame(roomCode: string) {
         error: (err as Error)?.message,
       }, (err as Error)?.stack);
     }
-  }, [isHost, room, loadTracks, buildRoundPlan]);
+  }, [isHost, room, loadTracks, buildRoundPlan, resetRoomForNewGame]);
 
   // End game (host ends early via endGameNow, or fallback)
   const endGame = useCallback(async () => {
@@ -1201,36 +1242,7 @@ export function useMultiplayerGame(roomCode: string) {
   const playAgain = useCallback(async () => {
     if (!room || !playerId) return;
 
-    if (isHost) {
-      // Delete old answers first (references rounds)
-      await supabase
-        .from("player_answers")
-        .delete()
-        .eq("room_id", room.id);
-
-      // Delete old rounds and the stored round plan
-      await supabase
-        .from("game_rounds")
-        .delete()
-        .eq("room_id", room.id);
-
-      await (supabase as any)
-        .from("room_tracks")
-        .delete()
-        .eq("room_id", room.id);
-
-      // Reset all player scores and ready status
-      await supabase
-        .from("room_players")
-        .update({ score: 0, is_ready: false })
-        .eq("room_id", room.id);
-
-      // Reset room status last (broadcasts to other players)
-      await supabase
-        .from("game_rooms")
-        .update({ status: "waiting", current_round: 0, started_at: null, finished_at: null })
-        .eq("id", room.id);
-    }
+    if (isHost) await resetRoomForNewGame(room.id);
 
     // Reset local game state
     setGameStatus("waiting");
@@ -1252,7 +1264,7 @@ export function useMultiplayerGame(roomCode: string) {
     pendingGradeRef.current = null;
     revealFetchedForRef.current = null;
     scoreSnapshotRef.current = new Map();
-  }, [room, playerId, isHost]);
+  }, [room, playerId, isHost, resetRoomForNewGame]);
 
   // Leave room. If the leaving player is the host, hands off to whoever
   // joined earliest instead of ending the game for everyone else -- only
