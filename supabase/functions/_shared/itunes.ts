@@ -128,6 +128,26 @@ function normalizeArtistForDedup(name: string): string {
     .toLowerCase();
 }
 
+// The same recording often sits in iTunes under several trackIds -- a
+// re-upload of the same album, clean and explicit copies, or the single and
+// the album -- so a pool deduped on trackId alone could still play one track
+// twice in a game. Two tracks count as the same only when title and artist
+// match exactly (ignoring case and spacing); acoustic, live, remix and cover
+// versions are titled or credited differently, so they stay.
+const exactTrackKey = (t: iTunesTrack) =>
+  `${t.trackName.trim().toLowerCase().replace(/\s+/g, " ")}|${t.artistName.trim().toLowerCase().replace(/\s+/g, " ")}`;
+
+/** Drops repeat copies of the same track, keeping the first (iTunes ranks by popularity). */
+export function dedupeSongs(pool: iTunesTrack[]): iTunesTrack[] {
+  const seen = new Set<string>();
+  return pool.filter((t) => {
+    const key = exactTrackKey(t);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 export function buildRoundPlanFromPool(
   pool: iTunesTrack[],
   rounds: number,
@@ -141,6 +161,8 @@ export function buildRoundPlanFromPool(
   const uniqueArtists = new Set(pool.map((t) => t.artistName)).size;
   const canGuessArtist = !isArtistPlaylist && uniqueArtists >= 4;
 
+  // Pools cached before dedupeSongs existed can still hold repeat copies.
+  pool = dedupeSongs(pool);
   const picks = [...pool].sort(() => Math.random() - 0.5).slice(0, rounds);
   return picks.map((track) => {
     const isGuessSong = !canGuessArtist || Math.random() > 0.5;
@@ -285,9 +307,7 @@ export async function fetchChartPool(
     }
   }
 
-  const unique = pool.filter(
-    (track, index, self) => index === self.findIndex((t) => t.trackId === track.trackId)
-  );
+  const unique = dedupeSongs(pool);
   const image = unique[0]?.artworkUrl100?.replace("100x100", "600x600") ?? "";
   console.log(`[iTunes] Chart "${storefront}": ${unique.length} playable tracks`);
   return { pool: unique, image };
@@ -362,9 +382,11 @@ export async function fetchPlaylistPool(
       .filter((r) => r.wrapperType === "track" && r.previewUrl)
       .slice(0, 200);
     const artistRecord = results.find((r) => r.wrapperType === "artist") as { artistName?: string } | undefined;
-    const pool = artistRecord?.artistName
-      ? keepAuthoredTracks(rawPool, artistRecord.artistName, includeFeatures)
-      : rawPool;
+    const pool = dedupeSongs(
+      artistRecord?.artistName
+        ? keepAuthoredTracks(rawPool, artistRecord.artistName, includeFeatures)
+        : rawPool
+    );
     const image = pool[0]?.artworkUrl100?.replace("100x100", "600x600") ?? "";
     console.log(`[iTunes] Artist spotlight: ${pool.length} playable tracks`);
     return { pool, image };
@@ -399,9 +421,7 @@ export async function fetchPlaylistPool(
     }
   }
 
-  let pool = allTracks.filter(
-    (track, index, self) => index === self.findIndex((t) => t.trackId === track.trackId)
-  );
+  let pool = dedupeSongs(allTracks);
 
   if (yearRange) {
     pool = pool.filter((t) => withinYearRange(t, yearRange));

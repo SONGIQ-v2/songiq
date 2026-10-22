@@ -2,7 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
-import { searchTracks, fetchPlaylistPool, type iTunesTrack } from "../_shared/itunes.ts";
+import { searchTracks, fetchPlaylistPool, dedupeSongs, type iTunesTrack } from "../_shared/itunes.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -112,6 +112,10 @@ async function getPlaylistTracksCached(
       }
     }
   }
+
+  // Pools cached before dedupeSongs existed can still hold the same track
+  // under several trackIds -- never serve a copy twice.
+  pool = dedupeSongs(pool);
 
   // Shuffle server-side so each game draws a different hand from the pool,
   // and rotate the cover art with it (first track of this request's shuffle)
