@@ -1196,6 +1196,21 @@ export type Database = {
         }
         Relationships: []
       }
+      user_last_seen: {
+        Row: {
+          last_seen: string
+          user_id: string
+        }
+        Insert: {
+          last_seen?: string
+          user_id: string
+        }
+        Update: {
+          last_seen?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       daily_stats_leaderboard: {
@@ -1279,6 +1294,7 @@ export type Database = {
       finish_challenge_attempt: { Args: { p_code: string }; Returns: undefined }
       finish_daily_attempt: { Args: { p_date: string }; Returns: undefined }
       get_challenge_by_code: { Args: { p_code: string }; Returns: Json }
+      get_daily_challenge: { Args: never; Returns: Json }
       get_multiplayer_profile_stats: {
         Args: { p_player_id: string }
         Returns: {
@@ -1347,6 +1363,7 @@ export type Database = {
         }[]
       }
       normalize_quiz_answer: { Args: { _value: string }; Returns: string }
+      plan_scramble_key: { Args: never; Returns: string }
       recompute_daily_stats: {
         Args: { p_player_id: string }
         Returns: undefined
@@ -1393,6 +1410,11 @@ export type Database = {
         }[]
       }
       room_has_capacity: { Args: { p_room_id: string }; Returns: boolean }
+      scramble_plan: { Args: { p_plan: Json; p_salt: string }; Returns: Json }
+      scramble_text: {
+        Args: { p_key: string; p_text: string }
+        Returns: string
+      }
       server_time_ms: { Args: never; Returns: number }
       set_nickname: { Args: { p_name: string }; Returns: undefined }
       settle_daily_bonus: { Args: never; Returns: undefined }
@@ -1406,6 +1428,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      touch_last_seen: { Args: never; Returns: undefined }
       transfer_host_if_inactive: { Args: { p_room_id: string }; Returns: Json }
       verified_player_ids: {
         Args: { p_ids: string[] }
